@@ -184,7 +184,7 @@ Username for 'https://gitlab.example.com': root
 
 创建一个领导账号：lead
 
-![1569336038203](./image/jkens/1569336038203.png)
+![1569336038203](../image/jkens/1569336038203.png)
 
 进入创建的测试仓库，将创建好的两个用户添加到仓库中，点击**Manage access**进行添加
 
@@ -210,7 +210,7 @@ $ git -c http.sslVerify=false push origin release-1.0
 
 使用dev登录gitlab，然后点击create merge requests进行合并分支，发送给lead
 
-![](./image/jkens/20190924234856.png)
+![](../image/jkens/20190924234856.png)
 
 使用lead账号登录，发现一条合并申请，点击merge进行合并，此时，代码已经合并
 
