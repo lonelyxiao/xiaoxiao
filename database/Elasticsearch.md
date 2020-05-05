@@ -468,4 +468,96 @@ GET /order/product/_search
 }
 ```
 
-# es并发处理方案
+## 批量查询
+
+```json
+GET /_mget
+{
+  "docs":[
+    {"_index": "order", "_type": "product", "_id": "1"}
+  ]
+}
+```
+
+或者查同一个index下
+
+```json
+GET /order/_mget
+{
+  "docs":[
+    {"_type": "product", "_id": "1"}
+  ]
+}
+```
+
+# 批量增删改
+
+1）delete:删除，只需要一个json串
+
+2）create 相当于put  /_create， 强制创建
+
+3）index 相当于put， 可创建可全量替换
+
+4)  update 相当于 partial update， 修改
+
+**除了delete，其他语法必须两个json串**
+
+{“action”: {metadata}}
+
+{data}
+
+**bulk api 每个json串不能换行，但json串和json串之间，必须换行**,执行过程，有一个报错，不影响其他执行
+
+```json
+POST /_bulk
+{"delete":{"_index" : "order","_type" : "product","_id" : "1"}}
+{"create":{"_index" : "order_test","_type" : "product","_id" : "1"}}
+{"name":"test_create_bulk"}
+```
+
+
+
+# 并发处理方案
+
+ES中用的是乐观锁并发方案
+
+每次修改，ES都会去修改_version
+
+如果A线程操作数据，version=1，回写数据后version=2
+
+B线程修改数据，version=1，回写数据发现version不相等，则会将这条数据扔掉，不会让后修改的数据覆盖
+
+## 乐观锁
+
+A线程操作数据，A拿到vesion1的数据，B线程拿到的也是vesion1的数据
+
+A线程修改数据后，判断库中vesion与自己拿到的数据是否一致，如果一致则回写成功，数据vesion+1
+
+B线程修改数据，回写发现vesion不一致，重新读取数据，再次操作，判断版本号，进行回写
+
+## 悲观锁
+
+A线程操作数据，其他线程无法获取数据，其他线程阻塞，直到A线程操作完并且将数据回写之后
+
+## ES乐观锁处理
+
+- 手动处理
+
+如果执行失败，则我们需要去重新获取version,再次执行，_version=1时，修改才能成功
+
+```json
+PUT /order/product/4?version=1
+```
+
+- 只有当你提供的version比es中的_version大的时候，才能完成修改
+
+```json
+?version=1&version_type=external
+```
+
+- partial update会内置乐观锁,下面的语句表示乐观锁重试5次
+
+```json
+post、index/type/id/_update?retry_on_conflict=5
+```
+

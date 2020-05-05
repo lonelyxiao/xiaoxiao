@@ -1,4 +1,4 @@
-﻿* [home](/README.md)
+﻿* [首页](/README.md)
 * java
 	* [java8](/java/java8.md)
 	* [jenkin](/java/jenkin.md)
@@ -27,6 +27,8 @@
 	* [Shell](/server/shell)
 * 数据库
 	* [Elasticsearch](/database/Elasticsearch.md)
+	* [Redis](/database/Redis.md)
+	* [Mysql](/database/Mysql.md)
 * 面试
 	* [2019](/interview/2019)
 	* [2020](/interview/2020)
