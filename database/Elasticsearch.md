@@ -561,3 +561,16 @@ PUT /order/product/4?version=1
 post、index/type/id/_update?retry_on_conflict=5
 ```
 
+## ES写一致性原理
+
+consistency，one（primary shard），all（all shard），quorum（default）
+
+- 我们在发送任何一个增删改操作的时候，比如说put /index/type/id，都可以带上一个consistency参数，指明我们想要的写一致性是什么？
+
+```bash
+put /index/type/id?consistency=quorum
+```
+
+one：要求我们这个写操作，只要有一个primary shard是active活跃可用的，就可以执行
+ all：要求我们这个写操作，必须所有的primary shard和replica shard都是活跃的，才可以执行这个写操作
+ quorum：默认的值，要求所有的shard中，必须是大部分的shard都是活跃的，可用的，才可以执行这个写操作
