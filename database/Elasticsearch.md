@@ -284,7 +284,21 @@ hits.max_score: 相关度匹配
 
 ```shell
 GET /order/product/_search?q=name:iphone
+关键字必须包含
+GET /order/product/_search?q=name:+iphone
+关键字必须不包含
+GET /order/product/_search?q=name:-iphone
+任意的字段都包含关键字
+GET /order/product/_search?q=iphone
 ```
+
+- 默认的情况下是没有timeout的，所以如果查询时间慢，那么会一直等待，timeout机制，指定每个shard，在指定的时间内，返回搜索到的数据
+
+```json
+GET /_search?timeout=10m
+```
+
+
 
 ## query DSL
 
@@ -574,3 +588,28 @@ put /index/type/id?consistency=quorum
 one：要求我们这个写操作，只要有一个primary shard是active活跃可用的，就可以执行
  all：要求我们这个写操作，必须所有的primary shard和replica shard都是活跃的，才可以执行这个写操作
  quorum：默认的值，要求所有的shard中，必须是大部分的shard都是活跃的，可用的，才可以执行这个写操作
+
+# 深入查询
+
+## 搜索模式
+
+告诉你如何一次性搜索多个index和多个type下的数据
+
+/_search：所有索引，所有type下的所有数据都搜索出来
+/index1/_search：指定一个index，搜索其下所有type的数据
+/index1,index2/_search：同时搜索两个index下的数据
+/*1,*2/_search：按照通配符去匹配多个索引
+/index1/type1/_search：搜索一个index下指定的type的数据
+/index1/type1,type2/_search：可以搜索一个index下多个type的数据
+/index1,index2/type1,type2/_search：搜索多个index下的多个type的数据
+/_all/type1,type2/_search：_all，可以代表搜索所有index下的指定type的数据
+
+## 分页搜索
+
+从第二页查询，每页2条数据
+
+```json
+GET /order*/_search?from=2&size=2
+```
+
+- deep paging问题（深度分页）
