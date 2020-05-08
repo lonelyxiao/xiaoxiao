@@ -613,3 +613,17 @@ GET /order*/_search?from=2&size=2
 ```
 
 - deep paging问题（深度分页）
+
+# mapping
+
+当我们PUT /order/product/1一条数据时，es会自动给我们建立一个dynamic mapping，里面包括了分词或者搜索的行为
+
+在es中，搜索分两种
+
+-  exact value
+  - 搜索的时候，搜索词必须全部匹配，才能搜索出来
+- full text （全文检索）
+  - 缩写：如cn=china
+  - 格式转化: 日like，也可以将likes搜索出来
+  - 大小写
+  - 同义词：如果like，也可以将love搜索出来
