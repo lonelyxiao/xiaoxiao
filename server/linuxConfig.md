@@ -1,4 +1,6 @@
-# centos7 虚拟机NET网络配置
+# 网络配置
+
+## 配置文件方式
 
 ```shell
 # 编辑DNS
@@ -23,6 +25,28 @@ GATEWAY=192.168.94.2
 service network restart
 ```
 
+## 可视化方式
+
+- centos7
+
+```shell
+[root@localhost ~]# nmtui
+```
+
+Edit a connection: 设置一个连接，可以添加删除网络配置
+
+Activate a connection： 激活一个连接，可以启用禁用网络配置
+
+Set system hostname: 设置hostname
+
+- centos6
+
+```shell
+setup
+```
+
+
+
 # 关闭防火墙
 
 ```shell
@@ -40,5 +64,150 @@ systemctl disable firewalld
 success
 ## 重启防火墙
 [root@node1 conf]# firewall-cmd --reload
+```
+
+# 分区
+
+## 分区表形式
+
+- MBR分区表
+
+  最大只支持2.1TB，最多四个分区
+
+  启动盘必须是主分区
+
+  - 拓展分区
+
+    不能写数据，唯一的作用就是包含逻辑分区
+
+    加主分区最多只能有四个
+
+  - 逻辑分区
+
+- GPT分区表
+
+## 格式化
+
+又称逻辑格式化，它绝对不是为了删除数据，而是为了根据用户选定文件系统（NTFS/EXT2/EXT3），在磁盘里写入文件
+
+## 文件挂载
+
+- linux 给所有设备起了硬件设备文件名
+
+  IDE硬盘：/dev/hd[a-d]
+
+  SCSI/SATA/USB硬盘：/dev/sd[a-p]
+
+  /dev/sdb5: sata接口，第二块，第一个分区（主分区四个，这个是逻辑分区）
+
+- 挂载点（使用已存在的空目录作为挂载点）
+
+  相当于windows的盘符
+
+- 必须分区
+
+| 分区名               | 描述                                                         |
+| -------------------- | ------------------------------------------------------------ |
+| / (根分区)           |                                                              |
+| swap分区(给内核用的) | 建议：<br />如果真实内存小于4g，swap分区是位内存的两倍；<br />如果大于4g，swap与内存一致 |
+
+- 推荐分区
+
+| 分区名 | 分区名         |
+| ------ | -------------- |
+| /boot  | 启动分区（1G） |
+
+如果给某个空目录挂载了分区，如/home
+
+那么往home里面写数据，就是往这个独立的分区写数据
+
+如果是其他目录，那么就是往挂载了根分区（/）的分区写数据
+
+## mount命令
+
+## 检测文件
+
+```shell
+#检测 /etc/fstab是否正确
+[root@localhost mnt]# mount -a
+```
+
+
+
+
+
+### 挂载光盘
+
+```shell
+## 新建挂载文件
+[root@localhost mnt]# mkdir /mnt/cdrom
+## 查看光盘，cdrom是sr0的软连接
+[root@localhost mnt]# ll /dev/cdrom 
+lrwxrwxrwx. 1 root root 3 Jun  6 22:46 /dev/cdrom -> sr0
+## 挂载光盘
+[root@localhost mnt]# mount /dev/sr0 /mnt/cdrom
+mount: /dev/sr0 is write-protected, mounting read-only
+## 前往查看
+[root@localhost mnt]# cd /mnt/cdrom/
+[root@localhost cdrom]# ll
+total 108
+-rw-rw-r--. 1 root root    14 Nov 25  2018 CentOS_BuildTag
+drwxr-xr-x. 3 root root  2048 Nov 25  2018 EFI
+-rw-rw-r--. 1 root root   227 Aug 30  2017 EULA
+-rw-rw-r--. 1 root root 18009 Dec  9  2015 GPL
+drwxr-xr-x. 3 root root  2048 Nov 25  2018 images
+drwxr-xr-x. 2 root root  2048 Nov 25  2018 isolinux
+drwxr-xr-x. 2 root root  2048 Nov 25  2018 LiveOS
+drwxrwxr-x. 2 root root 71680 Nov 25  2018 Packages
+drwxr-xr-x. 2 root root  4096 Nov 25  2018 repodata
+-rw-rw-r--. 1 root root  1690 Dec  9  2015 RPM-GPG-KEY-CentOS-7
+-rw-rw-r--. 1 root root  1690 Dec  9  2015 RPM-GPG-KEY-CentOS-Testing-7
+-r--r--r--. 1 root root  2883 Nov 25  2018 TRANS.TBL
+```
+
+这个时候，前往挂载文件，发现可以使用的文件，使用完退出文件，记得一定要**卸载挂载**
+
+```shell
+[root@localhost mnt]# umount /mnt/cdrom/
+```
+
+### 挂载u盘
+
+U盘的设备名是不固定的，需要手动的去查询
+
+显示的信息
+
+/dev/sda ：硬盘，大小21.5G， 挂载了两个分区
+
+```shell
+# 查询linux识别的磁盘
+[root@localhost mnt]# fdisk -l
+Disk /dev/sda: 21.5 GB, 21474836480 bytes, 41943040 sectors
+   Device Boot      Start         End      Blocks   Id  System
+/dev/sda1   *        2048     2099199     1048576   83  Linux
+/dev/sda2         2099200    41943039    19921920   8e  Linux LVM
+
+```
+
+/dev/sdb就是U盘
+
+执行挂载**用完再卸载**
+
+```shell
+[root@localhost mnt]# mkdir /mnt/usb
+[root@localhost mnt]# mount -t vfat /dev/sdb4 /mnt/usb/
+
+```
+
+# 配置中文
+
+```shell
+## 查看安装中文没
+[root@localhost ~]# locale -a | grep zh
+## 编辑
+[root@localhost ~]# vim /etc/locale.conf
+LANG="zh_CN.utf8"
+
+
 ```
 

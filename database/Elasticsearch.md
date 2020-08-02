@@ -80,13 +80,28 @@ master 选举，将一个node变为master
 
 <https://thans.cn/mirror/elasticsearch.html>
 
+### 文件目录
+
+- config
+  - log4j2 日志文件
+  - jvm 
+  - elasticsearch.yml 配置文文件
+
+
+
 修改配置文件
 
 ```yaml
+## 集群名字，同一个集群必须相等
 cluster.name: myes
+## 当前节点名字
 node.name: node-1
 cluster.initial_master_nodes: ["node-1"]
 network.host: 192.168.1.131
+
+## 解决跨域问题
+http.cors.enabled: true
+http.cors.allow-origin: "*"
 ```
 
 可能需要修改
@@ -130,6 +145,8 @@ vm.max_map_count=655360
 ```yaml
 server.host: "192.168.1.131"
 elasticsearch.hosts: ["http://192.168.1.131:9200"]
+#语音为中文
+i18n.locale: "zh-CN"
 ```
 
 启动
@@ -141,6 +158,12 @@ myes@localhost home]$ ./kibana-7.3.2/bin/kibana
 访问dev_tool
 
 <http://192.168.1.131:5601/app/kibana#/dev_tools/console?_g=()>
+
+## 可视化HEAD
+
+
+
+
 
 ## 横向扩容
 
@@ -357,11 +380,35 @@ GET /order/product/_search
 }
 ```
 
+- 多个组合条件搜索
+
+
+
+- range
+
+```json
+GET /order/_search
+{
+  "query": {
+    "range": {
+      "ooprice": {
+        "gte": 1000,
+        "lte": 2000
+      }
+    }
+  }
+}
+```
+
 ## query filter
 
 must:必须满足
 
+should：里面有一个条件满足就可以
+
 filter： 过滤要求
+
+filter只会过滤数据，不会计算相关度，所以，性能要高些
 
 ```shell
 GET /order/product/_search
@@ -382,6 +429,8 @@ GET /order/product/_search
 - 全文检索
 
 他会将搜索的词进行拆分，然后在进行匹配
+
+当然，如果想一个字段多个条件，也可以用空格隔开，只要有一个结果，就会被查出来
 
 ```shell
 GET /order/product/_search
@@ -413,6 +462,41 @@ GET /order/product/_search
   }
 }
 ```
+
+## 字段不进行分词
+
+term表示字段不能进行分词，一定要全部匹配
+
+```json
+GET /order/_search
+{
+  "query": {
+    "term": {
+      "desc": {
+        "value": "Simple to use"
+      }
+    }
+  }
+}
+```
+
+## 不合法查询定位
+
+```json
+GET /order/_search?explain
+{
+  "query": {
+    "range1": {
+      "ooprice": {
+        "gte": 1000,
+        "lte": 2000
+      }
+    }
+  }
+}
+```
+
+
 
 ## 分组查询
 
@@ -504,6 +588,127 @@ GET /order/_mget
 }
 ```
 
+## 如何定制排序
+
+默认情况下，是按照score排序的
+
+sort可以定制查询
+
+```shell
+GET /order/_search?explain
+{
+  "query": {
+    "match": {
+      "desc": "use"
+    }
+  }
+  , "sort": [
+    {
+      "_id": {
+        "order": "desc"
+      }
+    }
+  ]
+}
+```
+
+## 对已经分词的字符串排序
+
+默认情况下，排序会按照分词后的某个词来排序
+
+如果我们想安装完整的字符串排序，可以建立两个field，一个分词用来搜索，一个不分词用来排序
+
+建立：
+
+"fields": {
+            "raw": {
+              "type": "string",
+              "index": "not_analyzed"
+            }
+          },
+          "fielddata": true
+
+来进行不分词
+
+```json
+PUT /website 
+{
+  "mappings": {
+    "article": {
+      "properties": {
+        "title": {
+          "type": "text",
+          "fields": {
+            "raw": {
+              "type": "string",
+              "index": "not_analyzed"
+            }
+          },
+          "fielddata": true
+        },
+        "content": {
+          "type": "text"
+        },
+        "post_date": {
+          "type": "date"
+        },
+        "author_id": {
+          "type": "long"
+        }
+      }
+    }
+  }
+}
+```
+
+查询的时候
+
+```json
+GET /website/article/_search
+{
+  "query": {
+    "match_all": {}
+  },
+  "sort": [
+    {
+      "title.raw": {
+        "order": "desc"
+      }
+    }
+  ]
+}
+
+```
+
+## bouncing results问题
+
+## 使用scoll滚动查询大量数据
+
+使用scoll搜索一批又一批数据
+
+```
+GET /test_index/test_type/_search?scroll=1m
+{
+  "query": {
+    "match_all": {}
+  },
+  "sort": [ "_doc" ],
+  "size": 3
+}
+```
+
+第二次搜去带scorell_id
+
+```json
+GET /_search/scroll
+{
+    "scroll": "1m", 
+    "scroll_id" : ""
+}
+```
+
+
+
 # 批量增删改
 
 1）delete:删除，只需要一个json串
@@ -531,6 +736,19 @@ POST /_bulk
 
 
 
+# ES REST风格总结
+
+| method | URL                    | DESC                            |
+| ------ | ---------------------- | ------------------------------- |
+| PUT    | /index/type/id         | 创建文档（指定文档id）/替换文档 |
+| POST   | /index/type            | 创建文档（随机文档id）          |
+| POST   | /index/type/id/_update | 修改文档（修改某个字段）        |
+| POST   | /index/type/_search    | 查询所有数据                    |
+| DELETE | /index/type/id         | s删除                           |
+| GET    | /index/type/id         | c查询                           |
+
+
+
 # 并发处理方案
 
 ES中用的是乐观锁并发方案
@@ -540,6 +758,8 @@ ES中用的是乐观锁并发方案
 如果A线程操作数据，version=1，回写数据后version=2
 
 B线程修改数据，version=1，回写数据发现version不相等，则会将这条数据扔掉，不会让后修改的数据覆盖
+
+
 
 ## 乐观锁
 
@@ -614,9 +834,9 @@ GET /order*/_search?from=2&size=2
 
 - deep paging问题（深度分页）
 
-# mapping
+# mapping（映射规则）
 
-当我们PUT /order/product/1一条数据时，es会自动给我们建立一个dynamic mapping，里面包括了分词或者搜索的行为
+当我们PUT /order/product/1一条数据时，es会自动给我们建立一个dynamic mapping，里面包括了分词或者搜索的行为,mapping会自定义每个field的数据类型
 
 在es中，搜索分两种
 
@@ -627,3 +847,519 @@ GET /order*/_search?from=2&size=2
   - 格式转化: 日like，也可以将likes搜索出来
   - 大小写
   - 同义词：如果like，也可以将love搜索出来
+
+分词之后，会将exact 或full建立到倒排索引中(**不同类型的filed会有不同的搜索类型**)
+
+搜索时候，搜索的词根据的类型，进行分词，搜索到对应的doc中
+
+## 字段类型
+
+text会被分词解析，keyword不会被分词
+
+## 倒排索引分析
+
+通俗的说，就是通过value找key 首先，会分词，分词后做同义词等处理，这时，查找时，先搜索到value，再找到key
+
+## 测试分词
+
+```json
+GET /_analyze
+{
+  "analyzer": "standard", //分词类型
+  "text": ["test the analyze"] //待分的词
+}
+```
+
+返回
+
+```json
+{
+  "tokens" : [
+    {
+      "token" : "test",
+      "start_offset" : 0,
+      "end_offset" : 4,
+      "type" : "<ALPHANUM>",
+      "position" : 0
+    },
+    {
+      "token" : "the",
+      "start_offset" : 5,
+      "end_offset" : 8,
+      "type" : "<ALPHANUM>",
+      "position" : 1
+    },
+    {
+      "token" : "analyze",
+      "start_offset" : 9,
+      "end_offset" : 16,
+      "type" : "<ALPHANUM>",
+      "position" : 2
+    }
+  ]
+}
+```
+
+## 手动建立mapping
+
+**只能创建index时手动建立mapping，或者新增field mapping，但是不能update field mapping**
+
+type:字段类型
+
+analyzer;分词类型
+
+"index": false 不分词
+
+```json
+PUT /website
+{
+  "mappings": {
+    "properties": {
+       "author_id": {
+          "type": "long"
+        },
+        "title": {
+          "type": "text",
+          "analyzer": "english"
+        },
+        "content": {
+          "type": "text"
+        },
+        "post_date": {
+          "type": "date"
+        },
+        "publisher_id": {
+          "type": "text",
+          "index": false
+        }
+    }
+  }
+}
+```
+
+新增已存在的mapping字段
+
+```json
+PUT /website/_mapping
+{
+  "properties":{
+    "name" : {
+        "type" : "text"
+    }
+  }
+}
+```
+
+测试建立的mapping
+
+```JSON
+GET /website/_analyze
+{
+  "field": "title",
+  "text": "my-dogs" 
+}
+```
+
+## dynamic mapping
+
+## 手动创建索引
+
+创建一个my_index的索引
+
+shard数量为1，副本数量为0
+
+```json
+PUT /my_index
+{
+  "settings": {
+    "number_of_shards": 1
+    , "number_of_replicas": 0
+  }
+  , "mappings": {
+    "properties": {
+      "my_field":{
+        "type": "text"
+      }
+    }
+  }
+}
+```
+
+## 自定义dynamic策略
+
+**elasticsearch7默认不在支持指定索引类型，默认索引类型是_doc**
+
+true：遇到陌生字段，就进行dynamic mapping
+false：遇到陌生字段，就忽略
+strict：遇到陌生字段，就报错
+
+```json
+PUT /my_index
+{
+  "mappings": {
+    "dynamic": "strict",
+      "properties": {
+        "name":{
+          "type": "text"
+        }
+      }
+  }
+}
+```
+
+- put数据，如果超过字段就会报错(mapping set to strict)
+
+```json
+PUT /my_index/_doc/1
+{
+  "name":"xiaoxiao"
+}
+```
+
+
+
+## 定制mapping策略
+
+- date_detection
+
+默认会按照一定格式识别date，比如yyyy-MM-dd。但是如果某个field先过来一个2017-01-01的值，就会被自动dynamic mapping成date，后面如果再来一个"hello world"之类的值，就会报错。可以手动关闭某个type的date_detection，如果有需要，自己手动指定某个field为date类型。
+
+```json
+PUT /my_index
+{
+  "mappings": {
+    "date_detection": false
+  }
+}
+```
+
+- 通配符来匹配不同的模板
+
+当某个字段是*en时，用下面这个模板，分词用English
+
+```json
+PUT /my_index
+{
+  "mappings": {
+    "dynamic_templates":[
+      {
+        "en":{
+          "match":"*en",
+          "match_mapping_type":"string",
+          "mapping":{
+            "type":"text",
+            "analyzer":"english"
+          }
+        }
+      }  
+    ] 
+  }
+}
+```
+
+插入数据
+
+```json
+PUT /my_index/_doc/1
+{
+  "name_en":"my name is xiaoxiao",
+  "name":"my name is xiaoxiao"
+}
+```
+
+ 如果查询，name_en，is是停用词，是查询不到的，而name是可以查询到的
+
+## 修改索引setting
+
+## 定制自己的分词器
+
+默认的分词器
+
+standard
+
+standard tokenizer：以单词边界进行切分
+standard token filter：什么都不做
+lowercase token filter：将所有字母转换为小写
+stop token filer（默认被禁用）：移除停用词，比如a the it等等
+
+## 修改分词器
+
+```json
+PUT /my_indexs
+{
+  "settings": {
+    "analysis": {
+      "es_sta":{
+        "type": "standard",
+         "stopwords": "_english_"
+      }
+    }
+  }
+}
+```
+
+## 重建索引
+
+索引是不能修改的，如果想要修改，。则需要重新建立索引，然后将旧索引数据导入新的索引
+
+- 建立新索引
+
+```json
+PUT /my_index_new
+{
+  "mappings": {
+    "properties": {
+      "name":{
+        "type": "text"
+      }
+    }  
+  }
+}
+```
+
+- 采用scoll查询出批量数据，然后再采用bulk将数据批量插入
+
+- 先给新索引取别名，删除旧索引的别名，让java应用能无缝切换新索引
+
+```json
+POST /_aliases
+{
+  "actions": [
+    {
+      "add": {
+        "index": "my_index_new",
+        "alias": "goodindex"
+      },
+      "remove": {
+        "index": "my_index",
+        "alias": "goodindex"
+      }
+    }
+  ]
+}
+```
+
+
+
+# TF/IDF算法相关度评分
+
+- 搜索的词条在文本中出现的次数越多，相关度越高
+- 搜索的的词条，在整个索引中，所有文档中，次数越多，越不相关
+
+
+
+# 优化
+
+数据写入os cache，并被打开搜索的过程，叫做refresh，默认是1秒
+
+如果我们对数据的时效性要求比较低，那么可以时间设长
+
+```json
+PUT /my_index
+{
+  "settings": {
+    "refresh_interval": "30s" 
+  }
+}
+
+```
+
+fsync+清空translog，将os cache数据写入disk，这就是flush，默认30异常，或者translog过大执行一次
+
+tanslog每隔5s会写入磁盘，当且是同步的
+
+如果，我我们允许部分数据丢失，可以设置异步的写入
+
+```json
+PUT /my_index/_settings
+{
+    "index.translog.durability": "async",
+    "index.translog.sync_interval": "5s"
+}
+```
+
+# java 操作
+
+## insert
+
+```json
+ public static void main(String[] args) throws Exception {
+        RestHighLevelClient client = new RestHighLevelClient(
+                RestClient.builder(
+                        new HttpHost("192.168.1.131", 9200, "http")));
+
+        Test test = new Test();
+        test.sourceIndex(client);
+        client.close();
+    }
+
+    public IndexResponse sourceIndex(RestHighLevelClient client) {
+        try{
+            IndexRequest request = new IndexRequest("post");
+            Map map = new HashMap();
+            map.put("user", "laoxiao");
+            request.index("test_index").id("1").source(map, XContentType.JSON);
+            IndexResponse response = client.index(request, RequestOptions.DEFAULT);
+            return response;
+        }catch (Exception e){
+        }
+        return null;
+    }
+```
+
+# ELK
+
+ELK是Elasticsearch、Logstash、Kibana的简称，这三者是核心套件，但并非全部
+
+Logstash是一个用来搜集、分析、过滤日志的工具
+
+# 安装ik分词器
+
+将下载的压缩包。放入插件文件夹下，建立文件夹ik
+
+```shell
+[root@localhost plugins]# pwd
+/home/elasticsearch-7.3.2/plugins
+[root@localhost plugins]# mkdir ik
+
+## 查看插件
+[root@localhost bin]# ./elasticsearch-plugin list
+ik
+```
+
+安装插件后，启动es时，也能看到集群对应有
+
+[node-1] loaded plugin [analysis-ik]
+
+字样
+
+ik分词器提供了两种分词算法：
+
+ik_smart ：最少切分
+
+ik_max_word：最细粒度切分
+
+- 测试
+
+```json
+GET /_analyze
+{
+  "analyzer": "ik_smart",
+  "text": "我是帅哥"
+}
+```
+
+```json
+GET /_analyze
+{
+  "analyzer": "ik_max_word",
+  "text": "我是一个帅哥"
+}
+```
+
+## IK配置
+
+进入配置
+
+```shell
+[root@localhost ~]# cd /home/elasticsearch-7.3.2/plugins/ik/config/
+[root@localhost config]# vim IKAnalyzer.cfg.xml
+```
+
+ext_dict:同目录下一个xx.dic文件，
+
+```xml
+<properties>
+        <comment>IK Analyzer 扩展配置</comment>
+        <!--用户可以在这里配置自己的扩展字典 -->
+        <entry key="ext_dict"></entry>
+         <!--用户可以在这里配置自己的扩展停止词字典-->
+        <entry key="ext_stopwords"></entry>
+        <!--用户可以在这里配置远程扩展字典 -->
+        <!-- <entry key="remote_ext_dict">words_location</entry> -->
+        <!--用户可以在这里配置远程扩展停止词字典-->
+        <!-- <entry key="remote_ext_stopwords">words_location</entry> -->
+</properties>
+
+```
+
+# Spring Boot Api
+
+## 基础配置
+
+```java
+@Bean
+public RestHighLevelClient restHighLevelClient(){
+    return new RestHighLevelClient(
+        RestClient.builder(
+            new HttpHost("192.168.1.131",9200, "http")
+        )
+    );
+}
+```
+
+## 创建索引
+
+```java
+@Test
+void creatIndex() throws IOException {
+    //创建索引
+    CreateIndexRequest request = new CreateIndexRequest(INDEX_NAME);
+//指向客户端请求，获取响应
+CreateIndexResponse response = restHighLevelClient.indices().create(request, RequestOptions.DEFAULT);
+}
+```
+
+## 删除索引
+
+```java
+@Test
+void deleteIndex() throws IOException {
+    DeleteIndexRequest request = new DeleteIndexRequest(INDEX_NAME);
+    AcknowledgedResponse response = restHighLevelClient.indices().delete(request, RequestOptions.DEFAULT);
+    System.out.println(response.isAcknowledged());
+}
+```
+
+## 判断索引是否存在
+
+```java
+@Test
+void getIndex() throws IOException {
+   //判断索引是否存在
+   GetIndexRequest request = new GetIndexRequest(INDEX_NAME);
+   Boolean response = restHighLevelClient.indices().exists(request, RequestOptions.DEFAULT);
+   System.out.println(response);
+}
+```
+
+## 新增文档
+
+```java
+@Test
+void addDocument() throws IOException {
+   User user = new User("小肖", "123456");
+   //put /index/_doc/1
+   IndexRequest request = new IndexRequest(INDEX_NAME);
+   request.id("1")//id
+         .timeout(TimeValue.timeValueSeconds(1));//超时时间
+   request.source(JSONUtil.toJsonStr(user), XContentType.JSON);
+   IndexResponse response = restHighLevelClient.index(request, RequestOptions.DEFAULT);
+   System.out.println(response.status());
+}
+```
+
+## 批量新增
+
+```java
+@Test
+void bulkDocument() throws IOException {
+   BulkRequest bulkRequest = new BulkRequest();
+   bulkRequest.timeout(TimeValue.timeValueSeconds(1));
+   for(int i=0; i<10; i++){
+      bulkRequest.add(new IndexRequest(INDEX_NAME)
+      .source(JSONUtil.toJsonStr(new User("name+"+i, String.valueOf(i))),XContentType.JSON));
+   }
+   restHighLevelClient.bulk(bulkRequest, RequestOptions.DEFAULT);
+}
+```

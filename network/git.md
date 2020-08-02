@@ -564,6 +564,17 @@ git checkout -- t
 
 **git如果发现那个提交有问题，可以checkout到对应提交，新增分支进行修改，然后与当前开发分支进行合并，而不要reset硬重置**
 
+例如
+
+```shell
+git checkout 74c4044c107fb7f596004c5fc895ee5d46054074
+
+```
+
+
+
+
+
 ## checkout和reset区别
 
 - checkout只懂head， --hard动head，还动分支
@@ -818,3 +829,47 @@ vim /etc/gitlab/gitlab.rb
 ```
 
 ## 将gitlab设置成https访问模式
+
+# idea上使用git
+
+## 忽略文件
+
+- 添加.gitignore文件
+- 往exclude文件添加
+
+如果说，遇到已提交暂存区的文件，是无法生效的，这时，我们需要先删除暂存区
+
+```shell
+## cached 是删除暂存区里的文件而不删除工作区里的文件
+git rm -r --cached .
+```
+
+
+
+## 提交步骤
+
+- 添加到暂存区（add操作）
+
+文件（右键）-> git -> +add
+
+## 回复到某个版本
+
+点击查看历史->点击某个版本->copy  vivision number
+
+选择项目->git->repository->reset head->mixed（hard会动用工作区）>将版本复制进入
+
+----
+
+**以上一般不建议用，直接checkout到对应版本就可以了**
+
+## 分支
+
+- 创建分支
+
+- 合并分支
+
+选择项目->git->repository-branch-merge branch
+
+- 提交分支
+
+  

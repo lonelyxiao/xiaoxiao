@@ -1,6 +1,7 @@
-﻿* [首页](/README.md)
+﻿* [首页](/)
 * java
 	* [java8](/java/java8.md)
+	* [java基础](/java/javaBase.md)
 	* [jenkin](/java/jenkin.md)
 	* [mybatis](/java/mybatis.md)
 	* [MybatisPlus](/java/MybatisPlus.md)
@@ -11,9 +12,11 @@
 	* [Spring注解](/java/Spring注解.md)
 	* [工作流](/java/workflow.md)
 	* [设计模式](/java/设计模式.md)
-* 前端
+* 前端frontend
 	* [Angular](/frontend/angular)
 	* [Vue](/frontend/vue)
+	* [nodejs](/frontend/nodejs)
+	* [小程序](/frontend/wechatSmall)
 * 消息队列
 	* [ActiveMq](/message/activeMq)
 	* [Kafka](/message/kafka)
@@ -24,6 +27,8 @@
 * 服务器
 	* [Docker](/server/docker)
 	* [Linux配置](/server/linuxConfig)
+	* [Linux基础](/server/linuxBase)
+	* [Linux用户](/server/linuxUser)
 	* [Shell](/server/shell)
 * 数据库
 	* [Elasticsearch](/database/Elasticsearch.md)

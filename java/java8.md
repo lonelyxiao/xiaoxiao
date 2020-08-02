@@ -1,3 +1,9 @@
+# 写在前面
+
+新项目：project  sdk(1.8)   level(8)->modules level（8）->java compile version(1.8)
+
+
+
 # 特性
 
 # Lambda表达式
