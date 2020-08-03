@@ -120,6 +120,7 @@ public class TestBuffer {
         }
         //转化读操作
         intBuffer.flip();
+        //判读是否还有数据
         while (intBuffer.hasRemaining()) {
             log.info("取出数据：{}", intBuffer.get());
         }
@@ -127,6 +128,31 @@ public class TestBuffer {
     }
 }
 ```
+
+buffer几个参数
+
+```java
+//标记
+private int mark = -1;
+//当前下标
+private int position = 0;
+//操作过程中，下标不能超过limit
+//作用：读数据不能超过这个数，flip时，会将position赋值给limit
+private int limit;
+//容量
+private int capacity;
+```
+
+### Channel
+
+- 可以同时读写
+- 可以一步读写数据
+
+![](../image/java/Netty/20200803231057.jpg)
+
+- FileChannel  用来对本地文件进行IO操作
+
+举例：使用通道的方式，将目标文件写入文件夹中
 
 ### NIO和BIO比较
 
