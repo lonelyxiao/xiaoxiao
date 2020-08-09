@@ -154,6 +154,41 @@ private int capacity;
 
 举例：使用通道的方式，将目标文件写入文件夹中
 
+### buffer和channel进行文件copy
+
+```java
+public static void main(String[] args) throws Exception {
+    FileInputStream input = new FileInputStream("E:\\1.avi");
+    FileChannel channelSource = input.getChannel();
+    FileOutputStream outputStream = new FileOutputStream("d:\\1.mp4");
+    FileChannel channelTarget = outputStream.getChannel();
+    ByteBuffer byteBuffer = ByteBuffer.allocate(5);
+    while (true) {
+        byteBuffer.clear();
+        int read = channelSource.read(byteBuffer);
+        if(read == -1){
+            //读取完成
+            break;
+        }
+        byteBuffer.flip();
+        channelTarget.write(byteBuffer);
+    }
+    input.close();
+    outputStream.close();
+}
+```
+
+### MappedByteBuffer
+
+能够直接在内存中进行修改，操作系统不需要再拷贝一次
+
+### Buffer 分散聚合
+
+- scattering : 将数据写入buffer时，采用buffer数组依次写入
+  - channel.read(buffers[])
+- gathering： 从buffer读数据，采用buffer数组，依次读
+  - channel.write(buffers[])
+
 ### NIO和BIO比较
 
 - NIO 以块的方式处理数据，BIO以流的方式处理
