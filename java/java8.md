@@ -76,13 +76,15 @@ Consumer<String> consumer2 = s-> System.out.println(s);
 
 ## java四大函数式接口
 
-消费型接口 Consumer<T>     void accept(T t)
+- 消费型接口 Consumer<T>     void accept(T t)
+  - 消费型接口，只有入参没有返回值
 
-供给型接口 Supplier<T>     T get()
+- 供给型接口 Supplier<T>     T get()
 
-函数型接口 Function<T,R>   R apply(T t)
+- 函数型接口 Function<T,R>   R apply(T t)
 
-断定型接口 Predicate<T>    boolean test(T t)
+- 断定型接口 Predicate<T>    boolean test(T t)
+  - 如果存在某个值，返回true
 
 
 
@@ -479,15 +481,33 @@ Optional<T> 类(java.util.Optional) 是一个容器类，它可以保存类型T�
 
 ## 创建Optional类对象
 
-- Optional.of(T t) : 创建一个 Optional 实例，t必须非空；
--  Optional.empty() : 创建一个空的 Optional 实例
--  Optional.ofNullable(T t)：t可以为null
-
-
+```java
+// 1、创建一个包装对象值为空的Optional对象
+Optional<String> optStr = Optional.empty();
+// 2、创建包装对象值非空的Optional对象
+Optional<String> optStr1 = Optional.of("optional");
+// 3、创建包装对象值允许为空的Optional对象
+Optional<String> optStr2 = Optional.ofNullable(null);
+```
 
 ## 判断Optional容器中是否包含对象
 -  boolean isPresent() : 判断是否包含对象
 -  void ifPresent(Consumer<? super T> consumer) ：如果有值，就执行Consumer接口的实现代码，并且该值会作为参数传给它。
+
+```java
+public static void printName(Student student)
+{
+    Optional.ofNullable(student).ifPresent(u ->  System.out.println("The student name is : " + u.getName()));
+}
+```
+
+## 内容处理
+
+- ##### filter
+
+- ##### map
+
+- ##### flatMap
 
 ## 获取Optional容器的对象
 

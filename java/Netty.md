@@ -189,6 +189,48 @@ public static void main(String[] args) throws Exception {
 - gathering： 从buffer读数据，采用buffer数组，依次读
   - channel.write(buffers[])
 
+### Selector
+
+- 一般称 为选择器 ，当然你也可以翻译为 多路复用器 。它是Java NIO核心组件中的一个，用于检查一个或多个NIO Channel（通道）的状态是否处于可读、可写。如此可以实现单线程管理多个channels,也就是可以管理多个网络链接
+- 当有事件发生时，返回select Key 数组，通过selectKey可以获取对应channel
+
+对应方法
+
+```java
+int select()：阻塞到至少有一个通道在你注册的事件上就绪了。
+int select(long timeout)：和select()一样，但最长阻塞时间为timeout毫秒。
+int selectNow()：非阻塞，只要有通道就绪就立刻返回。
+```
+
+### Selector Key
+
+```java
+//有新的网络连接
+SelectionKey.OP_ACCEPT
+//连接已建立
+SelectionKey.OP_CONNECT
+//读操作
+SelectionKey.OP_READ
+//写操作
+SelectionKey.OP_WRITE
+```
+
+
+
+### NIO网络编程原理
+
+- 客户端连接，通过serversocketChannel 得到 socketChannel
+
+- socketChannel注册到selector上
+
+![](../image/java/Netty/20200811213415.jpg)
+
+- NIO server
+
+
+
+
+
 ### NIO和BIO比较
 
 - NIO 以块的方式处理数据，BIO以流的方式处理
