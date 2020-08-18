@@ -1065,6 +1065,8 @@ public Map<String, Object> getErrorAttributes(RequestAttributes requestAttribute
 
 ### 返回定制的json
 
+全局异常处理
+
 第一种方式，这种方式浏览器访问也会返回json
 
 ```java
@@ -1081,7 +1083,7 @@ public class MyExceptionHandler {
 }
 ```
 
-第二种方式
+第二种方式：自定义状态码，除了自己定义的，还新增额外的
 
 ```java
  @ExceptionHandler(UserNotExistException.class)

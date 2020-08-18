@@ -513,3 +513,69 @@ inventory  roles
 
 # jenkins
 
+## docker方式安装
+
+```shell
+[root@localhost ~]# docker pull jenkins/jenkins
+[root@localhost home]# chmod 777 /home/jenkins_node
+
+## 创建并启动容器
+[root@localhost ~]# docker run -d -p 8080:8080 -p 10241:50000 -v /home/jenkins_node:/var/jenkins_home -v /etc/localtime:/etc/localtime --name jenkins jenkins/jenkins
+33672d81b57f697caa35b7f3e3620fa9196280a24443b1558fe3c8ffaf51728d
+
+```
+
+- 说明
+
+```shell
+-d 后台运行镜像
+
+-p 8080:8080 将镜像的8080端口映射到服务器的10240端口。
+
+p 10241:50000 将镜像的50000端口映射到服务器的10241端口
+
+-v /home/jenkins_node:/var/jenkins_home /home/jenkins_home目录为容器jenkins工作目录，我们将硬盘上的一个目录挂载到这个位置，方便后续更新镜像后继续使用原来的工作目录。这里我们设置的就是上面我们创建的 /home/jenkins_node目录
+
+-v /etc/localtime:/etc/localtime让容器使用和服务器同样的时间设置。
+
+--name jenkins 给容器起一个别名
+```
+
+- 查看容器日志获取初始化密码
+
+```shell
+[root@localhost home]# docker logs jenkins
+
+```
+
+
+
+```shell
+Please use the following password to proceed to installation:
+
+7de7268eb5d34f78ba2f1810b1f161d1
+
+```
+
+- 修改插件配置文件
+
+```shell
+[root@localhost jenkins_node]# vim hudson.model.UpdateCenter.xml 
+```
+
+```xml
+<?xml version='1.1' encoding='UTF-8'?>
+<sites>
+  <site>
+    <id>default</id>
+    <url>https://mirrors.tuna.tsinghua.edu.cn/jenkins/updates/update-center.json</url>
+  </site>
+</sites>
+
+```
+
+
+
+## 插件配置
+
+访问：http://192.168.1.134:8080/
