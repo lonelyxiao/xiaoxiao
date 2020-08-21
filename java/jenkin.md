@@ -557,7 +557,18 @@ Please use the following password to proceed to installation:
 
 ```
 
+- 配置证书
+
+```shell
+wget https://cdn.jsdelivr.net/gh/lework/jenkins-update-center/rootCA/update-center.crt -O update-center-rootCAs/update-center.crt
+```
+
+```shell
+[root@localhost jenkins_node]# chmod 777  update-center-rootCAs
+```
+
 - 修改插件配置文件
+
 
 ```shell
 [root@localhost jenkins_node]# vim hudson.model.UpdateCenter.xml 
@@ -568,7 +579,7 @@ Please use the following password to proceed to installation:
 <sites>
   <site>
     <id>default</id>
-    <url>https://mirrors.tuna.tsinghua.edu.cn/jenkins/updates/update-center.json</url>
+    <url>https://cdn.jsdelivr.net/gh/lework/jenkins-update-center/updates/huawei/update-center.json</url>
   </site>
 </sites>
 
