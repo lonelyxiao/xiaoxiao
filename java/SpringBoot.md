@@ -72,7 +72,7 @@
 public @interface SpringBootApplication
 ```
 
-### @SpringBootApplication注解
+### 启动注解详解
 
 在@SpringBootConfiguration中可以看到
 
@@ -238,7 +238,7 @@ public class HttpEncodingAutoConfiguration {
 	}
 ```
 
-## 打包
+## Maven打包配置
 
 在pom中配置,表示打包成一个可执行的spring boot 的jar包
 
@@ -373,9 +373,9 @@ testyaml.map.k1=ll
 testyaml.lists=1,2,3
 ```
 
-## 生产与开发时，配置文件的切换
+## 生产与开发切换
 
-**使用文件的方式**
+- 使用文件名的方式
 
 我们在主配置文件编写的时候，文件名可以是   application-{profile}.properties/yml
 
@@ -389,7 +389,7 @@ spring:
     active: dev 
 ```
 
-**使用yaml的document方式**
+- 使用yaml的document方式
 
 yaml的---表示文档分割线
 
@@ -413,9 +413,9 @@ spring:
   profiles: prod
 ```
 
-在激活profile的模式时
+- 激活环境
 
-**可以在配置文件中**
+在激活profile的模式时，可以在配置文件中
 
 ```yaml
 spring:
@@ -523,7 +523,7 @@ logging:
 
 
 
-### 指定配置文件方式
+## 指定配置文件方式
 
 给类路径下放上每个日志框架自己的配置文件即可；SpringBoot就不使用他默认配置的了
 

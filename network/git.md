@@ -891,3 +891,6 @@ type如下：
     - merge: 代码合并同步
 ```
 
+例如：
+
+ git commit -m 'docs: git'
