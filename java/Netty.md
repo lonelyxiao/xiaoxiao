@@ -315,3 +315,38 @@ public static void main(String[] args) throws Exception {
 
 - 异步非阻塞
 
+# NIO与零拷贝
+
+## 传统IO
+
+传统IO进行了四次拷贝三次切换
+
+- 拷贝过程
+
+1. 从硬盘 经过 DMA 拷贝（**直接内存拷贝**） 到 kernel buffer （内核buferr）
+2. 从kernel buffer 经过**cpu 拷贝**到 user buffer ,比如拷贝到应用程序(这个时候我们可以对流进行修改)
+3. 从user buffer 拷贝到 socket buffer 
+4. 从socket buffer 拷贝到 protocol engine 协议栈
+
+- 状态切换
+
+- 用户态---》 内核状 （或者叫着 用户上下文----》 内核上下文）
+
+- 内核状---》 用户状
+
+- 用户状---》 内核状
+
+![](../image/java/Netty/20200827085524.png)
+
+## sendFile优化
+
+零拷贝指没有cpu拷贝,NIO中使用transferTo操作
+
+![](../image/java/Netty/20200827090309.png)
+
+1. DMA拷贝，将数据从硬盘拷贝到kernel buffer 
+2. DMA拷贝，将数据从kernel buffer拷贝到protocol engine
+3. cpu copy 其实拷贝的是一些基本的信息（数据量少）
+
+# Netty概述
+
