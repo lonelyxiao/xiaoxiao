@@ -348,5 +348,15 @@ public static void main(String[] args) throws Exception {
 2. DMA拷贝，将数据从kernel buffer拷贝到protocol engine
 3. cpu copy 其实拷贝的是一些基本的信息（数据量少）
 
-# Netty概述
+# Netty设计
 
+## 线程模型
+
+- 传统阻塞IO模型
+  - 当并发数越大，服务器端线程越多
+
+![](D:\git\gitee\xiaoxiao\image\java\Netty\20200831090701.png)
+
+- Reactor模式
+
+Reactor模式是处理并发I/O常见的一种模式，用于同步I/O，其中心思想是将所有要处理的I/O事件注册到一个中心I/O多路复用器上，同时主线程阻塞在多路复用器上，一旦有I/O事件到来或是准备就绪，多路复用器将返回并将相应`I/O`事件分发到对应的处理器中
