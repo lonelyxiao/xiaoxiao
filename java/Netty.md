@@ -360,3 +360,27 @@ public static void main(String[] args) throws Exception {
 - Reactor模式
 
 Reactor模式是处理并发I/O常见的一种模式，用于同步I/O，其中心思想是将所有要处理的I/O事件注册到一个中心I/O多路复用器上，同时主线程阻塞在多路复用器上，一旦有I/O事件到来或是准备就绪，多路复用器将返回并将相应`I/O`事件分发到对应的处理器中
+
+- 单reactor单线程
+
+![](../image/java/Netty/20200901084951.jpg)
+
+- 单reactor多线程
+  - reactor监控客户端请求
+  - 发生连接，穿件一个handler
+  - 如果不是连接，则reactor分发连接对应的handler
+  - handler只负责响应，不做业务处理
+  - worker线程池分配独立线程池完成真正的业务,并将结果返回handler
+
+![](../image/java/Netty/20200901090022.jpeg)
+
+- 主从reactor多线程
+  - 可以让reactor在多线程中运行
+  - **main负责连接，sub负责其他**
+  - Reactor 主线程 MainReactor 对象通过 Select 监控建立连接事件，收到事件后通过 Acceptor 接收，处理建立连接事件。
+  - Acceptor 处理建立连接事件后，MainReactor 将连接分配 Reactor 子线程给 SubReactor 进行处理。
+  - SubReactor 将连接加入连接队列进行监听，并创建一个 Handler 用于处理各种连接事件。
+  - 当有新的事件发生时，SubReactor 会调用连接对应的 Handler 进行响应。
+  - 一个mian可以管理多个sub
+
+![](../image/java/Netty/20200901091012.jpeg)
