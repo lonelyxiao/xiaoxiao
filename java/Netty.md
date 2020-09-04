@@ -407,3 +407,134 @@ Reactor模式是处理并发I/O常见的一种模式，用于同步I/O，其中�
 - 处理业务时，会使用pipeline
 
 ![](../image/java/Netty/20200902084801.jpg)
+
+## TCP代码
+
+- 服务器端
+
+```java
+public static void main(String[] args) throws InterruptedException {
+    //管理连接
+    EventLoopGroup bossGroup = new NioEventLoopGroup();
+    EventLoopGroup workGroup = new NioEventLoopGroup();
+
+    //服务器启动对象
+    ServerBootstrap bootstrap = new ServerBootstrap();
+    //设置两个线程组
+    bootstrap.group(bossGroup, workGroup)
+            //选择通道类型
+            .channel(NioServerSocketChannel.class)
+            //设置线程队列得到的连接数
+            .option(ChannelOption.SO_BACKLOG, 128)
+            //保持活动连接状态
+            .childOption(ChannelOption.SO_KEEPALIVE, true)
+            //设置一个处理事情的工作handler
+            .childHandler(new ChannelInitializer<SocketChannel>() {
+                @Override
+                protected void initChannel(SocketChannel socketChannel) throws Exception {
+                    socketChannel.pipeline().addLast(new NettyServerHandler());
+                }
+            });
+    //绑定一个端口并且同步
+    ChannelFuture sync = bootstrap.bind(6666).sync();
+    //对关闭通道进行监听
+    sync.channel().closeFuture().sync();
+}
+```
+
+- 服务器端业务处理
+
+```java
+public class NettyServerHandler extends ChannelInboundHandlerAdapter {
+
+
+    /**
+     * 从客户端读取数据
+     * @param ctx 上下文，含pipeline，channel, 客户端送的数据
+     * @param msg
+     * @throws Exception
+     */
+    @Override
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+        System.out.println("客户端地址："+ctx.channel().remoteAddress());
+        //msg是一个buf类型
+        ByteBuf buf = (ByteBuf) msg;
+        System.out.println("客户端发送的消息："+ buf.toString(CharsetUtil.UTF_8));
+    }
+
+    /**
+     * 读取数据完毕，往客户端发送数据
+     * @param ctx
+     * @throws Exception
+     */
+    @Override
+    public void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
+        //write+flush方法
+        //写入缓存，并冲刷
+        ctx.writeAndFlush(Unpooled.copiedBuffer("hello : "+ ctx.channel().remoteAddress(), CharsetUtil.UTF_8));
+    }
+}
+```
+
+- 客户端
+
+```java
+public static void main(String[] args) throws InterruptedException {
+    EventLoopGroup loopGroup = new NioEventLoopGroup();
+    try {
+
+        Bootstrap bootstrap = new Bootstrap();
+        bootstrap.group(loopGroup)
+                .channel(NioSocketChannel.class)
+                .handler(new ChannelInitializer<SocketChannel>() {
+                    @Override
+                    protected void initChannel(SocketChannel socketChannel) throws Exception {
+                        socketChannel.pipeline().addLast(new NettyClientHandler());
+                    }
+                });
+        ChannelFuture future = bootstrap.connect("127.0.0.1", 6666).sync();
+        future.channel().closeFuture().sync();
+    } finally {
+        loopGroup.shutdownGracefully();
+    }
+}
+```
+
+- 客户端业务处理
+
+```java
+public class NettyClientHandler extends ChannelInboundHandlerAdapter {
+    @Override
+    public void channelActive(ChannelHandlerContext ctx) throws Exception {
+        System.out.println("启动客户端，发送消息....");
+        ctx.writeAndFlush(Unpooled.copiedBuffer("hello serve:", CharsetUtil.UTF_8));
+    }
+
+    @Override
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+
+        ByteBuf buf = (ByteBuf) msg;
+        System.out.println("服务端发送： "+ ctx.channel().remoteAddress() + " : " + buf.toString(CharsetUtil.UTF_8));
+    }
+}
+```
+
+## 源码分析
+
+### NioEventLoopGroup的工作线程
+
+- NioEventLoopGroup默认的线程数是：cpu核心数*2
+
+new NioEventLoopGroup构造方法默认使用了NettyRuntime.availableProcessors() * 2
+
+- LoppGroup使用EventExecutor来管理线程
+
+### Handler上下文分析
+
+- pipeline本质是一个双向链表（包含head和tail）
+
+## 异步执行
+
+服务器端中，如果handler中的执行业务时间很久，就会与客户端阻塞
+
+- 解决方案1：使用eventloop中的taskqueue执行
