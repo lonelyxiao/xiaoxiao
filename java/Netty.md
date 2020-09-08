@@ -529,6 +529,14 @@ new NioEventLoopGroup构造方法默认使用了NettyRuntime.availableProcessors
 
 - LoppGroup使用EventExecutor来管理线程
 
+- group包含多个NioEventLoop
+
+  - NioEventLoop包含一个selector，一个taskqueue
+  - 一个selector可以注册多个NioChannel
+  - 每个NioChannel只会绑定他对应的selector上（N:1）
+
+  
+
 ### Handler上下文分析
 
 - pipeline本质是一个双向链表（包含head和tail）
