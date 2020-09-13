@@ -546,3 +546,18 @@ new NioEventLoopGroup构造方法默认使用了NettyRuntime.availableProcessors
 服务器端中，如果handler中的执行业务时间很久，就会与客户端阻塞
 
 - 解决方案1：使用eventloop中的taskqueue执行
+
+```java
+@Override
+public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+    ctx.channel().eventLoop().execute(() -> {
+        try {
+            Thread.sleep(10*1000);
+            ctx.writeAndFlush(Unpooled.copiedBuffer("hello1 : "+ ctx.channel().remoteAddress(), CharsetUtil.UTF_8));
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    });
+}
+```
+
