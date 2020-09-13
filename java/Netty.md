@@ -561,3 +561,20 @@ public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception 
 }
 ```
 
+## 定时执行
+
+- 新建 runnable 用于执行调度
+- 稍后执行
+- 五秒之后执行
+
+```java
+ctx.channel().eventLoop().schedule(() -> {
+    try {
+        Thread.sleep(1*1000);
+        ctx.writeAndFlush(Unpooled.copiedBuffer("hello1 time : "+ ctx.channel().remoteAddress(), CharsetUtil.UTF_8));
+    } catch (InterruptedException e) {
+        e.printStackTrace();
+    }
+}, 5, TimeUnit.SECONDS);
+```
+
