@@ -665,3 +665,23 @@ public class HttpServerHandler extends SimpleChannelInboundHandler<HttpObject> {
 
 # Netty核心组件
 
+- ServerBootstrap，Bootstrap 
+  - 用于设置eventLoop
+  - channel:设置服务器端通道的实现
+  - optionL 给serverchannel添加配置
+  - childHandler: 用于添加workergroup对应的自定义的handler
+  - handler：添加bossgroup对应的handler
+- Channel
+  - channel类型与协议有关
+- Selector
+- ChannelHandler
+ChannelInboundHandler:负责出站
+ChannelOutboundHandler: 负责入站
+![](../image/java/Netty/20200920104532.png)
+
+- PipeLine
+
+pipeline是一个包含头和尾的类似双向链表
+
+![](../image/java/Netty/20200920111503.jpg)
+
