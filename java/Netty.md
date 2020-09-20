@@ -523,9 +523,9 @@ public class NettyClientHandler extends ChannelInboundHandlerAdapter {
 
 ### NioEventLoopGroup的工作线程
 
-- NioEventLoopGroup默认的线程数是：cpu核心数*2
+- NioEventLoopGroup默认的线程数是：cpu核心数*2，new NioEventLoopGroup构造方法默认使用了NettyRuntime.availableProcessors() * 2
 
-new NioEventLoopGroup构造方法默认使用了NettyRuntime.availableProcessors() * 2
+  如果构造参数有值，则使用构造参数的线程数
 
 - LoppGroup使用EventExecutor来管理线程
 
@@ -577,4 +577,91 @@ ctx.channel().eventLoop().schedule(() -> {
     }
 }, 5, TimeUnit.SECONDS);
 ```
+
+## netty异步模型
+
+- Netty的异步模型是建立在future上的
+- 例如：添加一个监听，判断是否绑定端口成功
+
+```java
+//绑定一个端口并且同步
+ChannelFuture sync = bootstrap.bind(6666).sync();
+sync.addListener((future) -> {
+    if(future.isSuccess()) {
+        System.out.println("绑定端口 6666 成功....");
+    }
+});
+```
+
+# http服务
+
+```java
+public static void main(String[] args) {
+    EventLoopGroup bossGroup = new NioEventLoopGroup(1);
+    EventLoopGroup workGroup = new NioEventLoopGroup();
+    try {
+        ServerBootstrap bootstrap = new ServerBootstrap();
+        bootstrap.group(bossGroup, workGroup)
+                .channel(NioServerSocketChannel.class)
+                .childHandler(new HttpServerInitializer());
+        ChannelFuture channelFuture = bootstrap.bind(new InetSocketAddress(6666)).sync();
+        channelFuture.channel().closeFuture().sync();
+    } catch (Exception e) {
+
+    } finally {
+        bossGroup.shutdownGracefully();
+        bossGroup.shutdownGracefully();
+    }
+}
+```
+
+```
+ * @Description 在某个Channel注册到EventLoop后，对这个Channel执行一些初始化操作
+ * @createTime 2020年09月16日 09:23:00
+ */
+public class HttpServerInitializer extends ChannelInitializer<SocketChannel> {
+    /**
+     * 向管道加入处理器
+     * @param socketChannel
+     * @throws Exception
+     */
+    @Override
+    protected void initChannel(SocketChannel socketChannel) throws Exception {
+        ChannelPipeline pipeline = socketChannel.pipeline();
+        pipeline.addLast("httpServerCodec", new HttpServerCodec());
+        pipeline.addLast("httpServerHandler", new HttpServerHandler());
+    }
+}
+```
+
+```java
+* @Description HttpObject:客户端与服务器端通讯的工具封装成：HttpObject
+ * @createTime 2020年09月16日 09:38:00
+ */
+@Slf4j
+public class HttpServerHandler extends SimpleChannelInboundHandler<HttpObject> {
+
+    /**
+     * 读取数据
+     * @param ch
+     * @param object
+     * @throws Exception
+     */
+    @Override
+    protected void channelRead0(ChannelHandlerContext ch, HttpObject object) throws Exception {
+        if(object instanceof HttpRequest) {
+            log.debug("msg: {} ", object.getClass());
+            log.debug("客户端地址: {} ", ch.channel().remoteAddress());
+            ByteBuf content = Unpooled.copiedBuffer("netty, 服务器", CharsetUtil.UTF_8);
+
+            DefaultFullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK, content);
+            response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/plain; charset=UTF-8");
+            response.headers().set(HttpHeaderNames.CONTENT_LENGTH, content.readableBytes());
+            ch.writeAndFlush(response);
+        }
+    }
+}
+```
+
+# Netty核心组件
 

@@ -879,7 +879,7 @@ git rm -r --cached .
 
 ```bash
 type如下：
-    - feat: 新增feature
+    - feat: 新增功能
     - fix: 修复bug
     - docs: 仅仅修改了文档，比如README、CHANGELOG、CONTRIBUTE等等
     - style: 仅仅修改了空格、格式所以进、变量名等等，不改变代码逻辑
