@@ -665,6 +665,8 @@ public class HttpServerHandler extends SimpleChannelInboundHandler<HttpObject> {
 
 # Netty核心组件
 
+## 常用组件
+
 - ServerBootstrap，Bootstrap 
   - 用于设置eventLoop
   - channel:设置服务器端通道的实现
@@ -685,3 +687,16 @@ pipeline是一个包含头和尾的类似双向链表
 
 ![](../image/java/Netty/20200920111503.jpg)
 
+## EventLoop组件
+
+- 一个EventLoopGroup 包含一个或者多个EventLoop；
+- 一个EventLoop 在它的生命周期内只和一个Thread 绑定；
+- 所有由EventLoop 处理的I/O 事件都将在它专有的Thread 上被处理；
+- 一个Channel 在它的生命周期内只注册于一个EventLoop；
+- 一个EventLoop 可能会被分配给一个或多个Channel。
+
+NioEventLoopGroup对象可以理解为一个线程池，内部维护了一组线程，每个线程负责处理多个Channel上的事件，而一个Channel只对应于一个线程，这样可以回避多线程下的数据同步问题。
+
+## unpooled 缓存操作
+
+通过两个指针，readerIndex与writerIndex分别指向已经读到的位置和写入的位置，比JDK提供的ByteBuffer 省了flip操作
