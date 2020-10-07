@@ -685,3 +685,229 @@ pipeline是一个包含头和尾的类似双向链表
 
 ![](../image/java/Netty/20200920111503.jpg)
 
+# 心跳机制
+
+IdleStateHandler是netty处理空闲状态的处理器
+
+- readerIdleTime:多久时间没读，发送一个心跳检测包，是否连接
+- writerIdleTime：多久时间没写，发送一个心跳检测包
+- allIdleTime：多久时间没有读写
+
+```java
+EventLoopGroup bossGroup = new NioEventLoopGroup(1);
+EventLoopGroup workGroup = new NioEventLoopGroup();
+try {
+
+    ServerBootstrap bootstrap = new ServerBootstrap();
+    bootstrap.group(bossGroup, workGroup)
+            .channel(NioServerSocketChannel.class)
+            .handler(new LoggingHandler(LogLevel.INFO))
+            .childHandler(new ChannelInitializer<SocketChannel>() {
+                @Override
+                protected void initChannel(SocketChannel ch) throws Exception {
+                    ChannelPipeline pipeline = ch.pipeline();
+                    //在pipeline中 加入解码器
+                    pipeline.addLast(new IdleStateHandler(3,5,7, TimeUnit.SECONDS));
+                    pipeline.addLast(new IdleStateServerHandler());
+                }
+            });
+    log.debug("===>聊天服务器端启动");
+    ChannelFuture sync = bootstrap.bind(this.port).sync();
+    sync.channel().closeFuture().sync();
+} finally {
+    bossGroup.shutdownGracefully();
+    workGroup.shutdownGracefully();
+}
+```
+
+```java
+public class IdleStateServerHandler extends ChannelInboundHandlerAdapter {
+    /**
+     *
+     * @param ctx 上下文
+     * @param evt 事件
+     * @throws Exception
+     */
+    @Override
+    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+        //如果是心跳检测机制
+        if(evt instanceof IdleStateEvent ) {
+            IdleStateEvent event = (IdleStateEvent) evt;
+            String msg = null;
+            switch (event.state()) {
+                case ALL_IDLE:
+                    msg = "读写空闲";
+                    break;
+                case READER_IDLE:
+                    msg = "读空闲";
+                    break;
+                case WRITER_IDLE:
+                    msg = "写空闲";
+                    break;
+            }
+            log.info(msg);
+        }
+    }
+}
+```
+
+# websorcket
+
+- websocket数据以 帧frame传输
+
+```java
+EventLoopGroup bossGroup = new NioEventLoopGroup(1);
+EventLoopGroup workGroup = new NioEventLoopGroup();
+try {
+
+    ServerBootstrap bootstrap = new ServerBootstrap();
+    bootstrap.group(bossGroup, workGroup)
+            .channel(NioServerSocketChannel.class)
+            .handler(new LoggingHandler(LogLevel.INFO))
+            .childHandler(new ChannelInitializer<SocketChannel>() {
+                @Override
+                protected void initChannel(SocketChannel ch) throws Exception {
+                    ChannelPipeline pipeline = ch.pipeline();
+                    //使用http解码和编码
+                    pipeline.addLast(new HttpServerCodec());
+                    //以块方式进行读写
+                    pipeline.addLast(new ChunkedWriteHandler());
+                    //http传输是分段的，HttpObjectAggregator多段聚合
+                    //所以在http传输中，大量数据会有多个http请求
+                    pipeline.addLast(new HttpObjectAggregator(8192));
+                    // 浏览器访问 ws://127.0.0.1/hello
+                    //WebSocketServerProtocolHandler 将http升级 为 websocket
+                    pipeline.addLast(new WebSocketServerProtocolHandler("/hello"));
+                    //以文本帧的方式进行处理
+                    pipeline.addLast(new TextWebSocketFrameHandler());
+
+                }
+            });
+    log.debug("===>服务器端启动");
+    ChannelFuture sync = bootstrap.bind(this.port).sync();
+    sync.channel().closeFuture().sync();
+} finally {
+    bossGroup.shutdownGracefully();
+    workGroup.shutdownGracefully();
+}
+```
+
+# 编解码
+
+## Protobuf
+
+- 支持跨平台夸语言的编解码
+
+- 很时候RPC或者数据存储  
+
+## 生成代码
+
+- 引入pom
+
+```xml
+<dependency>
+    <groupId>com.google.protobuf</groupId>
+    <artifactId>protobuf-java</artifactId>
+    <version>3.4.0</version>
+</dependency>
+```
+
+- 下载生成客户端工具
+
+<https://github.com/protocolbuffers/protobuf/releases>
+
+# netty出站入站机制
+
+- channelPipeline 提供了 channelhandler链的容器
+- 写入 socket叫 出站，读socket叫入站
+- netty发送或者 接受一个消息，会发生一次解码、编码
+- 出站 需要 编码，  入站 需要解码
+
+![](..\image\java\Netty\20201006141408.jpg)
+
+## 解码器
+
+- ByteToMessageCodec
+
+由于不可能知道远程节点是否会一次性发送完整的信息，所有tcp可能会出现粘包拆包问题，这个类会对入站数据进行缓冲，知道他完全被处理好
+
+![](..\image\java\Netty\20201006143240.png)
+
+举例：
+
+有个int类型的解码器
+
+重写decode方法，socket发送两个int数据，入站解码开始解码，读到四个字节就将其转化为int放入list中，直到全部读完
+
+然后丢给下一个handler执行
+
+![](..\image\java\Netty\20201006145150.png)
+
+![](..\image\java\Netty\20201006164012.png)
+
+# TCP粘包拆包
+
+TCP是面向连接的，面向流的，提供高可靠性服务。收发两端（客户端和服务器端）都要有一一成对的socket，因此，发送端为了将多个发给接收端的包，更有效的发给对方，使用了优化方法（Nagle算法），将多次间隔较小且数据量小的数据，合并成一个大的数据块，然后进行封包。这样做虽然提高了效率，但是接收端就难于分辨出完整的数据包了，因为面向流的通信是无消息保护边界的
+
+## 基本介绍
+
+- 服务端分别收到了D1和D2，没有粘包和拆包
+- 服务端一次性收到了D1和D2，称为TCP粘包
+- 服务端两次读取到了两个数据包，第一次读到了D1的完整部分和D2的部分数据，第二次读到了D2的剩余部分。 这称为TCP拆包
+- 服务端两次读取到两个数据包，第一次是D1的部分，第二次是D1的剩余部分和D2的完整部分。
+
+![](..\image\java\Netty\20201006171253.png)
+
+## 举例
+
+
+
+## 解决方案
+
+- 自定义协议+编解码器
+
+# netty源码解析
+
+## netty启动过程
+
+- 先看example下的示例代码
+
+EchoServer
+EchoServerHandler
+EchoClient
+EchoClientHandler
+
+### EchoServer
+
+```java
+EventLoopGroup bossGroup = new NioEventLoopGroup(1);
+EventLoopGroup workerGroup = new NioEventLoopGroup();
+```
+
+bossGroup用于接收TCP请求，他会将请求交给workgroup，workgroup获取真正的连接进行通信
+
+EventLoopGroup是一个时间循环组（线程组）， 含有多个EventLoop
+
+MultithreadEventExecutorGroup
+		 ------ MultithreadEventExecutorGroup()方法					
+
+```
+//创建时间循环组
+children = new EventExecutor[nThreads];
+```
+
+引导类
+
+```
+ServerBootstrap b = new ServerBootstrap();
+```
+
+channel方法目的通过反射创建channelFactory
+
+```
+b.group(bossGroup, workerGroup)
+ .channel(NioServerSocketChannel.class)
+```
+
+### EventLoopGroup
+
