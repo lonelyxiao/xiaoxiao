@@ -611,6 +611,8 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
 
 为所有微服务配置提供一个中心化的配置，将配置信息已REST的方式进行暴露
 
+此处引入zookeeper是将其作为注册中心
+
 ## server构建
 
 引入pom
@@ -639,7 +641,7 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
         <groupId>org.apache.zookeeper</groupId>
         <artifactId>zookeeper</artifactId>
         <version>3.6.0</version>
-    </dependency>a
+    </dependency>
 </dependencies>
 ```
 
@@ -1045,7 +1047,7 @@ public class NacosMain9001 {
 
 进入nacos服务中心，能看到服务管理-服务列表下有这个服务
 
-### config
+### Config（统一配置）
 
 - 引入jar包
 
