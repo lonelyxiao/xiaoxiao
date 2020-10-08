@@ -87,8 +87,6 @@ master 选举，将一个node变为master
   - jvm 
   - elasticsearch.yml 配置文文件
 
-
-
 修改配置文件
 
 ```yaml
@@ -106,13 +104,16 @@ http.cors.allow-origin: "*"
 
 可能需要修改
 
+**注：这一步是为了防止启动容器时，报出如下错误：bootstrap checks failed max virtual memory areas vm.max_map_count [65530] likely too low, increase to at least [262144]**
+
 ```shell
 [root@localhost ~]# vim /etc/security/limits.conf
 myes soft nofile 65536
 myes hard nofile 100000
 [root@localhost ~]# vim /etc/sysctl.conf 
 vm.max_map_count=655360
-
+##执行让其生效
+[root@localhost ~]#sysctl -p
 ```
 
 
@@ -129,6 +130,154 @@ vm.max_map_count=655360
 ```
 
 访问<http://192.168.1.131:9200/>
+
+### elasticsearch-.yml详解
+
+- 6.x
+
+```yaml
+# ======================== Elasticsearch Configuration =========================
+#
+# NOTE: Elasticsearch comes with reasonable defaults for most settings.
+# Before you set out to tweak and tune the configuration, make sure you
+# understand what are you trying to accomplish and the consequences.
+#
+# The primary way of configuring a node is via this file. This template lists
+# the most important settings you may want to configure for a production cluster.
+#
+# Please see the documentation for further information on configuration options:
+# <http://www.elastic.co/guide/en/elasticsearch/reference/current/setup-configuration.html>
+#
+# ---------------------------------- Cluster -----------------------------------
+#
+# Use a descriptive name for your cluster:
+# 集群名称，默认是elasticsearch
+# cluster.name: my-application
+#
+# ------------------------------------ Node ------------------------------------
+#
+# Use a descriptive name for the node:
+# 节点名称，默认从elasticsearch-2.4.3/lib/elasticsearch-2.4.3.jar!config/names.txt中随机选择一个名称
+# node.name: node-1
+#
+# Add custom attributes to the node:
+#
+# node.rack: r1
+#
+# ----------------------------------- Paths ------------------------------------
+#
+# Path to directory where to store the data (separate multiple locations by comma):
+# 可以指定es的数据存储目录，默认存储在es_home/data目录下
+# path.data: /path/to/data
+#
+# Path to log files:
+# 可以指定es的日志存储目录，默认存储在es_home/logs目录下
+# path.logs: /path/to/logs
+#
+# ----------------------------------- Memory -----------------------------------
+#
+# Lock the memory on startup:
+# 锁定物理内存地址，防止elasticsearch内存被交换出去,也就是避免es使用swap交换分区
+# bootstrap.memory_lock: true
+#
+#
+#
+# 确保ES_HEAP_SIZE参数设置为系统可用内存的一半左右
+# Make sure that the `ES_HEAP_SIZE` environment variable is set to about half the memory
+# available on the system and that the owner of the process is allowed to use this limit.
+#
+# 当系统进行内存交换的时候，es的性能很差
+# Elasticsearch performs poorly when the system is swapping the memory.
+#
+# ---------------------------------- Network -----------------------------------
+#
+#
+# 为es设置ip绑定，默认是127.0.0.1，也就是默认只能通过127.0.0.1 或者localhost才能访问
+# es1.x版本默认绑定的是0.0.0.0 所以不需要配置，但是es2.x版本默认绑定的是127.0.0.1，需要配置
+# Set the bind address to a specific IP (IPv4 or IPv6):
+#
+# network.host: 192.168.0.1
+#
+#
+# 为es设置自定义端口，默认是9200
+# 注意：在同一个服务器中启动多个es节点的话，默认监听的端口号会自动加1：例如：9200，9201，9202...
+# Set a custom port for HTTP:
+#
+# http.port: 9200
+#
+# For more information, see the documentation at:
+# <http://www.elastic.co/guide/en/elasticsearch/reference/current/modules-network.html>
+#
+# --------------------------------- Discovery ----------------------------------
+#
+# 当启动新节点时，通过这个ip列表进行节点发现，组建集群
+# 默认节点列表：
+# 127.0.0.1，表示ipv4的回环地址。
+# [::1]，表示ipv6的回环地址
+#
+# 在es1.x中默认使用的是组播(multicast)协议，默认会自动发现同一网段的es节点组建集群，
+# 在es2.x中默认使用的是单播(unicast)协议，想要组建集群的话就需要在这指定要发现的节点信息了。
+# 注意：如果是发现其他服务器中的es服务，可以不指定端口[默认9300]，如果是发现同一个服务器中的es服务，就需要指定端口了。
+# Pass an initial list of hosts to perform discovery when new node is started:
+#
+# The default list of hosts is ["127.0.0.1", "[::1]"]
+#
+# discovery.zen.ping.unicast.hosts: ["host1", "host2"]
+#
+#
+#
+#
+# 通过配置这个参数来防止集群脑裂现象 (集群总节点数量/2)+1
+# Prevent the "split brain" by configuring the majority of nodes (total number of nodes / 2 + 1):
+#
+# discovery.zen.minimum_master_nodes: 3
+#
+# For more information, see the documentation at:
+# <http://www.elastic.co/guide/en/elasticsearch/reference/current/modules-discovery.html>
+#
+# ---------------------------------- Gateway -----------------------------------
+#
+# Block initial recovery after a full cluster restart until N nodes are started:
+# 一个集群中的N个节点启动后,才允许进行数据恢复处理，默认是1
+# gateway.recover_after_nodes: 3
+#
+# For more information, see the documentation at:
+# <http://www.elastic.co/guide/en/elasticsearch/reference/current/modules-gateway.html>
+#
+# ---------------------------------- Various -----------------------------------
+# 在一台服务器上禁止启动多个es服务
+# Disable starting multiple nodes on a single system:
+#
+# node.max_local_storage_nodes: 1
+#
+# 设置是否可以通过正则或者_all删除或者关闭索引库，默认true表示必须需要显式指定索引库名称
+# 生产环境建议设置为true，删除索引库的时候必须显式指定，否则可能会误删索引库中的索引库。
+# Require explicit names when deleting indices:
+#
+# action.destructive_requires_name: true
+```
+
+- 7.x
+
+```yaml
+cluster.name: elasticsearch-cluster
+node.name: es-node3
+network.bind_host: 0.0.0.0
+network.publish_host: 192.168.1.134
+http.port: 9202
+#内部节点通信端口
+transport.tcp.port: 9302
+#跨域
+http.cors.enabled: true
+http.cors.allow-origin: "*"
+#集群节点
+discovery.seed_hosts: ["192.168.1.134:9300","192.168.1.134:9301", "192.168.1.134:9302"]
+#有资格成为主节点的节点配置
+cluster.initial_master_nodes: ["es-node1","es-node2","es-node3"]
+
+```
+
+
 
 ## 安装Kibana
 
@@ -180,6 +329,11 @@ myes@localhost home]$ ./kibana-7.3.2/bin/kibana
 
 
 # 简单的CRUD
+
+**在7.X后，官方废弃type,默认type为_doc**
+
+故：
+ES 的Type 被废弃后，库表合一，Index 既可以被认为对应 MySQL 的 Database，也可以认为对应 table。
 
 ## 简单的集群管理
 
@@ -465,7 +619,7 @@ GET /order/product/_search
 
 ## 字段不进行分词
 
-term表示字段不能进行分词，一定要全部匹配
+**term**表示字段不能进行分词，一定要全部匹配
 
 ```json
 GET /order/_search
@@ -1179,6 +1333,15 @@ PUT /my_index/_settings
 ```
 
 # java 操作
+
+- 引入pom
+
+```xml
+<dependency>
+    <groupId>org.elasticsearch.client</groupId>
+    <artifactId>elasticsearch-rest-high-level-client</artifactId>
+</dependency>
+```
 
 ## insert
 
