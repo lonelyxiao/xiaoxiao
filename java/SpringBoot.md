@@ -2,15 +2,13 @@
 
 **萧冀豪**
 
-# spring boot 入门
+# spring boot 简介
 
 目的：快速的搭建spring的产品级的环境
 
-## spring boot 启动器
+## 引入方式
 
-启动器其实就是jar包的集合
-
-导入父项目
+- 导入父项目
 
 ```xml
 <parent>
@@ -21,7 +19,7 @@
 </parent>
 ```
 
-另一种方式
+- 另一种方式
 
 ```xml
 <dependency>
@@ -32,6 +30,10 @@
     <scope>import</scope>
 </dependency>
 ```
+
+## spring boot 启动器
+
+启动器其实就是jar包的集合
 
 如：支持全栈的开发，如spring mvc的jar包
 
@@ -51,7 +53,9 @@
 </dependency>
 ```
 
-主程序入口，进入注解源码
+## 启动类源码解析
+
+主程序入口，进入@SpringBootApplication注解源码
 
 ```java
 @Target({ElementType.TYPE})
@@ -72,9 +76,7 @@
 public @interface SpringBootApplication
 ```
 
-### 启动注解详解
-
-在@SpringBootConfiguration中可以看到
+- 在@SpringBootConfiguration中可以看到
 
 ```java
 @Target({ElementType.TYPE})
@@ -84,7 +86,7 @@ public @interface SpringBootApplication
 public @interface SpringBootConfiguration
 ```
 
-**@EnableAutoConfiguration**是开启自动配置的注解+扫描对应的包
+- **@EnableAutoConfiguration**是开启自动配置的注解+扫描对应的包
 
 进入其中看到如下代码
 
@@ -98,7 +100,7 @@ public @interface SpringBootConfiguration
 public @interface EnableAutoConfiguration
 ```
 
-**@AutoConfigurationPackage**自动配置包
+@EnableAutoConfiguration----->**@AutoConfigurationPackage**自动配置包
 
 ```java
 @Target({ElementType.TYPE})
@@ -109,9 +111,22 @@ public @interface EnableAutoConfiguration
 public @interface AutoConfigurationPackage
 ```
 
-**@Import({Registrar.class})** spring注解，导入组件
+@EnableAutoConfiguration
+
+----->@AutoConfigurationPackage
+
+------>**@Import({Registrar.class})** ,spring注解，通过这个注解导入组件导入组件
 
 导入的组件：
+
+- ImportBeanDefinitionRegistrar
+  - 只能通过其他类@Import的方式来加载，通常是启动类或配置类
+  - 使用@Import，如果括号中的类是ImportBeanDefinitionRegistrar的实现类，则会调用接口方法，将其中要注册的类注册成bean
+  - 实现该接口的类拥有注册bean的能力
+
+new PackageImport(metadata).getPackageName()，它其实返回了当前主程序类的 *同级以及子级* 的包组件
+
+**故这个注解的作用就是将当前主程序及其子包下的类注入到容器中**
 
 ```java
 static class Registrar implements ImportBeanDefinitionRegistrar, DeterminableImports {
@@ -124,44 +139,42 @@ static class Registrar implements ImportBeanDefinitionRegistrar, DeterminableImp
         //，将其下的注解放入spring IOC容器中
         AutoConfigurationPackages.register(registry, new String[]{(new AutoConfigurationPackages.PackageImport(metadata)).getPackageName()});
     }
-
     public Set<Object> determineImports(AnnotationMetadata metadata) {
         return Collections.singleton(new AutoConfigurationPackages.PackageImport(metadata));
     }
 }
 ```
 
-**@Import({EnableAutoConfigurationImportSelector.class})**注解：导入自动装配的组件
 
-去看源码，将所有的组件导入，将全类名返回
+
+回到@SpringBootApplication
+
+------>@EnableAutoConfiguration
+
+------>@Import(AutoConfigurationImportSelector.class)注解
+
+它导入自动装配的组件
+
+进入源码，此类实现了一个ImportSelector，重新selectImports方法，其将所有的组件导入，将全类名返回，这样，将String[]数组中的全路径的包都加入到容器中
 
 ```java
-public String[] selectImports(AnnotationMetadata annotationMetadata) {
-    if(!this.isEnabled(annotationMetadata)) {
-        return NO_IMPORTS;
-    } else {
-        try {
-            AutoConfigurationMetadata ex = AutoConfigurationMetadataLoader.loadMetadata(this.beanClassLoader);
-            AnnotationAttributes attributes = this.getAttributes(annotationMetadata);
-            //返回的组件方法,获取候选的配置
-            List configurations = this.
-                getCandidateConfigurations(annotationMetadata, attributes);
-            configurations = this.removeDuplicates(configurations);
-            configurations = this.sort(configurations, ex);
-            Set exclusions = this.getExclusions(annotationMetadata, attributes);
-            this.checkExcludedClasses(configurations, exclusions);
-            configurations.removeAll(exclusions);
-            configurations = this.filter(configurations, ex);
-            this.fireAutoConfigurationImportEvents(configurations, exclusions);
-            return (String[])configurations.toArray(new String[configurations.size()]);
-        } catch (IOException var6) {
-            throw new IllegalStateException(var6);
-        }
-    }
-}
+@Override
+	public String[] selectImports(AnnotationMetadata annotationMetadata) {
+		if (!isEnabled(annotationMetadata)) {
+			return NO_IMPORTS;
+		}
+		AutoConfigurationEntry autoConfigurationEntry = getAutoConfigurationEntry(annotationMetadata);
+		return StringUtils.toStringArray(autoConfigurationEntry.getConfigurations());
+	}
 ```
 
-this.getSpringFactoriesLoaderFactoryClass()获取到的是EnableAutoConfiguration.class
+----->selectImports()
+
+------->this.getAutoConfigurationEntry()
+
+------>getCandidateConfigurations()方法中
+
+SpringFactoriesLoader.loadFactoryNames(getSpringFactoriesLoaderFactoryClass()会将所有自动装配的组件加入容器中
 
 ```java
 protected List<String> getCandidateConfigurations(AnnotationMetadata metadata, AnnotationAttributes attributes) {
