@@ -1,3 +1,5 @@
+# 写在前面
+
 **本笔记为观看雷老师视频所书**
 
 **萧冀豪**
@@ -185,9 +187,12 @@ protected List<String> getCandidateConfigurations(AnnotationMetadata metadata, A
 }
 ```
 
-loadFactoryNames下代码：factoryClass为EnableAutoConfiguration，
+getCandidateConfigurations()
+---->getSpringFactoriesLoaderFactoryClass()方法返回EnableAutoConfiguration.class
 
-从方法中我们可以看到
+
+
+从SpringFactoriesLoader.loadFactoryNames()方法中我们可以看到
 
 将META-INF/spring.factories配置的容器的EnableAutoConfiguration的配置加载，以数组方式返回，用这些配置来自动配置，如：org.springframework.boot.autoconfigure.web.WebMvcAutoConfiguration容器
 
