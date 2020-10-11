@@ -55,7 +55,7 @@
 </dependency>
 ```
 
-## 启动类源码解析
+# 启动类源码解析
 
 主程序入口，进入@SpringBootApplication注解源码
 
@@ -190,8 +190,6 @@ protected List<String> getCandidateConfigurations(AnnotationMetadata metadata, A
 getCandidateConfigurations()
 ---->getSpringFactoriesLoaderFactoryClass()方法返回EnableAutoConfiguration.class
 
-
-
 从SpringFactoriesLoader.loadFactoryNames()方法中我们可以看到
 
 将META-INF/spring.factories配置的容器的EnableAutoConfiguration的配置加载，以数组方式返回，用这些配置来自动配置，如：org.springframework.boot.autoconfigure.web.WebMvcAutoConfiguration容器
@@ -277,7 +275,7 @@ App启动类需要在其扫描的包同级或者同级之上
 
 # 配置文件
 
-##  yaml配置文件
+##  属性注入
 
 ```yaml
 #自定义注入yaml的属性（com.xiao.bean.TestYaml）
@@ -479,8 +477,7 @@ SpringBoot：底层是Spring框架，Spring框架默认是用JCL；‘
 
 所以，在springboot使用了 slf4j的中间包来解决兼容问题（具体可查官网替换原则）
 
-
-日志级别由低到高trace、debug、info、warn、error
+## 日志级别由低到高trace、debug、info、warn、error
 
 springboot默认使用info级别
 
@@ -588,9 +585,9 @@ logback.xml：直接就被日志框架识别了；
 ```
 
 
-## 访问静态资源
+# 访问静态资源
 
-### 在classes/static下寻找
+- 在classes/static下寻找
 
 在目录下放入图片
 
@@ -598,9 +595,9 @@ logback.xml：直接就被日志框架识别了；
 
 通过<http://localhost:8080/java.jpg>可以访问
 
-## 文件上传
 
-### @RestController详解
+
+# @RestController详解
 
 ```
 表示这个类的方法类默认返回转为json，不再需要@ResponseBody
@@ -612,7 +609,6 @@ logback.xml：直接就被日志框架识别了；
 @RestController //表示这个类的方法类默认返回转为json，不再需要@ResponseBody
 public class FileController {
 
-
     @RequestMapping("/fileupload")
     public Map fileUpload(MultipartFile filename){
         Map map = new HashMap<>();
@@ -622,6 +618,7 @@ public class FileController {
 }
 ```
 
+# 文件上传设置
 ```yml
 spring:
   http:
@@ -632,7 +629,7 @@ spring:
       maxRequestSize: 200MB
 ```
 
-# spring boot WEB开发
+# WEB开发
 
 ## 静态资源映射
 
@@ -653,6 +650,8 @@ webjars：以jar包的方式引用资源，他们可以以maven的方式将前�
 ```
 
 再访问<http://localhost:8083/webjars/jquery/3.3.1/jquery.js>，就能访问到jquery文件（只需要访问webjars下的resources下路径）
+
+- 源码解析
 
 ```java
 public void addResourceHandlers(ResourceHandlerRegistry registry) {
@@ -2722,17 +2721,26 @@ public class ConstraintBean {
 
 - 定义处理器
 
-```java
-public class MyConstraintValidator implements ConstraintValidator<MyConstraint, Object> {
-    @Override
-    public void initialize(MyConstraint constraintAnnotation) {
-        System.out.println(constraintAnnotation);
-    }
+```public class MyConstraintValidator implements ConstraintValidator<MyConstraint, Object> {
 
     @Override
-    public boolean isValid(Object object, ConstraintValidatorContext constraintValidatorContext) {
-        System.out.println("valid"+object.getClass());
-        return false;
+
+    public void initialize(MyConstraint constraintAnnotation) {
+
+        System.out.println(constraintAnnotation);
+
     }
+
+
+    @Override
+
+    public boolean isValid(Object object, ConstraintValidatorContext constraintValidatorContext) {
+
+        System.out.println("valid"+object.getClass());
+
+        return false;
+
+    }
+
 }
 ```
