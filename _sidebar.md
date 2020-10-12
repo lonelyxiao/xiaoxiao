@@ -12,7 +12,7 @@
 	* [Spring注解](/java/Spring注解.md)
 	* [工作流](/java/workflow.md)
 	* [设计模式](/java/设计模式.md)
-* 前端frontend
+* 前端
 	* [Angular](/frontend/angular)
 	* [Vue](/frontend/vue)
 	* [nodejs](/frontend/nodejs)

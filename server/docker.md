@@ -246,9 +246,7 @@ cranky_shirley
 
 ```
 
-## 重要命令
-
-### 后台运行容器
+## 后台运行容器
 
 ```shell
 [root@localhost ~]# docker run -d centos
@@ -269,7 +267,7 @@ hello
 
 ```
 
- ### 查看容器日志
+ ## 查看容器日志
 
 ```shell
 
@@ -282,15 +280,15 @@ hello
 --tail 数字  显示最后N条日志
 ```
 
-### 查看容器内运行的进程
+## 查看容器内运行的进程
 
 docker top 容器id
 
-### 查看容器内部细节
+## 查看容器内部细节
 
 docker inspect 容器id
 
-### 在容器内命令行交互
+## 在容器内命令行交互
 
 ```shell
 [root@localhost ~]# docker start 132c9b24081e
@@ -309,7 +307,7 @@ total 4
 
 ```
 
-### 将容器内容拷贝到宿主机
+## 将容器内容拷贝到宿主机
 
 ```shell
 #docker cp 容器id：容器文件目录 宿主机目录
@@ -317,7 +315,7 @@ total 4
 
 ```
 
-### 映射端口
+## 映射端口
 
 ```shell
 #将8088端口映射到docker启动的容器的8080端口上，
@@ -574,5 +572,111 @@ http {
 		}
 	}
 }
+```
+
+# 安装ES集群
+
+- 建立三个配置文件 es1.yml,es2.yml,es3.yml
+
+```yaml
+cluster.name: elasticsearch-cluster
+node.name: es-node1
+network.bind_host: 0.0.0.0
+network.publish_host: 127.0.0.1
+http.port: 9200
+transport.tcp.port: 9300
+http.cors.enabled: true
+http.cors.allow-origin: "*"
+node.master: true
+node.data: true
+discovery.zen.ping.unicast.hosts: ["127.0.0.1:9300","127.0.0.1:9301","127.0.0.1:9302"]
+discovery.zen.minimum_master_nodes: 2
+
+```
+
+- 建立数据存储目录 data0 data1 data2, 并且授予 777权限
+
+- 修改文件
+
+```shell
+[root@localhost ~]# vim /etc/sysctl.conf 
+vm.max_map_count=655360
+[root@localhost ~]#sysctl -p
+```
+
+- 启动
+
+```shell
+
+ docker run -e ES_JAVA_OPTS="-Xms256m -Xmx256m" -d -p 9200:9200 -p 9300:9300 -v /home/es/es1.yml:/usr/share/elasticsearch/config/elasticsearch.yml -v /home/es/data0:/usr/share/elasticsearch/data --name es0 elasticsearch:7.9.2
+
+ docker run -e ES_JAVA_OPTS="-Xms256m -Xmx256m" -d -p 9201:9201 -p 9301:9301 -v /home/es/es2.yml:/usr/share/elasticsearch/config/elasticsearch.yml -v /home/es/data1:/usr/share/elasticsearch/data --name es1 elasticsearch:7.9.2
+
+ docker run -e ES_JAVA_OPTS="-Xms256m -Xmx256m" -d -p 9202:9202 -p 9302:9302 -v /home/es/es3.yml:/usr/share/elasticsearch/config/elasticsearch.yml -v /home/es/data2:/usr/share/elasticsearch/data --name es2 elasticsearch:7.9.2
+
+```
+
+# 安装Kibana
+
+- 编辑配置文件 kibana.yml
+
+```yaml
+server.name: kibana
+server.host: "0"
+elasticsearch.hosts: ["http://192.168.1.134:9201"]
+xpack.monitoring.ui.container.elasticsearch.enabled: true
+elasticsearch.pingTimeout: 90000
+elasticsearch.requestTimeout: 90000
+i18n.locale: "zh-CN"
+
+```
+
+- 运行
+
+```shell
+docker run -d --name kibana -p 5601:5601 \
+-v /home/es/kibana.yml:/usr/share/kibana/config/kibana.yml \
+kibana:7.9.2
+```
+
+- 配置文件说明
+
+```yaml
+#节点地址和端口 必须是同一个集群的 必须以http或者https开头 填写实际的es地址和端口
+elasticsearch.hosts: ['http://172.16.10.202:9200','http://172.16.10.202:9202', 'http://172.16.10.202:9203']
+#发给es的查询记录 需要日志等级是verbose=true 
+elasticsearch.logQueries: true
+#连接es的超时时间 单位毫秒
+elasticsearch.pingTimeout: 30000
+elasticsearch.requestTimeout: 30000
+#是否只能使用server.host访问服务
+elasticsearch.preserveHost: true
+#首页对应的appid
+kibana.defaultAppId: "home"
+kibana.index: '.kibana'
+#存储日志的文件设置
+logging.dest: /usr/share/kibana/logs/kibana.log
+logging.json: true
+#是否只输出错误日志信息
+logging.quiet: false
+logging.rotate:
+  enabled: true
+  #日志文件最大大小
+  everyBytes: 10485760
+  #保留的日志文件个数
+  keepFiles: 7
+logging.timezone: UTC
+logging.verbose: true
+monitoring.kibana.collection.enabled: true
+xpack.monitoring.collection.enabled: true
+#存储持久化数据的位置
+path.data: /usr/share/kibana/data
+#访问kibana的地址和端口配置 一般使用可访问的服务器地址即可
+server.host: 0
+#端口默认5601
+server.port: 5601
+server.name: "kibana"
+#配置页面语言
+i18n.locale: zh-CN
 ```
 
