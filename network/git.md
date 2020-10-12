@@ -728,6 +728,10 @@ git push
 
 ## 删除远程分支
 
+```shell
+
+```
+
 
 
 ## pull request

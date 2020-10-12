@@ -699,14 +699,10 @@ public class AopClass {
 
 通知方法：
  * 前置通知(@Before)：logStart：在目标方法(div)运行之前运行
-
  * 后置通知(@After)：logEnd：在目标方法(div)运行结束之后运行（无论方法正常结束还是异常结束）
-
  * 返回通知(@AfterReturning)：logReturn：在目标方法(div)正常返回之后运行
-
  * 异常通知(@AfterThrowing)：logException：在目标方法(div)出现异常以后运行
-
- * 环绕通知(@Around)：动态代理，手动推进目标方法运行（joinPoint.procced()）
+ * 环绕通知(@Around)：可以在方法之前、之后、发生异常时执行，手动推进目标方法运行（joinPoint.procced()）
 
 给切面类的目标方法标注何时何地运行（通知注解:@Aspect）
 
@@ -773,6 +769,29 @@ aopMethod方法开始切入之前：参数：[Ljava.lang.Object;@1465398
 进入方法
 aopMethod结束。。。@After
 aopMethod正常返回。。。@AfterReturning:运行结果：{进过aop method 方法处理：老小}
+
+### 环绕通知
+
+```java
+public class SurroundMethod implements MethodInterceptor{
+    public Object invoke(MethodInvocation invocation) {
+        Object result = null;
+        try {
+            System.out.println("环绕通知里面的【前置通知】。。。");
+            result = invocation.proceed();  //这里相当于执行目标方法 如果不写目标方法就不会执行
+            // result是目标方法的返回值
+            System.out.println("环绕通知里面的【后置通知】...");
+        } catch (Throwable e) {
+            System.out.println("这里是执行环绕通知里面的【异常通知】。。。");
+            e.printStackTrace();
+        } finally{
+　　　　　　　System.out.println("这里是执行环绕通知里面的【最终通知】");
+　　　　　}
+        return result;
+        //也可以返回其他  return “123”;  那么目标方法的返回值就是 "123"
+    } 
+}
+```
 
 
 

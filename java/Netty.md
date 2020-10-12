@@ -700,3 +700,8 @@ NioEventLoopGroup对象可以理解为一个线程池，内部维护了一组线
 ## unpooled 缓存操作
 
 通过两个指针，readerIndex与writerIndex分别指向已经读到的位置和写入的位置，比JDK提供的ByteBuffer 省了flip操作
+
+# 更换编解码
+
+## Google 的 ProtoBuf
+
