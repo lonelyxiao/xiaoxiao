@@ -26,6 +26,19 @@
 
 ## 控制台访问
 
+由于默认无法对外访问，所以需要先修改jetty的配置文件（jetty.xml）
+
+```xml
+<bean id="jettyPort" class="org.apache.activemq.web.WebConsolePort" init-method="start">
+    <!-- the default port number for the web console -->
+    <property name="host" value="0.0.0.0"/>
+    <property name="port" value="8161"/>
+</bean>
+
+```
+
+
+
 <http://192.168.94.129:8161/admin/>
 
 密码admin/admin
@@ -726,7 +739,7 @@ ActiveMQConnectionFactory factory = new ActiveMQConnectionFactory("nio://192.168
 
 <http://activemq.apache.org/persistence>
 
-发送者将消息发送出去后，消息中心首先将消息存储到本地数据文件或者内存数据库等地方，再讲消息发送给接收者，发送成功则将消息从存储中删除
+发送者将消息发送出去后，消息中心首先将消息存储到本地数据文件或者内存数据库等地方，再将消息发送给接收者，发送成功则将消息从存储中删除
 
 总结：mq要是down机了，消息不会丢失
 
@@ -795,7 +808,7 @@ org.apache.commons.dbcp2.BasicDataSource是默认的数据源连接
 
 ```
 
-### 生成的三张表
+- 生成的三张表
 
 ---
 
@@ -819,7 +832,7 @@ ACTIVEMQ_ACKS：主要用于存储订阅关系
 
 CLIENT_ID：订阅者id
 
-### 代码验证
+- 代码验证
 
 先必须要设置持久化
 
