@@ -590,3 +590,5 @@ wget https://cdn.jsdelivr.net/gh/lework/jenkins-update-center/rootCA/update-cent
 ## 插件配置
 
 访问：http://192.168.1.134:8080/
+
+插件建议选择插件安装，后续好配置代理
