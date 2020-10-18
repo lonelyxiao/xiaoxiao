@@ -114,8 +114,10 @@ docker守护进程运行在主机上，客户端通过socket与之相连，守�
 
 
 
+# Docker命令
 
-# docker 镜像操作
+
+## 镜像命令
 
 | 操作 | 命令                                            | 说明                                                     |
 | ---- | ----------------------------------------------- | -------------------------------------------------------- |
@@ -164,7 +166,21 @@ https://docs.docker.com/engine/reference/commandline/docker/
 
 ```
 
-# 容器命令（拉取centos为例）
+## 容器命令
+
+| 命令                  | 描述                                                         |
+| :-------------------- | ------------------------------------------------------------ |
+| docker run 镜像名     | 创建并运行容器命令，如果docker主机已经下载过tomcat，则该命令会直接创建一个tomcat的容器实例，否则会先去hub端拉取该tomcat镜像， |
+| docker run -it 镜像名 | -i : 表示创建要给交互式容器，-t：表示运行容器的同时创建一个伪终端，-d: 后台守护进程的方式运行； 一般与 -i 一起使用 |
+| docker ps             | 查看当前正在运行的容器对象                                   |
+| docker ps -l          | -l(小写的L) ： 默认的查看只会查看正在运行中的容器信息，而ps -l 会显示最近运行的一条容器信息 |
+| docker ps -a          | -a : 显示所有运行过的镜像信息                                |
+
+
+
+# 命令举例
+
+## 拉取镜像
 
 ```shell
 #获取centos
@@ -186,6 +202,7 @@ Usage:	docker run [OPTIONS] IMAGE [COMMAND] [ARG...]
 
 ---
 
+## 运行容器
 ```shell
 ##启动容器，发现启动centos，并且进入centos的终端界面，
 #这就是-it的效果
@@ -194,14 +211,6 @@ Usage:	docker run [OPTIONS] IMAGE [COMMAND] [ARG...]
 ```
 
 --name：为容器起一个别名
-
-```shell
-
-```
-
----
-
-
 
 ```shell
 #查看所有运行中的容器
@@ -223,7 +232,7 @@ ctrl+p+q:容器不停止退出
 
 ---
 
-启动容器
+- 启动容器
 
 ```shell
 [root@localhost ~]# docker ps -n 2
@@ -325,6 +334,22 @@ total 4
 
 
 
+## 修改容器挂载
+
+export为镜像，在重新构建新容器
+
+```shell
+[root@localhost home]# docker container export -o ./jk.docker jenkins
+[root@localhost home]# docker import ./jk.docker jk
+##运行导入镜像时要带 command
+[root@localhost home]# docker run -d -p 8080:8080 -p 10241:50000 -v /home/jenkins_node:/var/jenkins_home -v /etc/localtime:/etc/localtime -v /var/run/docker.sock:/var/run/docker.sock --name jk jk /bin/bash
+
+```
+
+
+
+
+
 # docker镜像
 
 轻量级、可执行的独立软件包 
@@ -384,23 +409,13 @@ docker run -it -v /宿主机目录：/容器目录 镜像名
 
 docker run -it -v /宿主机目录：/容器目录:ro 镜像名
 
-# 数据卷容器
-
-实现容器与容器间的传递
-
-```shell
-[root@localhost _data]# docker run -it --name d1 mydf/centos
-[root@localhost _data]# docker run -it --name d2 --volumes-from d1 mydf/centos
-#这样就实现了d2继承了d1，在d1中的容器卷修改，会同步d2,d2也会同步d1
-```
-
 
 
 # dockerFile
 
 构建镜像的文件
 
-## dockerfile建立数据卷
+## 示例
 
 ```shell
 #建立一个文件
@@ -455,25 +470,39 @@ docker run -it -v /宿主机目录：/容器目录:ro 镜像名
 
 执行类似 docker commit的操作提交一个新的镜像层
 
-基于敢提交的镜像运行一个新的容器
+基于刚提交的镜像运行一个新的容器
 
 执行下条指令
 
-## 保留字指令
+## 指令
 
-| FROM       | 基础镜像，当前新镜像是基于哪个镜像的                         |
-| ---------- | ------------------------------------------------------------ |
-| MAINTAINER | 镜像维护者的姓名和邮箱地址                                   |
-| RUN        | 容器构建时需要运行的命令                                     |
-| EXPOSE     | 当前容器对外暴露出的端口                                     |
-| WORKDIR    | 指定在创建容器后，终端默认登陆的进来工作目录，一个落脚点     |
-| ENV        | 用来在构建镜像过程中设置环境变量                             |
-| ADD        | 将宿主机目录下的文件拷贝进镜像且ADD命令会自动处理URL和解压tar压缩包 |
-| COPY       | 类似ADD，拷贝文件和目录到镜像中。将从构建上下文目录中 <源路径> 的文件/目录复制到新的一层的镜像内的 <目标路径> 位置 |
-| VOLUME     | 容器数据卷，用于数据保存和持久化工作                         |
-| CMD        | 指定一个容器启动时要运行的命令,ENTRYPOINT 的目的和 CMD 一样，都是在指定容器启动程序及参数 |
-| ENTRYPOINT | 指定一个容器启动时要运行的命令;ENTRYPOINT 的目的和 CMD 一样，都是在指定容器启动程序及参数 |
-| ONBUILD    | 当构建一个被继承的Dockerfile时运行命令，父镜像在被子继承后父镜像的onbuild被触发(子镜像在build的时候出发) |
+| 命令                                  | 描述                                                         |
+| ------------------------------------- | ------------------------------------------------------------ |
+| FROM image                            | 基础镜像，当前新镜像是基于哪个镜像的                         |
+| MAINTAINER username                   | 镜像维护者的姓名和邮箱地址                                   |
+| RUN command                           | 容器构建时需要运行的命令                                     |
+| EXPOSE  port                          | 当前容器对外暴露出的端口                                     |
+| WORKDIR path_dir                      | 指定在创建容器后，终端默认登陆的进来工作目录，一个落脚点     |
+| ENV   key   value                     | 用来在构建镜像过程中设置环境变量                             |
+| ADD  source_dir/file   dest_file/file | 将宿主机目录下的文件拷贝进镜像且ADD命令会自动处理URL和解压tar压缩包 |
+| COPY                                  | 类似ADD，拷贝文件和目录到镜像中。将从构建上下文目录中 <源路径> 的文件/目录复制到新的一层的镜像内的 <目标路径> 位置 |
+| VOLUME                                | 容器数据卷，用于数据保存和持久化工作                         |
+| CMD                                   | 指定一个容器启动时要运行的命令,ENTRYPOINT 的目的和 CMD 一样，都是在指定容器启动程序及参数 |
+| ENTRYPOINT                            | 指定一个容器启动时要运行的命令;ENTRYPOINT 的目的和 CMD 一样，都是在指定容器启动程序及参数 |
+| ONBUILD                               | 当构建一个被继承的Dockerfile时运行命令，父镜像在被子继承后父镜像的onbuild被触发(子镜像在build的时候出发) |
+| ARG <参数名>[=<默认值>]               | 构建参数，与 ENV 作用一至。不过作用域不一样。ARG 设置的环境变量仅对 Dockerfile 内有效， 也就是说只有 docker build 的过程中有效 |
+
+## 构建命令
+
+- docker build
+
+```shell
+--build-arg，设置构建时的环境变量; arg =  xxx
+--file, -f，Dockerfile的完整路径，默认值为‘PATH/Dockerfile’
+--tag, -t，镜像的名字及tag，通常name:tag或者name格式；可以在一次构建中为一个镜像设置多个tag
+```
+
+
 
 ## dockerFile 示例
 
@@ -483,6 +512,24 @@ VOLUME ["/datavContainer1", "/datavContainer2"]
 CMD echo "finished"
 CMD /bin/bash
 
+```
+
+## 制作微服务镜像
+
+- Dockerfile内容
+
+```shell
+FROM openjdk:8-jdk-alpine
+ARG JAR_FILE
+COPY ${JAR_FILE} app.jar
+EXPOSE 80
+ENTRYPOINT ["java","jar", "/app.jar"]
+```
+
+- 构建镜像(JAR_FILE 相对路径)
+
+```shell
+[root@localhost home]# docker build --build-arg JAR_FILE=es-jd-1.0-SNAPSHOT.jar -f /home/Dockerfile -t jd:v1 .
 ```
 
 
@@ -577,6 +624,7 @@ http {
 # 安装ES集群
 
 - 建立三个配置文件 es1.yml,es2.yml,es3.yml
+  - 这里注意端口和映射端口要一致
 
 ```yaml
 cluster.name: elasticsearch-cluster
@@ -589,8 +637,10 @@ http.cors.enabled: true
 http.cors.allow-origin: "*"
 node.master: true
 node.data: true
-discovery.zen.ping.unicast.hosts: ["127.0.0.1:9300","127.0.0.1:9301","127.0.0.1:9302"]
-discovery.zen.minimum_master_nodes: 2
+#集群节点
+discovery.seed_hosts: ["192.168.1.134:9300","192.168.1.134:9301", "192.168.1.134:9302"]
+#有资格成为主节点的节点配置
+cluster.initial_master_nodes: ["es-node1","es-node2","es-node3"]
 
 ```
 

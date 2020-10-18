@@ -269,6 +269,32 @@ public class HttpEncodingAutoConfiguration {
 </build>
 ```
 
+
+
+- 如果是dependencies方式引用，则需要指定运行类
+
+```xml
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-maven-plugin</artifactId>
+            <executions>
+                <execution>
+                    <id>repackage</id>
+                    <goals>
+                        <goal>repackage</goal>
+                    </goals>
+                </execution>
+            </executions>
+            <configuration>
+                <mainClass>com.xiao.JdMainApplication</mainClass>
+            </configuration>
+        </plugin>
+    </plugins>
+</build>
+```
+
 ## 注意点
 
 App启动类需要在其扫描的包同级或者同级之上

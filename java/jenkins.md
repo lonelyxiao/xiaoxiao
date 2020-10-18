@@ -517,7 +517,7 @@ inventory  roles
 
 ```shell
 [root@localhost ~]# docker pull jenkins/jenkins
-[root@localhost home]# chmod 777 /home/jenkins_node
+    [root@localhost home]# chmod 777 /home/jenkins_node
 
 ## 创建并启动容器
 [root@localhost ~]# docker run -d -p 8080:8080 -p 10241:50000 -v /home/jenkins_node:/var/jenkins_home -v /etc/localtime:/etc/localtime --name jenkins jenkins/jenkins
@@ -567,7 +567,7 @@ wget https://cdn.jsdelivr.net/gh/lework/jenkins-update-center/rootCA/update-cent
 [root@localhost jenkins_node]# chmod 777  update-center-rootCAs
 ```
 
-- 修改插件配置文件
+- 修改插件配置文件（启动后，生成配置文件，修改此文件，重启jenkins）
 
 
 ```shell
@@ -591,4 +591,224 @@ wget https://cdn.jsdelivr.net/gh/lework/jenkins-update-center/rootCA/update-cent
 
 访问：http://192.168.1.134:8080/
 
-插件建议选择插件安装，后续好配置代理
+由于jenkins 插件安装蛮，所以跳过插件安装直接点击 
+
+- 选择插件安装
+
+- 选择 无 -> 安装
+- 初始化管理账号 ： admin/123456
+- 进入jenkins主界面
+
+### 修改国内插件下载地址
+
+- 进入/home/jenkins_node/updates文件替换default.json的源地址
+
+```shell
+sed -i 's/http:\/\/updates.jenkins-ci.org\/download/https:\/\/mirrors.tuna.tsinghua.edu.cn\/jenkins/g' default.json && sed -i 's/http:\/\/www.google.com/https:\/\/www.baidu.com/g' default.json
+```
+
+- jenkins -> Manage Jenkins -> Manage Plugins -> advanced
+- 修改Update Site
+
+```html
+https://mirrors.tuna.tsinghua.edu.cn/jenkins/updates/update-center.json
+```
+
+- 点击submit
+- http://192.168.1.134:8080/restart 重启jenkins
+
+### 安装汉化插件
+
+- jenkins -> Manage Jenkins -> Manage Plugins -> advanced
+- 搜索Chinese
+- 安装Localization: Chinese (Simplified)插件
+- 选择下载后重启（这个插件需要重启）
+
+### 用户权限插件
+
+- 搜索Role
+
+- Role-based Authorization Strategy
+
+- 选择直接安装
+
+- 进入：jenkins -> Manage Jenkins -> 全局安全配置
+
+- 授权策略：Role-Based Strategy ->  保存
+
+- 进入角色管理：jenkins -> Manage Jenkins ->  Manage and Assign Roles
+
+- Item roles： 项目角色，
+
+  - -Pattern：添加角色后能访问的项目通配符
+  - 如：dev.*  匹配 dev_01等任务
+
+- Node roles： 节点角色，应用jenkins主从
+
+  - Role to add：添加角色
+
+  
+
+### 凭证管理
+
+管理docker私有仓库，git密码，需要密文保护的数据库密码
+
+- 安装 Credentials Binding 插件
+- 进入Manage credentials, 添加凭证
+
+### 从git上拉取代码
+
+- 安装git插件
+- docker安装git
+
+```shell
+[root@localhost ~]# yum install git -y
+```
+
+- jenkins配置密码，在任务配置里选择git，填入git仓库地址，选择对应密码
+
+- 在构建日志的控制台输出中可以看到对应的构建日志
+
+```shell
+Building in workspace /var/jenkins_home/workspace/dev_01
+The recommended git tool is: NONE
+using credential edeabfcb-f7c2-486c-8ba7-e722516e6a0b
+Cloning the remote Git repository
+Cloning repository https://gitee.com/lonelyxiao/learning.git
+ > git init /var/jenkins_home/workspace/dev_01 # timeout=10
+Fetching upstream changes from https://gitee.com/lonelyxiao/learning.git
+ > git --version # timeout=10
+ > git --version # 'git version 2.11.0'
+using GIT_ASKPASS to set credentials gitee
+```
+
+### Maven配置
+
+- 在docker配置maven环境
+
+```shell
+export PATH=$PATH:$MAVEN_HOME/bin:
+```
+
+- 进入：jenkins -> Manage Jenkins -> 全局工具配置
+  - 新增JDK
+  - 去掉自动安装
+  - 别名：jdk1.8
+  - JAVA_HOME:/usr/lib/jvm/java-1.8.0-openjdk
+  - 新增maven
+- 添加全局变量：（这些键值对每个节点上的每个应用都有效.它们可以在Jenkins配置(如$key或者${key})中使用, 并且在每个构建启动时被加入到环境变量中.）
+  - 进入：jenkins -> Manage Jenkins -> 系统配置
+  - 全局属性
+  - JAVE_HOME: /usr/lib/jvm/java-1.8.0-openjdk
+  - M2_HOME:/home/maven
+  - PATH+EXTRA:$M2_HOME/bin
+- git代码拉取后，进行构建
+- 点击构建，执行shell脚本
+- 输入脚本测试环境是否正常
+
+```shell
+#!/bin/bash
+echo "mvn clean package"
+mvn clean package
+```
+
+## maven风格项目
+
+- 安装[Maven Integration](https://plugins.jenkins.io/maven-plugin)插件
+
+- 新建任务，多了一个构建maven项目的选项
+- 与自由风格不同的是，他的构建是基于pom构建
+
+## 流水线类型项目
+
+- 安装[Pipeline](https://plugins.jenkins.io/workflow-aggregator)插件
+- 创建一个PipeLine任务
+- pipeLine语法
+#### 声明式
+
+```shell
+pipeline {
+	//环境
+    agent any
+	//阶段
+    stages {
+        stage('Hello') {
+            steps {
+                echo 'Hello World'
+            }
+        }
+    }
+}
+```
+
+一个stages里可以有多个stage
+
+一个stage相当于一个步骤
+
+如:拉取代码一个步骤，编译一个步骤
+
+steps：步骤，可以编写shell脚本
+
+- 点击流水线语法可以自动生成对应的代码
+  - 拉取代码：选择checkout
+  - 编译maven：选择shell script， 填入对应的打包命令
+- 将生成的语法填入对应的steps中
+
+#### 将pipeline语法写入项目文件中
+
+- 语法配置在任务中不好管理，所以可以选择将部署代码写在项目中
+- 在项目根目录新建Jenkinsfile文件
+- 任务配置->流水线->scm->git->脚本路径:Jenkinsfile 
+
+## 构建触发器
+
+- 触发远程构建
+  - 输入token，当get `JENKINS_URL`/job/dev_pipe_pipeline/build?token=`TOKEN_NAME`时，会触发
+
+## 参数化构建
+
+## 邮件服务
+
+- 安装[Email Extension Template](https://plugins.jenkins.io/emailext-template)插件
+- 系统管理->系统配置->Extended E-mail Notification
+
+- Content Token Reference可以查看具体html中的邮件模板参数
+- 在pipleline脚本中添加post
+- 在流水线->generator 生成post模板
+
+```shell
+post {
+  unstable {
+    // One or more steps need to be included within each condition's block.
+  }
+}
+```
+
+## 代码审查
+
+## 远程SSH
+
+- 安装[Publish Over SSH](https://plugins.jenkins.io/publish-over-ssh)插件
+- 系统配置->Publish over SSH
+  - 生成公钥
+
+```shell
+jenkins@effa534ebc42:/$ ssh-keygen
+jenkins@effa534ebc42:/$ cd /var/jenkins_home/.ssh/
+jenkins@effa534ebc42:~/.ssh$ ls
+id_rsa	id_rsa.pub
+##将公钥拷贝到131服务器
+jenkins@effa534ebc42:~/.ssh$ ssh-copy-id root@192.168.1.131
+```
+
+- 在131服务器上看到对应的公钥文件
+
+```shell
+[root@localhost .ssh]# ls
+authorized_keys
+```
+
+- 在jenkins上配置ssh
+  - path to key (私钥路径): /var/jenkins_home/.ssh/id_rsa
+
+![](..\image\java\jenkins\20201019001250.png)
