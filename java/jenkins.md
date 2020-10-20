@@ -812,3 +812,47 @@ authorized_keys
   - path to key (私钥路径): /var/jenkins_home/.ssh/id_rsa
 
 ![](..\image\java\jenkins\20201019001250.png)
+
+- 插件按照后需要重启
+- 流水线选择sshpublisher,生成pipeline模板， 在execCommand里面写入代码
+
+- pipeline模板，注意定义的参数在代码中要“” (双引号)
+
+```shell
+node {
+    def branch = '*/master'
+    def command = 'echo "aaa" > aaa.txt'
+    stage('pull code') { // for display purposes
+        checkout([$class: 'GitSCM', branches: [[name: "${branch}"]], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'edeabfcb-f7c2-486c-8ba7-e722516e6a0b', url: 'https://gitee.com/lonelyxiao/learning.git']]])
+    }
+    stage('Build') {
+        sh 'mvn clean package -Dmaven.test.skip=true '
+    }
+    stage('publish code') {
+        sshPublisher(publishers: [sshPublisherDesc(configName: '131', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: "${command}", execTimeout: 120000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '', remoteDirectorySDF: false, removePrefix: '', sourceFiles: '')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)])
+    }
+}
+```
+
+## 远程文件
+
+- removePrefix: 上传的远程文件夹
+- removePrefix：上传后删除的文件
+- sourceFiles：本地文件
+- 将target下所有输送目标服务器
+
+```
+def remote_directory = '/home/jar'
+def source_files = 'esearch/es-jd/target/**'
+```
+
+```shell
+  sshPublisher(publishers: [sshPublisherDesc(configName: '131', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: "", execTimeout: 120000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '', remoteDirectorySDF: false, removePrefix: '', sourceFiles: '')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)])
+```
+
+- removePrefix:如果不指定路径，则目标路径会全路径
+
+```shell
+sshPublisher(publishers: [sshPublisherDesc(configName: '131', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: 'nohup java -jar es-jd-1.0-SNAPSHOT.jar >> catalina.out 2>&1 &', execTimeout: 120000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '/home/jar/', remoteDirectorySDF: false, removePrefix: 'esearch/es-jd/target', sourceFiles: 'esearch/es-jd/target/es-jd-1.0-SNAPSHOT.jar')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)])
+```
+
