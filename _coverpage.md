@@ -8,7 +8,7 @@
 * 服务器：Linux、docker...
 * 后端：JAVA、NODEJS、Mysql....
 
-[GitHub](https://github.com/lonelyxiao)
+[GitHub](https://gitee.com/lonelyxiao)
 [Get Started](/README)
 
 ![color](#F0FFFF)
