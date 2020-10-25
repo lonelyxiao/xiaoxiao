@@ -79,6 +79,19 @@ public void test1() throws Exception{
 }
 ```
 
+## 原理
+
+初始化SqlSessionFactory所做的事
+
+- 获取xml的配置的流
+- 进入build方法 -->XMLConfigBuilder构造方法-->XPathParser方法-->createDocument构造方法
+
+- 采用DocumentBuilderFactory解析xml获取Document
+- 从xml中获取配置信息和sql
+- 获取xml中配置的Mapper,将mapper的namespace的class当成是MapperRegistry的里面的map的key
+
+
+
 ## 接口开发
 
 1.接口类路径与xml namespace相同
@@ -218,9 +231,18 @@ public Configuration() {
 
 ## mapper注册sql映射文件
 
+mybatis加载mapper有三种方式
+
 mapper属性：
 
 - resource：引用类路径下的sql映射文件
+
+```xml
+<mappers>
+    <mapper resource="org/mybatis/example/BlogMapper.xml"/>
+</mappers>
+```
+
 - url：引用网路路径或者磁盘路径下的sql映射文件
 - class：引用（注册）接口（一般基于注解版的）
   - 有sql映射文件，映射文件名必须和接口同名，并且放在与接口同一目录下
@@ -1021,3 +1043,48 @@ public class MyFirstPlugin implements Interceptor{
 </plugins>
 ```
 
+# 基础原理
+
+在创建一个Mapper的时候，其实实现的就是代理模式，通过invoke获取配置文件，或者注解获取其sql来执行
+
+## 基础代码
+
+```java
+interface BlogMapper {
+    @Select("SELECT name FROM blog WHERE id = #{id}")
+    String selectBlog(int id);
+}
+
+
+@org.junit.Test
+public void testMybatisMapper() {
+    //通过反射的方式，执行对应的sql
+    BlogMapper blogMapper = (BlogMapper)Proxy.newProxyInstance(ClassLoader.getSystemClassLoader(), new Class[] {BlogMapper.class}, (proxy, method, args) -> {
+        Select select = method.getAnnotation(Select.class);
+        String[] value = select.value();
+        System.out.printf(ArrayUtil.toString(value));
+        System.out.println(ArrayUtil.toString(args));
+        return "执行结果";
+    });
+    String blog = blogMapper.selectBlog(1);
+    System.out.println(blog);
+}
+```
+
+## 设计图
+
+```mermaid
+graph TD
+	配置类[配置类] -- 保存在 --> Mapper注册中心[Mapper注册中心]
+	Mapper注册中心[Mapper注册中心] -- 获取和解析sql -->执行器[执行器]
+	执行器[执行器] -- 执行sql --> statementHandler[statementHandler]
+	statementHandler[statementHandler] -- 获取结果集 封装 --> 结果集合handler[结果集合handler]
+```
+
+## session
+
+- 将原生的jdbc连接等一系列操作封装成了会话 session
+
+- SqlSession是一个接口
+
+- 通过这个接口，您可以执行命令、获取映射器和管理事务。
