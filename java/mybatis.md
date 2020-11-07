@@ -18,6 +18,8 @@ static {
 ```
 
 - 创建数据库的连接  
+  - DriverManager获取连接
+  - DataSource数据源方式获取连接
 - 创建一个preparedStatement
   - 要执行SQL语句，必须获得java.sql.Statement实例，Statement实例分为以下3 种类型：    
           1、执行静态SQL语句。通常通过Statement实例实现。    
@@ -46,6 +48,14 @@ try {
     connection.close();
 }
 ```
+
+## DatabaseMetaData
+
+- 获取数据源信息
+- 确定数据源是否支持某一特性或功能
+- 获取数据源的限制
+- 确定数据源包含哪些SQL对象以及这些对象的属性
+- 获取数据源对事务的支持
 
 # 入门
 
@@ -122,6 +132,37 @@ public void testInterface() throws Exception{
     }
 }
 ```
+
+## ScriptRunner执行脚本
+
+执行对应的脚本文件
+
+```java
+ScriptRunner scriptRunner = new ScriptRunner(connection);
+scriptRunner.runScript(Resources.getResourceAsReader("create-table.sql"));
+```
+
+## 反射工具类
+
+### MetaObject
+
+- 是MyBatis中的反射工具类
+
+- 使用MetaObject工具类，我们可以很优雅地获取和设置对象的属性值
+
+### MetaClass
+
+- ### MetaClass用于获取类相关的信息
+
+- 使用MetaClass判断某个类是否有默认构造方法，还可以判断类的属性是否有对应的Getter/Setter方法
+
+# MyBatis核心组件
+
+- Configuration
+  - MyBatis的主配置信息，其他组件需要获取配置信息时，直接通过Configuration对象获取
+
+- MappedStatement
+  - MappedStatement用于描述Mapper中的SQL配置信息，是对Mapper XML配置文件中<select|update|delete|insert>等标签或者@Select/@Update等注解配置信息的封装
 
 # 全局配置文件
 
