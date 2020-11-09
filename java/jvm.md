@@ -791,3 +791,10 @@ code cache 在元空间
 - 先装jprofiler
 - 再在idea上装jprofiler插件
 - 在启动项目旁边有个jprofiler启动工具
+
+
+
+
+
+# JVM常用线上工具
+
