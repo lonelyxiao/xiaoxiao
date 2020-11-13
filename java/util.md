@@ -48,6 +48,13 @@
     - 当创建接口后，需要快捷的实现接口
     - alt+enter 选择implement  interface
   - 当定义变量不符合规范后，可以快速修复
+- 代码窗口全屏
+  - ctrl+shift+F12
+- 查看文件方法结构
+  - navigate 下查看
+  - ctrl+F12
+- 在方法上查看谁调用了这个方法，这个方法调用了谁
+  - ctrl+alt+h
 
 ## 代码模板
 
@@ -110,6 +117,21 @@ live template 进行设置模板
   - alt+F8
 - 运行到光标所在行
   - alt+F9
-
 - 调试过程中修改变量值
   - 在调试的变量显示处setvalue
+- 运行当前光标的最小上下文
+  - 搜索 debug context 寻找快捷键
+
+## 文件操作
+
+- 在当前文件夹下新建文件
+  - 在keymap中 搜索 new..., 搜索在 other下看到快捷键
+  - ctrl + alt + insert
+
+- 移动文件
+  - 在 keymap 中搜索 mave... 查看快捷键
+  - F6
+- 查看maven  Show Dependencies...查找对应的包
+  - action -> diagram element搜索快捷键
+  - ctrl+F
+
