@@ -158,11 +158,76 @@ scriptRunner.runScript(Resources.getResourceAsReader("create-table.sql"));
 
 # MyBatis核心组件
 
-- Configuration
-  - MyBatis的主配置信息，其他组件需要获取配置信息时，直接通过Configuration对象获取
+## Configuration
 
+- MyBatis的主配置信息，其他组件需要获取配置信息时，直接通过Configuration对象获取
+- Executor、StatementHandler、ResultSetHandler、ParameterHandler组件的工厂类
+
+- mapperRegistry：用于注册Mapper接口信息，建立Mapper接口的Class对象和MapperProxyFactory对象之间的关系，其中MapperProxyFactory对象用于创建Mapper动态代理对象。
+  - interceptorChain：用于注册MyBatis插件信息，MyBatis插件实际上就是一个拦截器
+  - keyGenerators：用于注册KeyGenerator，KeyGenerator是MyBatis的主键生成器，MyBatis中提供了3种KeyGenerator，即Jdbc3KeyGenerator（数据库自增主键）、NoKeyGenerator（无自增主键）、SelectKeyGenerator（通过select语句查询自增主键，例如oracle的sequence）
+  
 - MappedStatement
   - MappedStatement用于描述Mapper中的SQL配置信息，是对Mapper XML配置文件中<select|update|delete|insert>等标签或者@Select/@Update等注解配置信息的封装
+
+## Executor
+
+- SqlSession是MyBatis提供的操作数据库的API，但是真正执行SQL的是Executor组件
+
+![](..\image\java\mybaits\20201111090756.png)
+
+- SimpleExecutor是基础的Executor，能够完成基本的增删改查操作
+- ResueExecutor对JDBC中的Statement对象做了缓存，当执行相同的SQL语句时，直接从缓存中取出Statement对象进行复用，避免了频繁创建和销毁Statement对象
+- BatchExecutor则会对调用同一个Mapper执行的update、insert和delete操作，调用Statement对象的批量操作功能
+- **当MyBatis开启了二级缓存功能时，会使用CachingExecutor对SimpleExecutor、ResueExecutor、BatchExecutor进行装饰**
+
+直接使用executor来执行
+
+```java
+String resource = "mybatis-config.xml";
+InputStream inputStream = Resources.getResourceAsStream(resource);
+SqlSessionFactory sqlSessionFactory = new SqlSessionFactoryBuilder().build(inputStream);
+SqlSession sqlSession = sqlSessionFactory.openSession();
+Configuration configuration = sqlSession.getConfiguration();
+//获取statement, 里面包含执行的xml，接口等信息
+MappedStatement mappedStatement = configuration.getMappedStatement("com.xiao.dao.StudentMapper.selectStudent");
+//获取执行器
+Executor executor = configuration.newExecutor(new JdbcTransaction(sqlSession.getConnection()), ExecutorType.REUSE);
+List<Object> query = executor.query(mappedStatement, 2, RowBounds.DEFAULT, Executor.NO_RESULT_HANDLER);
+log.debug(cn.hutool.core.util.ArrayUtil.toString(query));
+```
+
+## StatementHandler
+
+StatementHandler组件封装了对JDBC Statement的操作，例如设置Statement对象的fetchSize属性、设置查询超时时间、调用JDBC Statement与数据库交互等
+
+## TypeHandler
+
+处理JDBC类型与Java类型之间的转换，如给PreparedStatement设置占位符
+
+```java
+public interface TypeHandler<T> {
+ //设置参数
+  void setParameter(PreparedStatement ps, int i, T parameter, JdbcType jdbcType) throws SQLException;
+	//根据列名获取参数
+  T getResult(ResultSet rs, String columnName) throws SQLException;
+	//根据下表获取参数
+  T getResult(ResultSet rs, int columnIndex) throws SQLException;
+
+  T getResult(CallableStatement cs, int columnIndex) throws SQLException;
+
+}
+```
+
+- MyBatis通过TypeHandlerRegistry建立JDBC类型、Java类型与TypeHandler之间的映射关系
+
+```java
+//可以通过这种方式来注册参数
+TypeHandlerRegistry typeHandlerRegistry = configuration.getTypeHandlerRegistry();
+typeHandlerRegistry.register(LocalDateTimeTypeHandler.class);
+```
+
+- 在TypeHandlerRegistry中，通过Map对象保存JDBC类型、Java类型与TypeHandler之间的关系
 
 # 全局配置文件
 
