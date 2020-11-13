@@ -94,3 +94,22 @@ live template 进行设置模板
 - 查找本地历史记录
   - action中搜索 history
 
+## 断点
+
+- 快速打断点
+  - run -> Toggle Breakpoint  ->Line Breakpoint 搜索快捷键
+  - ctrl+ f8
+- 禁止一切断点，断点失效
+- 条件断点
+  - 在断点处 shilft+ctrl+f8
+  - 在condition输入条件
+  - condition么满足条件才进入断点
+  - condition示范：body.equals("qqq")
+- 查看调试变量的内容，在表达式中输入变量可查询变量内容
+  - run -> Debugging Actions -> Evaluate Expression... 搜索快捷键
+  - alt+F8
+- 运行到光标所在行
+  - alt+F9
+
+- 调试过程中修改变量值
+  - 在调试的变量显示处setvalue
