@@ -433,7 +433,7 @@ total 72
 | kube-proxy     | ca.pem kube-proxy.pem kube-proxy-key.pem |
 | kubectl        | ca.pem admin.pem admin-key.pem           |
 
-3. 搭建etcd集群
+3. 搭建etcd集群（三个节点都要配置）
 
 - 软件包下载
 
@@ -528,6 +528,11 @@ WantedBy=multi-user.target
 ```shell
 [root@k8sm ssl]# systemctl daemon-reload
 [root@k8sm ssl]# systemctl start etcd
+## 查看节点状态
+[root@k8sn2 ~]# systemctl status etcd.service
+● etcd.service - Etcd Server
+   Loaded: loaded (/usr/lib/systemd/system/etcd.service; disabled; vendor preset: disabled)
+   Active: active (running) since Sun 2020-11-29 09:10:58 EST; 1min 32s ago
 ```
 
 - 其他两台node1，node2 也做同样操作
@@ -539,9 +544,48 @@ WantedBy=multi-user.target
 
 ### 为apiserver自签证书
 
-[root@k8sm ssl]# cat server-csr.json 
+- 采用可信用ip列表
 
 server-csr.json 这个文件是master使用的
+
+```shell
+[root@k8sm ssl]# pwd
+/home/ssl
+[root@k8sm ssl]# cat server-csr.json 
+```
+
+这些地址就是可信用的ip列表
+
+```shell
+[root@k8sm ssl]# cat  server-csr.json 
+{
+    "CN": "kubernetes",
+    "hosts": [
+      "10.0.0.1",
+  "127.0.0.1",
+  "kubernetes",
+  "kubernetes.default",
+  "kubernetes.default.svc",
+  "kubernetes.default.svc.cluster",
+  "kubernetes.default.svc.cluster.local",
+      "192.168.1.143",
+      "192.168.1.144",
+      "192.168.1.145"
+    ],
+    "key": {
+        "algo": "rsa",
+        "size": 2048
+    },
+
+```
+
+执行命令生成server相关证书(ps:上面已经生成了)
+
+```shell
+cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=kubernetes server-csr.json | cfssljson -bare server
+```
+
+
 
 ### 部署master组件
 
@@ -550,6 +594,8 @@ server-csr.json 这个文件是master使用的
 https://gitee.com/mirrors/Kubernetes/blob/master/CHANGELOG/CHANGELOG-1.19.md
 
 对应版本（1.19），下载[Server binaries](https://gitee.com/mirrors/Kubernetes/blob/master/CHANGELOG/CHANGELOG-1.19.md#server-binaries)中的[kubernetes-server-linux-amd64.tar.gz](https://dl.k8s.io/v1.19.4/kubernetes-server-linux-amd64.tar.gz)
+
+ps：可以去华为镜像源中下载
 
 2. 进入此目录获取相关文件
 
@@ -574,63 +620,68 @@ etcd  etcdctl  kube-apiserver  kube-controller-manager  kubectl  kube-scheduler
 
 
 3. 配置文件
+   - KUBE_APISERVER_OPTS：日志
+   - etcd-servers：etcd集群地址
+   - bind-address：当前监听地址
+   - secure-port：https端口
+   - enable-bootstrap-token-auth：为同组中自动授权
 
 ```shell
-cat > /opt/kubernetes/cfg/kube-apiserver.conf << EOF
+cat > /opt/k8s/conf/kube-apiserver.conf << EOF
 KUBE_APISERVER_OPTS="--logtostderr=false \
 --v=2 \
---log-dir=/opt/kubernetes/logs \
---etcd-servers=https://192.168.200.221:2379,https://192.168.200.222:2379,https://192.168.200.223:2379 \
---bind-address=192.168.200.221 \
+--log-dir=/opt/k8s/logs \
+--etcd-servers=https://192.168.1.143:2379,https://192.168.1.144:2379,https://192.168.1.145:2379 \
+--bind-address=192.168.1.143 \
 --secure-port=6443 \
---advertise-address=192.168.200.221 \
+--advertise-address=192.168.1.143 \
 --allow-privileged=true \
 --service-cluster-ip-range=10.0.0.0/24 \
 --enable-admission-plugins=NamespaceLifecycle,LimitRanger,ServiceAccount,ResourceQuota,NodeRestriction \
 --authorization-mode=RBAC,Node \
 --enable-bootstrap-token-auth=true \
---token-auth-file=/opt/kubernetes/cfg/token.csv \
+--token-auth-file=/opt/k8s/conf/token.csv \
 --service-node-port-range=30000-32767 \
---kubelet-client-certificate=/opt/kubernetes/ssl/server.pem \
---kubelet-client-key=/opt/kubernetes/ssl/server-key.pem \
---tls-cert-file=/opt/kubernetes/ssl/server.pem \
---tls-private-key-file=/opt/kubernetes/ssl/server-key.pem \
---client-ca-file=/opt/kubernetes/ssl/ca.pem \
---service-account-key-file=/opt/kubernetes/ssl/ca-key.pem \
---etcd-cafile=/opt/etcd/ssl/ca.pem \
---etcd-certfile=/opt/etcd/ssl/etcd.pem \
---etcd-keyfile=/opt/etcd/ssl/etcd-key.pem \
+--kubelet-client-certificate=/opt/k8s/ssl/server.pem \
+--kubelet-client-key=/opt/k8s/ssl/server-key.pem \
+--tls-cert-file=/opt/k8s/ssl/server.pem \
+--tls-private-key-file=/opt/k8s/ssl/server-key.pem \
+--client-ca-file=/opt/k8s/ssl/ca.pem \
+--service-account-key-file=/opt/k8s/ssl/ca-key.pem \
+--etcd-cafile=/opt/k8s/ssl/ca.pem \
+--etcd-certfile=/opt/k8s/ssl/server.pem  \
+--etcd-keyfile=/opt/k8s/ssl/server-key.pem \
 --audit-log-maxage=30 \
 --audit-log-maxbackup=3 \
 --audit-log-maxsize=100 \
---audit-log-path=/opt/kubernetes/logs/k8s-audit.log"
+--audit-log-path=/opt/k8s/logs/k8s-audit.log"
 EOF
 ```
 
 ```shell
-cat > /opt/kubernetes/cfg/kube-controller-manager.conf << EOF
+cat > /opt/k8s/conf/kube-controller-manager.conf << EOF
 KUBE_CONTROLLER_MANAGER_OPTS="--logtostderr=false \
 --v=2 \
---log-dir=/opt/kubernetes/logs \
+--log-dir=/opt/k8s/logs \
 --leader-elect=true \
 --master=127.0.0.1:8080 \
 --address=127.0.0.1 \
 --allocate-node-cidrs=true \
 --cluster-cidr=10.244.0.0/16 \
 --service-cluster-ip-range=10.0.0.0/24 \
---cluster-signing-cert-file=/opt/kubernetes/ssl/ca.pem \
---cluster-signing-key-file=/opt/kubernetes/ssl/ca-key.pem \
---root-ca-file=/opt/kubernetes/ssl/ca.pem \
---service-account-private-key-file=/opt/kubernetes/ssl/ca-key.pem \
+--cluster-signing-cert-file=/opt/k8s/ssl/ca.pem \
+--cluster-signing-key-file=/opt/k8s/ssl/ca-key.pem \
+--root-ca-file=/opt/k8s/ssl/ca.pem \
+--service-account-private-key-file=/opt/k8s/ssl/ca-key.pem \
 --experimental-cluster-signing-duration=87600h0m0s"
 EOF
 ```
 
 ```shell
-cat > /opt/kubernetes/cfg/kube-scheduler.conf << EOF
+cat > /opt/k8s/conf/kube-scheduler.conf << EOF
 KUBE_SCHEDULER_OPTS="--logtostderr=false \
 --v=2 \
---log-dir=/opt/kubernetes/logs \
+--log-dir=/opt/k8s/logs \
 --leader-elect \
 --master=127.0.0.1:8080 \
 --address=127.0.0.1"
@@ -648,8 +699,8 @@ Description=Kubernetes API Server
 Documentation=https://github.com/kubernetes/kubernetes
 
 [Service]
-EnvironmentFile=/opt/kubernetes/cfg/kube-apiserver.conf
-ExecStart=/opt/kubernetes/bin/kube-apiserver $KUBE_APISERVER_OPTS
+EnvironmentFile=/opt/k8s/conf/kube-apiserver.conf
+ExecStart=/opt/k8s/bin/kube-apiserver $KUBE_APISERVER_OPTS
 Restart=on-failure
 
 [Install]
@@ -664,8 +715,8 @@ Description=Kubernetes Controller Manager
 Documentation=https://github.com/kubernetes/kubernetes
 
 [Service]
-EnvironmentFile=/opt/kubernetes/cfg/kube-controller-manager.conf
-ExecStart=/opt/kubernetes/bin/kube-controller-manager $KUBE_CONTROLLER_MANAGER_OPTS
+EnvironmentFile=/opt/k8s/conf/kube-controller-manager.conf
+ExecStart=/opt/k8s/bin/kube-controller-manager $KUBE_CONTROLLER_MANAGER_OPTS
 Restart=on-failure
 
 [Install]
@@ -680,12 +731,36 @@ Description=Kubernetes Scheduler
 Documentation=https://github.com/kubernetes/kubernetes
 
 [Service]
-EnvironmentFile=/opt/kubernetes/cfg/kube-scheduler.conf
-ExecStart=/opt/kubernetes/bin/kube-scheduler $KUBE_SCHEDULER_OPTS
+EnvironmentFile=/opt/k8s/conf/kube-scheduler.conf
+ExecStart=/opt/k8s/bin/kube-scheduler $KUBE_SCHEDULER_OPTS
 Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
 EOF
+```
+
+6. 在conf目录下生成token
+
+```shell
+echo "`head -c 16 /dev/urandom | od -An -t x | tr -d ' '`,kubelet-bootstrap,10001,\"system:kubelet-bootstrap\"" > token.csv
+```
+
+
+
+6. 启动
+
+```shell
+[root@k8sm conf]# systemctl start kube-apiserver
+#查看进程
+[root@k8sm logs]# ps -ef | grep k8s
+#设置开机自启
+[root@k8sm logs]# for i in $(ls /opt/k8s/bin);do systemctl enable $i;done
+```
+
+ps:如果报错发现日志，可以查看系统日志
+
+```shell
+cat /var/log/messages|grep kube-apiserver|grep -i error
 ```
 
