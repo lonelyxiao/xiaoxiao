@@ -69,9 +69,18 @@ datadir=/home/data
 
 2、mysql安装目录在其他路径下面
 
+- 参数解释
+  - --no-defaults：不读取任何选项文件，该选项在mysql_install_db启动时，若因为读取了未知的参数而启动失败时使用
+
 ```shell
 ## 移动安装文件
 [root@localhost home]# mv /usr/local/mysql ./install/
+
+##初始化数据库
+./mysql/bin/mysqld --no-defaults --initialize --user=mysql --basedir=/home/install/mysql --datadir=/home/install/data --innodb_data_home_dir=/data/newMysql/ibdata --innodb_data_file_path=ibdata3:100M:autoextend
+
+
+
 #编辑配置文件，配置mysql安装目录
 [mysqld]
 basedir=/home/install/mysql

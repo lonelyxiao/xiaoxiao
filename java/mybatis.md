@@ -231,6 +231,8 @@ typeHandlerRegistry.register(LocalDateTimeTypeHandler.class);
 
 # 全局配置文件
 
+
+
 ## 别名处理器
 
 typeAliases：为java类起别名，这样在select等标签中就可以直接使用别名，而不使用全类名
@@ -364,9 +366,72 @@ mapper属性：
 
 # 映射文件
 
+## Mapper接口
+
+1. 执行查询的过程
+
+```java
+String resource = "mybatis-config.xml";
+InputStream inputStream = Resources.getResourceAsStream(resource);
+SqlSessionFactory sqlSessionFactory = new SqlSessionFactoryBuilder().build(inputStream);
+SqlSession sqlSession = sqlSessionFactory.openSession();
+StudentMapper studentMapper = sqlSession.getMapper(StudentMapper.class);
+Student student = studentMapper.selectStudent(2l);
+```
+
+2. 可以看到studentMapper对象为org.apache.ibatis.binding.MapperProxy@346d61be代理对象
+3. MapperProxy类实现动态代理
+
+- invoke方法片段
+
+```java
+ final MapperMethod mapperMethod = cachedMapperMethod(method);
+ return mapperMethod.execute(sqlSession, args);
+```
+
+4. MapperMethod.execute具体执行对应的sql
+5. SqlCommand对象用于获取SQL语句的类型、Mapper的Id等信息
+
+- 类似代码
+
+```java
+interface BlogMapper {
+    @Select("SELECT name FROM blog WHERE id = #{id}")
+    String selectBlog(int id);
+}
+
+
+@org.junit.Test
+public void testMybatisMapper() {
+    //通过反射的方式，执行对应的sql
+    BlogMapper blogMapper = (BlogMapper)Proxy.newProxyInstance(ClassLoader.getSystemClassLoader(), new Class[] {BlogMapper.class}, (proxy, method, args) -> {
+        Select select = method.getAnnotation(Select.class);
+        String[] value = select.value();
+        System.out.printf(ArrayUtil.toString(value));
+        System.out.println(ArrayUtil.toString(args));
+        return "执行结果";
+    });
+    String blog = blogMapper.selectBlog(1);
+    System.out.println(blog);
+}
+```
+
+```sequence
+participant MapperProxy
+participant MapperMethod
+participant SqlCommand
+
+MapperProxy -> MapperMethod:mapperMethod.execute
+SqlCommand -> SqlCommand:获取方法的签名信息
+MapperMethod -> SqlCommand:转换sql参数
+
+```
+
+
+
 ## 增删改
 
-mybatis允许增删改直接定义返回以下类型
+m··ybatis允许增删改直接定义返回以下类型
 
 ​	interger long  boolean void
 
@@ -990,6 +1055,18 @@ private SqlSession openSessionFromDataSource(ExecutorType execType, TransactionI
 
 最终返回包含了executor和Configuration的DefaultSqlSessionFactory
 
+## Mapper方法调用过程
+
+``` java
+SqlSession sqlSession = sqlSessionFactory.openSession();
+StudentMapper studentMapper = sqlSession.getMapper(StudentMapper.class);
+Student student = studentMapper.selectStudent(2l);
+```
+
+- 为了执行Mapper接口中定义的方法，先需要调用SqlSession对象的getMapper()方法获取一个动态代理对象
+- getMapper->configuration.getMapper->MapperRegistry.getMapper(type, sqlSession)
+- 
+
 ## getMapper流程
 
 先调用configration的configuration.<T>getMapper(type, this);方法
@@ -1156,25 +1233,7 @@ public class MyFirstPlugin implements Interceptor{
 ## 基础代码
 
 ```java
-interface BlogMapper {
-    @Select("SELECT name FROM blog WHERE id = #{id}")
-    String selectBlog(int id);
-}
 
-
-@org.junit.Test
-public void testMybatisMapper() {
-    //通过反射的方式，执行对应的sql
-    BlogMapper blogMapper = (BlogMapper)Proxy.newProxyInstance(ClassLoader.getSystemClassLoader(), new Class[] {BlogMapper.class}, (proxy, method, args) -> {
-        Select select = method.getAnnotation(Select.class);
-        String[] value = select.value();
-        System.out.printf(ArrayUtil.toString(value));
-        System.out.println(ArrayUtil.toString(args));
-        return "执行结果";
-    });
-    String blog = blogMapper.selectBlog(1);
-    System.out.println(blog);
-}
 ```
 
 ## 设计图
