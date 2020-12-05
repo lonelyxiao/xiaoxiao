@@ -382,6 +382,16 @@ Student student = studentMapper.selectStudent(2l);
 2. 可以看到studentMapper对象为org.apache.ibatis.binding.MapperProxy@346d61be代理对象
 3. MapperProxy类实现动态代理
 
+- invoke方法片段
+
+```java
+ final MapperMethod mapperMethod = cachedMapperMethod(method);
+ return mapperMethod.execute(sqlSession, args);
+```
+
+4. MapperMethod.execute具体执行对应的sql
+5. SqlCommand对象用于获取SQL语句的类型、Mapper的Id等信息
+
 - 类似代码
 
 ```java
@@ -406,11 +416,22 @@ public void testMybatisMapper() {
 }
 ```
 
+```sequence
+participant MapperProxy
+participant MapperMethod
+participant SqlCommand
+
+MapperProxy -> MapperMethod:mapperMethod.execute
+SqlCommand -> SqlCommand:获取方法的签名信息
+MapperMethod -> SqlCommand:转换sql参数
+
+```
+
 
 
 ## 增删改
 
-mybatis允许增删改直接定义返回以下类型
+m··ybatis允许增删改直接定义返回以下类型
 
 ​	interger long  boolean void
 
