@@ -57,6 +57,14 @@ Created symlink from /etc/systemd/system/multi-user.target.wants/docker.service 
 systemctl stop docker
 ```
 
+ps:也可以这样快速安装
+
+```shell
+curl -fsSL https://get.docker.com | bash -s docker --mirror Aliyun
+```
+
+
+
 # 阿里云镜像加速
 
 阿里云->产品与服务->容器镜像服务->镜像中心->镜像加速器
@@ -76,6 +84,69 @@ Registry Mirrors:
  https://.mirror.aliyuncs.com/
 
 ```
+
+## daemon配置
+
+- bip
+
+  - 由于 docker 本身是默认使用 B 类地址（172.xx.0.0/16)， 大部分情况下会和公司网络产生冲突。
+  - 为了解决这个问题，需要在 `/etc/docker/daemon.json` 中增加 `"bip":"169.254.31.1/24"` 指定容器使用的网络。
+
+  ```json
+  {
+      "bip":"169.254.31.1/24"
+  }
+  ```
+
+# 私用镜像仓库
+
+- 下载harbo源码
+
+```shell
+[root@k8sm opt]# mkdir src
+[root@k8sm src]# wget https://github.com/goharbor/harbor/releases/download/v1.8.6/harbor-offline-installer-v1.8.6.tgz
+```
+
+- 安装
+
+```shell
+[root@k8sm src]# mkdir /opt/harbor
+[root@k8sm src]# tar -zxvf harbor-offline-installer-v1.10.1.tgz  -C /opt/
+## 解压之后，做一个版本标识，然后做软连接，方便后续升级
+[root@k8sm opt]# mv harbor harbor-1.10.1
+[root@k8sm opt]# ln -s harbor-1.10.1 harbor
+```
+
+- 编辑harbor.yml文件
+
+```shell
+[root@k8sm harbor]# vim harbor.yml
+##修改
+hostname: m.host.com
+## 端口修改
+ port: 180
+ 
+## 密码
+harbor_admin_password: Harbor12345
+
+```
+
+- 安装docker环境
+
+```shell
+## 安装epel环境
+yum install epel-release
+#安装docker-compose
+[root@k8sm home]# yum install docker-compose -y
+#执行
+[root@k8sm harbor]# ./install.sh
+
+## 查看相关记录
+[root@k8sm harbor]# docker-compose ps
+
+```
+
+- 查看http://192.168.1.143:180/   admin  harbor12345
 
 # docker helloword
 
