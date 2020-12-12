@@ -856,3 +856,21 @@ def source_files = 'esearch/es-jd/target/**'
 sshPublisher(publishers: [sshPublisherDesc(configName: '131', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: 'nohup java -jar es-jd-1.0-SNAPSHOT.jar >> catalina.out 2>&1 &', execTimeout: 120000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '/home/jar/', remoteDirectorySDF: false, removePrefix: 'esearch/es-jd/target', sourceFiles: 'esearch/es-jd/target/es-jd-1.0-SNAPSHOT.jar')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)])
 ```
 
+## nodejs
+
+```shell
+stage('Build') {
+      nodejs("nodejs"){
+		sh '''
+			cd dym-sales-web-saas
+			pwd
+			node -v && npm -v
+			npm config set registry http://registry.npm.taobao.org/
+			npm config get registry
+			npm i
+			npm run build
+		'''
+        }
+    }
+```
+
