@@ -2,7 +2,7 @@
 * java
 	* [java8](/java/java8.md)
 	* [java基础](/java/javaBase.md)
-	* [jenkin](/java/jenkin.md)
+	* [jenkins](/java/jenkins.md)
 	* [mybatis](/java/mybatis.md)
 	* [MybatisPlus](/java/MybatisPlus.md)
 	* [SpringBoot](/java/SpringBoot.md)
