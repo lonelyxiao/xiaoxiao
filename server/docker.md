@@ -98,7 +98,7 @@ Registry Mirrors:
   }
   ```
 
-# 私用镜像仓库
+# 私有镜像仓库
 
 - 下载harbo源码
 
