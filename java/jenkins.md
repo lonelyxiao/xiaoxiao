@@ -682,13 +682,11 @@ Fetching upstream changes from https://gitee.com/lonelyxiao/learning.git
 using GIT_ASKPASS to set credentials gitee
 ```
 
-### Maven配置
 
-- 在docker配置maven环境
 
-```shell
-export PATH=$PATH:$MAVEN_HOME/bin:
-```
+## Maven配置
+
+### 配置java和maven
 
 - 进入：jenkins -> Manage Jenkins -> 全局工具配置
   - 新增JDK
@@ -696,6 +694,9 @@ export PATH=$PATH:$MAVEN_HOME/bin:
   - 别名：jdk1.8
   - JAVA_HOME:/usr/lib/jvm/java-1.8.0-openjdk
   - 新增maven
+
+### 配置环境变量
+
 - 添加全局变量：（这些键值对每个节点上的每个应用都有效.它们可以在Jenkins配置(如$key或者${key})中使用, 并且在每个构建启动时被加入到环境变量中.）
   - 进入：jenkins -> Manage Jenkins -> 系统配置
   - 全局属性
@@ -754,6 +755,23 @@ steps：步骤，可以编写shell脚本
   - 编译maven：选择shell script， 填入对应的打包命令
 - 将生成的语法填入对应的steps中
 
+### sh脚本语句
+
+ 每个sh相当于一个sh脚本，所以他们的作用域都是隔离的
+
+```shell
+## 直接使用这个
+sh 'mvn clean package -Dmaven.test.skip=true '
+```
+
+```shell
+sh '''
+	脚本语句
+'''
+```
+
+
+
 #### 将pipeline语法写入项目文件中
 
 - 语法配置在任务中不好管理，所以可以选择将部署代码写在项目中
@@ -804,11 +822,13 @@ jenkins@effa534ebc42:~/.ssh$ ssh-copy-id root@192.168.1.131
 - 在131服务器上看到对应的公钥文件
 
 ```shell
+cd ~/.ssh/
 [root@localhost .ssh]# ls
 authorized_keys
 ```
 
 - 在jenkins上配置ssh
+  - jenkins -> 系统配置 -> publish over ssh
   - path to key (私钥路径): /var/jenkins_home/.ssh/id_rsa
 
 ![](..\image\java\jenkins\20201019001250.png)
@@ -854,5 +874,23 @@ def source_files = 'esearch/es-jd/target/**'
 
 ```shell
 sshPublisher(publishers: [sshPublisherDesc(configName: '131', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: 'nohup java -jar es-jd-1.0-SNAPSHOT.jar >> catalina.out 2>&1 &', execTimeout: 120000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '/home/jar/', remoteDirectorySDF: false, removePrefix: 'esearch/es-jd/target', sourceFiles: 'esearch/es-jd/target/es-jd-1.0-SNAPSHOT.jar')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)])
+```
+
+## nodejs
+
+```shell
+stage('Build') {
+      nodejs("nodejs"){
+		sh '''
+			cd dym-sales-web-saas
+			pwd
+			node -v && npm -v
+			npm config set registry http://registry.npm.taobao.org/
+			npm config get registry
+			npm i
+			npm run build
+		'''
+        }
+    }
 ```
 

@@ -964,6 +964,10 @@ sqlSession级别的缓存。一级缓存是一直开启的
 
 sqlSession.clearCache()
 
+
+
+**在分布式环境下，务必将MyBatis的localCacheScope属性设置为STATEMENT，避免其他应用节点执行SQL更新语句后，本节点缓存得不到刷新而导致的数据一致性问题。**
+
 ## 二级缓存
 
 基于namespace级别的缓存：一个namespace对应一个二级缓存
@@ -997,6 +1001,12 @@ cacheEnabled=true：false：关闭缓存（二级缓存关闭）(一级缓存一
 localCacheScope：本地缓存作用域：（一级缓存SESSION）；当前会话的所有数据保存在会话缓存中；
 
 STATEMENT：可以禁用一级缓存；
+
+## 缓存实现类
+
+org.apache.ibatis.cache.Cache
+
+
 
 # 运行原理
 
