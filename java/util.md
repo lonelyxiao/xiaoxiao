@@ -135,3 +135,18 @@ live template 进行设置模板
   - action -> diagram element搜索快捷键
   - ctrl+F
 
+# Typora修改字体
+
+1. 找到当前使用的主题**主题名.css**文件，body{}，然后在font-family中添加自己喜欢的中文字体。示例：
+
+![](../image/java/util/20201221231759.png)
+
+2. 修改代码中的字体，在主题文件夹中，新建一个名为base.user.css的文件，在里面添加如下代码(如果是中文需要加双引号)
+
+```css
+#write .CodeMirror-wrap .CodeMirror-code pre {
+    font-family: JetBrains Mono Regular
+}
+
+```
+
