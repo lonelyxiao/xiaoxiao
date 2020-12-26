@@ -437,6 +437,22 @@ GET /order/product/1
 DELETE /order/product/1
 ```
 
+- 带查询方式的删除
+
+```json
+POST /sys_org_company/_delete_by_query
+{
+   "query": {
+        "match_all": {
+        }
+    }
+}
+```
+
+
+
+
+
 # 多重查询方式
 
 ## search

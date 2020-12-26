@@ -97,6 +97,26 @@ public @interface MyAnno {
 
 RetentionPolicy一般都是runtime阶段
 
+- @Target:注解的作用目标　　　　　　　　
+
+　　　　@Target(ElementType.TYPE)   //接口、类、枚举、注解
+
+　　　　**@Target(ElementType.FIELD) //字段、枚举的常量**
+
+　　　　**@Target(ElementType.METHOD) //方法**
+
+　　　　**@Target(ElementType.PARAMETER) //方法参数**
+
+　　　　**@Target(ElementType.CONSTRUCTOR)  //构造函数**
+
+　　　　**@Target(ElementType.LOCAL_VARIABLE)//局部变量**
+
+　　　　**@Target(ElementType.ANNOTATION_TYPE)//注解**
+
+　　　　**@Target(ElementType.PACKAGE) ///包**  
+
+
+
 ```java
 @Target(ElementType.METHOD) //注解作用范围
 @Retention(RetentionPolicy.SOURCE) //注解被保留的阶段
