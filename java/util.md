@@ -14,9 +14,8 @@
 - Recent file
   - 搜索最近打开的文件
 - 查看上一步编辑的页面地方
-  - navicat->last edit
-  - ctrl+q
-- 查看最近浏览地方
+  - navigate->last edit
+- 回到最近浏览地方
   - navicat -> back
   - alt+箭头
 - 利用书签进行跳转
