@@ -894,3 +894,12 @@ stage('Build') {
     }
 ```
 
+## 集成idea
+
+- 安装 Jenkins Control Plugin插件
+- 配置相关信息
+
+![1608079876705](../image/jkens/1608079876705.png)
+
+password:在用户 --> 设置 --->  API Token中获取
+
