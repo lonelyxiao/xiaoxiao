@@ -96,3 +96,137 @@ public class MyRealm extends AuthorizingRealm {
 ```java
 securityManager.setRealm(new MyRealm());
 ```
+
+## MD5+salt
+
+一般密码存储数据库中，是加密的，为了防止md5被穷举法计算出，所以我们使用md5+salt方式存储密码
+
+- shiro中的md5
+
+```java
+//md5:202cb962ac59075b964b07152d234b70
+Md5Hash md51 = new Md5Hash("123");
+System.out.println(md51.toHex());
+
+//md5+salt:50c6cfa137465a41726781e29d325a7a
+Md5Hash md52 = new Md5Hash("123", "lonely");
+System.out.println(md52.toHex());
+
+//md5+salt+hash散列:646bea76fce01bfaec5b9a8bf36b3938
+Md5Hash md53 = new Md5Hash("123", "lonely", 1024);
+System.out.println(md53.toHex());
+```
+
+- md5
+
+```java
+MyRealm realm = new MyRealm();
+HashedCredentialsMatcher matcher = new HashedCredentialsMatcher();
+matcher.setHashAlgorithmName("md5");
+realm.setCredentialsMatcher(matcher);
+securityManager.setRealm(realm);
+SecurityUtils.setSecurityManager(securityManager);
+```
+
+```java
+if(token.getPrincipal().equals("zhangsan")) {
+    //模拟返回用户
+    return new SimpleAccount("zhangsan", "202cb962ac59075b964b07152d234b70", this.getName());
+}
+```
+
+- md5+salt
+
+```java
+if(token.getPrincipal().equals("zhangsan")) {
+    //模拟返回用户
+    return new SimpleAccount("zhangsan", "50c6cfa137465a41726781e29d325a7a", ByteSource.Util.bytes("lonely"), this.getName());
+}
+```
+
+- md5+salt+hash散列1024次
+
+```java
+MyRealm realm = new MyRealm();
+HashedCredentialsMatcher matcher = new HashedCredentialsMatcher();
+matcher.setHashAlgorithmName("md5");
+matcher.setHashIterations(1024);
+realm.setCredentialsMatcher(matcher);
+securityManager.setRealm(realm);
+SecurityUtils.setSecurityManager(securityManager);
+```
+
+# 授权
+
+## 授权方式
+
+- 基于角色 RBAC
+
+```java
+if(subject.hasRole("admin"))｛
+    
+ ｝
+```
+
+
+
+- 基于资源
+
+```java
+//对01用户有修改权限
+if(syvhect.isPermission("user:update:01")) {
+    
+}
+```
+
+## 权限字符串
+
+- 规则
+  - 资源标识符:操作:资源实例标识
+  - 如：user:create:*
+  - 可以用*来表示通配符
+
+## 授权实现
+
+- realm中返回对应的权限
+
+```java
+@Override
+protected AuthorizationInfo doGetAuthorizationInfo(PrincipalCollection principals) {
+    //用户名
+    System.out.println(principals.getPrimaryPrincipal());
+
+    SimpleAuthorizationInfo authorizationInfo = new SimpleAuthorizationInfo();
+    //添加角色
+    authorizationInfo.addRole("admin");
+    //添加资源权限
+    authorizationInfo.addStringPermission("zhangsan:create:*");
+    return authorizationInfo;
+}
+```
+
+- 主体判断
+
+```java
+try {
+    //登录，认证失败会抛出异常
+    subject.login(token);
+    //判断是否有权限
+    System.out.println(subject.hasRole("admin"));;
+    System.out.println(subject.isPermitted("zhangsan:create:01"));
+} catch (UnknownAccountException e) {
+    System.out.println("用户名不存在");
+} catch (IncorrectCredentialsException e) {
+    System.out.println("密码错误");
+}
+```
+
+- 日志打印
+
+```log
+zhangsan
+true
+zhangsan
+true
+```
+
