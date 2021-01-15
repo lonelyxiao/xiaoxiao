@@ -31,6 +31,7 @@
 	* [Linux基础](/server/linuxBase)
 	* [Linux用户](/server/linuxUser)
 	* [Shell](/server/shell)
+	* [k8s](/server/k8s)
 * 数据库
 	* [Elasticsearch](/database/Elasticsearch.md)
 	* [Redis](/database/Redis.md)

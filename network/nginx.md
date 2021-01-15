@@ -14,6 +14,16 @@
 
 # 安装
 
+## yum包安装
+
+```shell
+yum install nginx
+```
+
+
+
+## 二进制安装
+
 - 准备环境
 
 ```shell
@@ -135,7 +145,7 @@ server {
 
 - 通过正则反向代理
 
-访问：92.168.1.134:9001/test/index.html， 进入8080 的/test/index.html页面
+访问：192.168.1.134:9001/test/index.html， 进入8080 的/test/index.html页面
 
 ~ 地址区分大小写
 
@@ -157,6 +167,40 @@ server {
 
 }
 ```
+
+# SSL配置
+
+```shell
+server{
+        listen 80;
+        server_name dashboard.host.com;
+        rewrite ^/(.*)$ https://${server_name}:443/$1 permanent;
+}
+
+#http节点中可以添加多个server节点
+    server{
+        #监听443端口
+        listen 443;
+        #对应的域名，把baofeidyz.com改成你们自己的域名就可以了
+        server_name dashboard.host.com;
+        #从腾讯云获取到的第一个文件的全路径
+        ssl_certificate certs/dashboard.host.com.crt;
+        #从腾讯云获取到的第二个文件的全路径
+        ssl_certificate_key certs/dashboard.host.com.key;
+        ssl_session_timeout 5m;
+        ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+        ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:HIGH:!aNULL:!MD5:!RC4:!DHE;
+        ssl_prefer_server_ciphers on;
+        #这是我的主页访问地址，因为使用的是静态的html网页，所以直接使用location就可以完成了。
+        location / {
+            proxy_pass http://192.168.1.143:81;
+            proxy_set_header Host  $http_host;
+            proxy_set_header x-forwarded-for $proxy_add_x_forwarded_for;
+        }
+    }
+```
+
+
 
 # 负载均衡
 
@@ -188,7 +232,7 @@ server {
 
 - 访问<http://192.168.1.134/edu/index.html>，能够负载均衡的轮训访问服务
 
-### 指定权重
+## 指定权重
 
 ```conf
 upstream myserver {
@@ -197,7 +241,7 @@ upstream myserver {
 }
 ```
 
-### ip_hash
+## ip_hash
 
 每个请求按照ip来分配，可以解决session问题
 

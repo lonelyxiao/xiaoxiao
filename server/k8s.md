@@ -2558,7 +2558,7 @@ DNS实现只能让service集群内部访问，想要外部访问是不行的
 
 - ingress控制器
 
-### 准备资源配置清单
+## 准备资源配置清单
 
 - 创建目录
 
@@ -2567,6 +2567,29 @@ DNS实现只能让service集群内部访问，想要外部访问是不行的
 ```
 
 - rbac
+
+  - kind: ClusterRole， 声明了一个集群角色
+
+  - name: traefik-ingress-controller， 集群名字
+
+  - rules:定义一组规则
+
+    ```shell
+     resources:
+          - services
+          - endpoints
+          - secrets
+        verbs:
+          - get
+          - list
+          - watch
+    ```
+
+  - 在resources里配置的资源下，有get,list watch这些权限
+  
+  - kind: ClusterRoleBinding， 将定义的资源与角色绑定起来
+  
+  - subjects:绑定了哪个用户
 
 ```shell
 cat >/data/k8s-yaml/traefik/rbac.yaml <<EOF
@@ -2618,6 +2641,7 @@ EOF
 - deployment
   - 注意这里将容器中的80端口映射给了宿主机的81端口
   - 所有的http请求都从81进，然后用ingress规则进行转发到特定的service
+  - serviceAccountName：rbac中创建的账户名称
 
 ```shell
 cat >/data/k8s-yaml/traefik/ds.yaml <<EOF
@@ -2737,3 +2761,402 @@ traefik-ingress-wmntp      1/1       Running   0          58s
 - 访问
 
   http://traefik.host.com:81/dashboard/
+
+# 仪表盘（dashboard）
+
+- 建立目录
+
+```shell
+[root@k8sm ~]# mkdir -p /data/k8s-yaml/dashboard
+```
+
+
+
+## 配置资源配置清单
+
+- rbac
+
+```shell
+cat >/data/k8s-yaml/dashboard/rbac.yaml <<EOF
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    k8s-app: kubernetes-dashboard
+    addonmanager.kubernetes.io/mode: Reconcile
+  name: kubernetes-dashboard-admin
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubernetes-dashboard-admin
+  namespace: kube-system
+  labels:
+    k8s-app: kubernetes-dashboard
+    addonmanager.kubernetes.io/mode: Reconcile
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  ## 使用集群自带的权限
+  ## 可以kubectl get clusterrole cluster-admin -o yaml命令查看这个角色的权限
+  ## 他拥有所有资源所有权限
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: kubernetes-dashboard-admin
+  namespace: kube-system
+EOF
+```
+
+- deployment
+  - resources：对容器启动资源限制
+  - requests：容器跑起来必须满足这个资源
+  - limits: 最大限制的资源，如果超过则杀掉进程
+  - volumeMounts：容器挂载数据卷
+  - livenessProbe：探针，判断容器是否running状态
+
+```shell
+cat >/data/k8s-yaml/dashboard/dp.yaml <<EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubernetes-dashboard
+  namespace: kube-system
+  labels:
+    k8s-app: kubernetes-dashboard
+    kubernetes.io/cluster-service: "true"
+    addonmanager.kubernetes.io/mode: Reconcile
+spec:
+  selector:
+    matchLabels:
+      k8s-app: kubernetes-dashboard
+  template:
+    metadata:
+      labels:
+        k8s-app: kubernetes-dashboard
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ''
+    spec:
+      priorityClassName: system-cluster-critical
+      containers:
+      - name: kubernetes-dashboard
+        image: k8scn/kubernetes-dashboard-amd64:v1.8.3
+        resources:
+          limits:
+            cpu: 100m
+            memory: 300Mi
+          requests:
+            cpu: 50m
+            memory: 100Mi
+        ports:
+        - containerPort: 8443
+          protocol: TCP
+        env:
+          - name: ACCEPT_LANGUAGE
+            value: english
+        args:
+          # PLATFORM-SPECIFIC ARGS HERE
+          - --auto-generate-certificates
+        volumeMounts:
+        - name: tmp-volume
+          mountPath: /tmp
+        livenessProbe:
+          httpGet:
+            scheme: HTTPS
+            path: /
+            port: 8443
+          initialDelaySeconds: 30
+          timeoutSeconds: 30
+      volumes:
+      - name: tmp-volume
+        emptyDir: {}
+      ## 默认登录的用户
+      serviceAccountName: kubernetes-dashboard-admin
+      tolerations:
+      - key: "CriticalAddonsOnly"
+        operator: "Exists"
+EOF
+```
+
+- service
+
+```shell
+cat >/data/k8s-yaml/dashboard/svc.yaml <<EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubernetes-dashboard
+  namespace: kube-system
+  labels:
+    k8s-app: kubernetes-dashboard
+    kubernetes.io/cluster-service: "true"
+    addonmanager.kubernetes.io/mode: Reconcile
+spec:
+  selector:
+    k8s-app: kubernetes-dashboard
+  ports:
+  - port: 443
+    targetPort: 8443
+EOF
+```
+
+- ingress
+  - 对外访问用 dashboard.host.com域名访问
+  - 连接service端口为443
+
+```shell
+cat >/data/k8s-yaml/dashboard/ingress.yaml <<EOF
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: kubernetes-dashboard
+  namespace: kube-system
+  annotations:
+    kubernetes.io/ingress.class: traefik
+spec:
+  rules:
+  - host: dashboard.host.com
+    http:
+      paths:
+      - backend:
+          serviceName: kubernetes-dashboard
+          servicePort: 443
+EOF
+```
+
+- 应用资源文件
+
+```shell
+[root@k8sm ~]# kubectl apply -f /data/k8s-yaml/dashboard/rbac.yaml 
+[root@k8sm ~]# kubectl apply -f /data/k8s-yaml/dashboard/dp.yaml
+[root@k8sm ~]# kubectl apply -f /data/k8s-yaml/dashboard/svc.yaml
+[root@k8sm ~]# kubectl apply -f /data/k8s-yaml/dashboard/ingress.yaml
+```
+
+- 解析DNS
+
+- 访问
+
+http://dashboard.host.com:81/#!/login
+
+## K8S的RBAC
+
+- k8s有两种账户
+  - 用户账户：useraccount
+    - kubeconfig就是用户账户的配置文件
+  - 服务账户：
+    - deployment的    **"serviceAccount": "traefik-ingress-controller"**就是服务账户
+    - traefik是通过pod的形式交付k8s的，所以要创建服务账户
+- 我们无法给账户直接授权，只能通过角色
+- 角色两种
+  - Role
+    - 只对指定的名称空间有效
+  - ClusterRole
+    - 对整个集群有效
+
+## 仪表盘鉴权
+
+- dashbord升级到1.10.1后，需要强制登录，而不能skip
+- 但是token登录，需要https模式
+
+### 升级dashbord
+
+如图，直接到dashbord里修改镜像，
+
+siriuszg/kubernetes-dashboard-amd64:v1.10.1
+
+然后update
+
+![](../image/server/k8s/20201231233752.png)
+
+### openssl签发证书
+
+- 创建私钥
+
+```shell
+[root@k8sm certs]# (umask 077; openssl genrsa -out dashboard.host.com.key 2048)
+Generating RSA private key, 2048 bit long modulus
+........+++
+.............................+++
+e is 65537 (0x10001)
+
+## 检查，多出了私钥
+[root@k8sm certs]# ll dashboard.*
+-rw------- 1 root root 1675 Dec 31 10:54 dashboard.host.com.key
+```
+
+- 创建签发证书的请求文件
+  - -key dashboard.host.com.key:私钥
+  - -out dashboard.host.com.csr：证书签发的请求文件
+  - -subj "/CN=dashboard.host.com/C=CN/L=Beijing/O=laoxiao/OU=ops"：主题，c'n
+
+```shell
+[root@k8sm certs]# openssl req -new -key dashboard.host.com.key -out dashboard.host.com.csr -subj "/CN=dashboard.host.com/C=CN/ST=Bj/L=Beijing/O=laoxiao/OU=ops"
+[root@k8sm certs]# ll dashboard.host.com.*
+-rw-r--r-- 1 root root 1005 Dec 31 11:01 dashboard.host.com.csr
+-rw------- 1 root root 1675 Dec 31 10:54 dashboard.host.com.key
+```
+
+- 签发证书
+  - -in : 证书请求文件
+  - -CA： 根证书
+  - -CAcreateserial：自动创建序列号，可有可无
+  -  -out ：输出的证书文件，也可以输出pem文件
+  - -days：有效时间
+
+```shell
+[root@k8sm certs]# openssl x509 -req -in dashboard.host.com.csr -CA ca.pem -CAkey ca-key.pem -CAcreateserial -out dashboard.host.com.crt -days 3650
+Signature ok
+subject=/CN=dashboard.host.com/C=CN/ST=Bj/L=Beijing/O=laoxiao/OU=ops
+Getting CA Private Key
+
+[root@k8sm certs]# ll dashboard.host.com.*
+-rw-r--r-- 1 root root 1204 Dec 31 11:05 dashboard.host.com.crt
+-rw-r--r-- 1 root root 1005 Dec 31 11:01 dashboard.host.com.csr
+-rw------- 1 root root 1675 Dec 31 10:54 dashboard.host.com.key
+
+```
+
+- 查看证书
+
+```shell
+[root@k8sm certs]# cfssl-certinfo -cert dashboard.host.com.crt
+```
+
+### 配置nginx
+
+- 在nginx目录下，拷贝私钥和证书过来,配置好
+
+```shell
+[root@k8sn2 certs]# pwd
+/etc/nginx/certs
+[root@k8sn2 certs]# ll
+total 8
+-rw-r--r-- 1 root root 1204 Dec 31 11:12 dashboard.host.com.crt
+-rw------- 1 root root 1675 Dec 31 11:12 dashboard.host.com.key
+```
+
+```shell
+server {
+    listen       80;
+    server_name  dashboard.host.com;
+
+    rewrite ^(.*)$ https://${server_name}$1 permanent;
+}
+server {
+    listen       443 ssl;
+    server_name  dashboard.host.com;
+
+    ssl_certificate     "certs/dashboard.host.com.crt";
+    ssl_certificate_key "certs/dashboard.host.com.key";
+    ssl_session_cache shared:SSL:1m;
+    ssl_session_timeout  10m;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+
+    location / {
+        proxy_pass http://192.168.1.143:81;
+        proxy_set_header Host       $http_host;
+        proxy_set_header x-forwarded-for $proxy_add_x_forwarded_for;
+    }
+}
+```
+
+- 访问地址https://dashboard.host.com/
+
+- 获取token登录
+  - kubernetes-dashboard-admin-token就是service account
+  - 我们在上面配置的它的角色就是cluster-admin
+  - cluster-admin绑定权限是集群管理员（内部已绑定）
+  - 所以他有管理员权限
+
+```shell
+[root@k8sm certs]# kubectl get secret -n kube-system
+NAME                                     TYPE                                  DATA      AGE
+coredns-token-frqh4                      kubernetes.io/service-account-token   3         9d
+default-token-tdlx9                      kubernetes.io/service-account-token   3         18d
+kubernetes-dashboard-admin-token-rcqsl   kubernetes.io/service-account-token   3         4d
+kubernetes-dashboard-key-holder          Opaque                                2         4d
+traefik-ingress-controller-token-cmxwt   kubernetes.io/service-account-token   3         7d
+## 获取token
+[root@k8sm certs]# kubectl describe secret kubernetes-dashboard-admin-token-rcqsl -n kube-system
+```
+
+### 新建一个用户
+
+- 从官方拉一个最小权限rbac的配置下来，改一改0.0
+
+https://gitee.com/mirrors/Kubernetes/blob/master/cluster/addons/dashboard/dashboard.yaml
+
+```shell
+## 定义了一个service，名字是kubernetes-dashboard-minimal
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    k8s-app: kubernetes-dashboard
+    addonmanager.kubernetes.io/mode: Reconcile
+  name: kubernetes-dashboard-minimal
+  namespace: kube-system
+  
+---
+
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  labels:
+    k8s-app: kubernetes-dashboard
+    addonmanager.kubernetes.io/mode: Reconcile
+  name: kubernetes-dashboard-minimal
+  namespace: kube-system
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["kubernetes-dashboard-key-holder", "kubernetes-dashboard-certs", "kubernetes-dashboard-csrf"]
+    verbs: ["get", "update", "delete"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["kubernetes-dashboard-settings"]
+    verbs: ["get", "update"]
+  - apiGroups: [""]
+    resources: ["services"]
+    resourceNames: ["heapster", "dashboard-metrics-scraper"]
+    verbs: ["proxy"]
+  - apiGroups: [""]
+    resources: ["services/proxy"]
+    resourceNames: ["heapster", "http:heapster:", "https:heapster:", "dashboard-metrics-scraper", "http:dashboard-metrics-scraper"]
+    verbs: ["get"]
+    
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    k8s-app: kubernetes-dashboard
+    addonmanager.kubernetes.io/mode: Reconcile
+  name: kubernetes-dashboard-minimal
+  namespace: kube-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kubernetes-dashboard-minimal
+subjects:
+  - kind: ServiceAccount
+    name: kubernetes-dashboard
+    namespace: kube-system
+```
+
+- 将service的serviceAccountName的名字换成kubernetes-dashboard-minimal（默认的服务账号）
+- 登录的时候，如果用最高权限，则权限最高，如果用kubernetes-dashboard-minimal则权限最小
+
+# 平滑升级
+
+- 查看pod组件，那个服务器使用的最少，则从哪个服务器开始
+- 删除节点
+
+```shell
+kubectl delete node n1.host.com
+```
+
