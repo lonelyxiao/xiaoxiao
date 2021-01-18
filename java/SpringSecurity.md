@@ -94,7 +94,7 @@ List<Filter> filters = getFilters(fwRequest);
 - UserDetailsService
   - 查询数据库和密码的方法写在这个接口
 
-## 登录
+## 登录方式
 
 ### 配置文件方式
 
@@ -358,7 +358,7 @@ public class MyAccessDeniedHandler implements AccessDeniedHandler {
 http.exceptionHandling().accessDeniedHandler(accessDeniedHandler);
 ```
 
-### 基于access控制
+## 基于access控制
 
 - 上面的hasAnyAuthority本质上都是基于access表达式来控制的
 - 具体有哪些表达式可以官网查询
@@ -392,4 +392,20 @@ public class MyServiceImpl implements MyService {
 ```
 
 # 基于注解开发
+
+# OAUTH2协议
+
+## 授权模式
+
+### 授权码模式
+
+### 密码模式
+
+如：docker
+
+- 使用用户名/密码作为授权方式从授权服务器上获取令牌，一般不支持刷新令牌。
+
+## 刷新令牌
+
+## OAuth2搭建
 
