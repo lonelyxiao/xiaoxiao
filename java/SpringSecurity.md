@@ -407,5 +407,93 @@ public class MyServiceImpl implements MyService {
 
 ## 刷新令牌
 
-## OAuth2搭建
+## 搭建认证服务器
 
+- 引入jar包
+
+```java
+<dependencies>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-oauth2</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+    </dependencies>
+```
+
+- 自定义密码
+
+```java
+@Service
+public class MyUserDetailsServiceImpl implements UserDetailsService {
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        List<GrantedAuthority> role = AuthorityUtils.commaSeparatedStringToAuthorityList("admin");
+        return new User("test", passwordEncoder.encode("1234"), role);
+    }
+}
+```
+
+- 开启security的认证配置
+
+```java
+@Configuration
+@EnableWebSecurity
+@EnableGlobalMethodSecurity(prePostEnabled = true, securedEnabled = true, jsr250Enabled = true) //全局方法拦截
+public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+}
+
+```
+
+### 基于内存模式
+
+- 开启认证服务
+
+```java
+@Configuration
+@EnableAuthorizationServer
+public class AuthorizationServerConfig extends AuthorizationServerConfigurerAdapter {
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Override
+    public void configure(ClientDetailsServiceConfigurer clients) throws Exception {
+        clients.inMemory()
+                //clientid
+                .withClient("alonelyxiao")
+                //秘钥
+                .secret(passwordEncoder.encode("1212"))
+                //授权范围
+                .scopes("all")
+                //重定向地址
+                .redirectUris("http://www.baidu.com")
+                //授权模式
+                .authorizedGrantTypes("authorization_code");
+    }
+}
+```
+
+- 在浏览器输入地址http://localhost:81/oauth/authorize?client_id=alonelyxiao&response_type=code
+- 进入登录页，输入密码后调整到认证页面，选择允许认证
+- 页面调整到百度页面（上面配置的）https://www.baidu.com/?code=awaudB
+- 拿到code，在postman使用
+
+![](..\image\java\security\20210119231621.png)
+
+- 也可以如此传输
+
+![](..\image\java\security\20210119232149.png)
