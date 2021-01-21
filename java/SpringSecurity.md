@@ -89,6 +89,7 @@ List<Filter> filters = getFilters(fwRequest);
 
 - 创建一个类继承UsernamePasswordAuthenticationFilter
   - 重写attemptAuthentication方法
+    - 这个方法主要就是用来做认证的
   - successfulAuthentication方法：认证成功
   - unsuccessfulAuthentication方法：认证失败
 - UserDetailsService
