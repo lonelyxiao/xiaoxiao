@@ -94,7 +94,7 @@ List<Filter> filters = getFilters(fwRequest);
 - UserDetailsService
   - 查询数据库和密码的方法写在这个接口
 
-## 登录
+## 登录方式
 
 ### 配置文件方式
 
@@ -358,7 +358,7 @@ public class MyAccessDeniedHandler implements AccessDeniedHandler {
 http.exceptionHandling().accessDeniedHandler(accessDeniedHandler);
 ```
 
-### 基于access控制
+## 基于access控制
 
 - 上面的hasAnyAuthority本质上都是基于access表达式来控制的
 - 具体有哪些表达式可以官网查询
@@ -393,3 +393,107 @@ public class MyServiceImpl implements MyService {
 
 # 基于注解开发
 
+# OAUTH2协议
+
+## 授权模式
+
+### 授权码模式
+
+### 密码模式
+
+如：docker
+
+- 使用用户名/密码作为授权方式从授权服务器上获取令牌，一般不支持刷新令牌。
+
+## 刷新令牌
+
+## 搭建认证服务器
+
+- 引入jar包
+
+```java
+<dependencies>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-oauth2</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+    </dependencies>
+```
+
+- 自定义密码
+
+```java
+@Service
+public class MyUserDetailsServiceImpl implements UserDetailsService {
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        List<GrantedAuthority> role = AuthorityUtils.commaSeparatedStringToAuthorityList("admin");
+        return new User("test", passwordEncoder.encode("1234"), role);
+    }
+}
+```
+
+- 开启security的认证配置
+
+```java
+@Configuration
+@EnableWebSecurity
+@EnableGlobalMethodSecurity(prePostEnabled = true, securedEnabled = true, jsr250Enabled = true) //全局方法拦截
+public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+}
+
+```
+
+### 基于内存模式
+
+- 开启认证服务
+
+```java
+@Configuration
+@EnableAuthorizationServer
+public class AuthorizationServerConfig extends AuthorizationServerConfigurerAdapter {
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Override
+    public void configure(ClientDetailsServiceConfigurer clients) throws Exception {
+        clients.inMemory()
+                //clientid
+                .withClient("alonelyxiao")
+                //秘钥
+                .secret(passwordEncoder.encode("1212"))
+                //授权范围
+                .scopes("all")
+                //重定向地址
+                .redirectUris("http://www.baidu.com")
+                //授权模式
+                .authorizedGrantTypes("authorization_code");
+    }
+}
+```
+
+- 在浏览器输入地址http://localhost:81/oauth/authorize?client_id=alonelyxiao&response_type=code
+- 进入登录页，输入密码后调整到认证页面，选择允许认证
+- 页面调整到百度页面（上面配置的）https://www.baidu.com/?code=awaudB
+- 拿到code，在postman使用
+
+![](..\image\java\security\20210119231621.png)
+
+- 也可以如此传输
+
+![](..\image\java\security\20210119232149.png)
