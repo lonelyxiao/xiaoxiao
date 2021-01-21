@@ -146,6 +146,22 @@ public class MyUserDetailsServiceImpl implements UserDetailsService {
 }
 ```
 
+# 核心概念
+
+## 核心类
+
+| 类名                   | 描述                                                         |
+| ---------------------- | ------------------------------------------------------------ |
+| AuthenticationManager  | 用户认证的管理的接口，所有的认证请求（比如login）都会提交给AuthenticationManager.authenticate()方法来实现,当然事情肯定不是它来做，具体校验动作会由AuthenticationManager将请求转发给具体的实现类来做。根据实现反馈的结果再调用具体的Handler来给用户以反馈 |
+| AuthenticationProvider | 认证的具体实现类，一个provider是一种认证方式的实现,一个AuthenticationManager可以包含多个Provider，每个provider通过实现一个support方法来表示自己支持哪种Token的认证 |
+| UserDetailService      | 用户认证通过Provider来做，UserDetailService提高认证的用户    |
+| AuthenticationToken    | 所有提交给AuthenticationManager的认证请求都会被封装成一个Token的实现 |
+| SecurityContext        | 当用户通过认证之后，就会为这个用户生成一个唯一的SecurityContext，里面包含用户的认证信息Authentication。通过SecurityContext我们可以获取到用户的标识Principle和授权信息GrantedAuthrity。在系统的任何地方只要通过SecurityHolder.getSecruityContext()就可以获取到SecurityContext |
+
+## 核心过滤器
+
+
+
 # 自定义登录
 
 - 新建登录页
