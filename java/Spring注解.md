@@ -1,6 +1,155 @@
-# bean 注入ioc容器汇中方式
+# Spring概述
 
-## 从bean.xml文件中注入
+## spring特性
+
+### 核心特性（core）
+
+- Ioc容器
+- Spring 事件
+- 资源管理
+- 国际化
+- 校验
+- 数据绑定
+- 类型转换
+- spring 表达式
+- 面向切面编程
+  - aop
+
+### web技术
+
+- web servlet
+- web reactive
+
+### 测试
+
+- 模拟对象
+- TestContext框架
+  - 加载spring的上下文
+
+## spring 版本特性
+
+- 1.x
+- 2.x
+- 3.x
+  - 引入注解
+  - 基本确定内核
+- 4.x
+  - 对spring boot 1.x的支持
+- 5.x
+
+## spring 模块设计
+
+- spring-aop
+
+- spring-core
+  - 
+
+- spring-jcl
+  - 日志的支持
+
+...
+
+## spring 对jdk api支持
+
+- java5
+
+| XML处理(DOM,SAX...) | 1.0  | XmlBeanDefinitionReader |
+| ------------------- | ---- | ----------------------- |
+| Java管理扩展(JMX)   | 1.2  | @ManagedResource        |
+| 并发框架(J.U.C)     | 3.0  | ThreadPoolTaskExecutor  |
+| 格式化(Formatter)   | 3.0  | DateFormat              |
+
+- java6
+
+| JDBC4.0                      | 1.0  | JdbcTemplate                         |
+| ---------------------------- | ---- | ------------------------------------ |
+| Common Annotations(JSR 250)  | 2.5  |                                      |
+| 可插拔注解处理api（JSR 269） | 5.0  | @Indexed(减少运行时的scanning的操作) |
+|                              |      |                                      |
+
+## spring编程模型
+
+- aware接口
+  - aware回调接口，每当初始化这个接口的实现bean时，会回调设置一个值
+  - 如：ApplicationContextAware.setApplicationContext
+- 组合模式
+  - Composite
+- 模板模式
+
+# spring核心模块
+
+spring-core: spring基础api，如资源管理，泛型处理
+
+spring-beans：依赖注入，依赖查找
+
+spring-aop: 动态代理，字节码提升
+
+spring-context:事件驱动，注解驱动，模块驱动
+
+spring-expression:spring表达式语言
+
+
+
+# Spring IOC
+
+## IOC容器的职责
+
+- 实现与应用解耦
+
+- 依赖处理
+  - 依赖查找：如通过名称去查找
+  - 依赖注入
+
+## java beans
+
+### 特性
+
+- 依赖查找
+- 生命周期管理
+- 配置元信息
+- 事件
+- 资源管理
+- 持久化
+
+## BeanInfo示例
+
+- 定义一个pojo类
+
+```java
+@Getter
+@Setter
+@ToString
+public class Person {
+    private String name;
+    private Integer age;
+}
+```
+
+- 编写BeanInfo的示例
+  - 可以看到打印的，多出了一个
+  - name=class; propertyType=class java.lang.Class readMethod=public
+  - 那是因为顶层Object类有一个getClass方法，他会默认以为这个是一个**可读的方法**
+
+```java
+public static void main(String[] args) throws IntrospectionException {
+        BeanInfo beanInfo = Introspector.getBeanInfo(Person.class);
+        Arrays.stream(beanInfo.getPropertyDescriptors()).forEach(propertyDescriptor -> {
+           System.out.println(propertyDescriptor.toString());
+        });
+    }
+```
+
+- 我们可以加上stopClass的参数，避免他向上寻找父类
+
+```java
+BeanInfo beanInfo = Introspector.getBeanInfo(Person.class, Object.class);
+```
+
+
+
+# bean 注入容器方式
+
+## bean.xml文件注入
 
 1定义一个实体类，供后面测试
 
