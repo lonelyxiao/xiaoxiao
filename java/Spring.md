@@ -145,9 +145,251 @@ public static void main(String[] args) throws IntrospectionException {
 BeanInfo beanInfo = Introspector.getBeanInfo(Person.class, Object.class);
 ```
 
+## 依赖查找
+
+### 延迟查找与及时查找
+
+- 定义配置类
+
+```java
+@Configurable
+public class DependencyLookUpConfig {
+    @Bean
+    public Person person() {
+        return new Person();
+    }
+
+    @Bean
+    public ObjectFactoryCreatingFactoryBean objectFactory() {
+        ObjectFactoryCreatingFactoryBean objectFactory = new ObjectFactoryCreatingFactoryBean();
+        //将bean的名称设置进去
+        objectFactory.setTargetBeanName("person");
+        return objectFactory;
+    }
+}
+```
+
+- 依赖查找
+  - 延迟查找:并不是里面初始化
+
+```java
+public class DependencyLookUpDemo {
+    public static void main(String[] args) {
+        BeanFactory beanFactory = new AnnotationConfigApplicationContext(DependencyLookUpConfig.class);
+        lookUpLazyTime(beanFactory);
+        lookUpRealTime(beanFactory);
+    }
+
+    /**
+     * 及时查找
+     * @param beanFactory
+     */
+    static void lookUpRealTime(BeanFactory beanFactory) {
+        Person bean = beanFactory.getBean(Person.class);
+        System.out.println(bean);
+    }
+
+    /**
+     * 延迟查找
+     * @param beanFactory
+     */
+    static void lookUpLazyTime(BeanFactory beanFactory) {
+        ObjectFactory<Person> bean = beanFactory.getBean(ObjectFactory.class);
+        System.out.println(bean.getObject());
+    }
+}
+```
+
+### 通过注解来查找bean
+
+- 定义一个AnUser额注解
+- 将注解标注在SuperPerson类上
+
+```java
+@AnUser
+public class SuperPerson extends Person {
+}
+```
+
+- 通过注解获取对应的bean
+
+```java
+public static void main(String[] args) {
+    BeanFactory beanFactory = new AnnotationConfigApplicationContext(DependencyLookUpConfig.class);
+    lookUpByAnnotation(beanFactory);
+}
+
+/**
+ * 通过注解来查找bean
+ * @param beanFactory
+ */
+private static void lookUpByAnnotation(BeanFactory beanFactory) {
+    if(beanFactory instanceof ListableBeanFactory) {
+        Map<String, Object> beans = ((ListableBeanFactory) beanFactory).getBeansWithAnnotation(AnUser.class);
+        System.out.println(beans.toString());
+    }
+}
+```
+
+## 依赖注入
+
+- 依赖注入来源与依赖查找的来源并不是同一个
+
+### IOC依赖来源
+
+- 自定义bean：我们自定义的bean
+- 内建的bean
+- 容器内建依赖：beanfactory
+-  IoC中，依赖查找和依赖注入的数据来源并不一样。因为BeanFactory、ResourceLoader、ApplicationEventPublisher、ApplicationContext这四个并不是Bean，它们只是一种特殊的依赖项，无法通过依赖查找的方式来获取，只能通过依赖注入的方式来获取。
+
+## applicationContext
+
+- applicationContext是BeanFactory子接口
+- 他提供了获取上下文，监听的方法
+
+![](..\image\java\spring\20210128221447.png)
+
+- 查看源码可以得知，application有个getBeanFactory的方法
+- 他将beanFactory组合进来了，所以，applicationContext虽然实现了BeanFactory,但他们是两个东西，一般我们需要beanfactory时，通常用ApplicationContext.getBeanFactory()
+
+## IOC生命周期
+
+```java
+public void refresh() throws BeansException, IllegalStateException {
+		synchronized (this.startupShutdownMonitor) {
+			
+			prepareRefresh();
+            //创建beanfactory
+			ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory();
+            //对beanfactory进行初步的初始化操作
+            //加入一些bean依赖，和内建的非bean的依赖
+			prepareBeanFactory(beanFactory);
+
+			try {
+				postProcessBeanFactory(beanFactory);
+
+				invokeBeanFactoryPostProcessors(beanFactory);
+
+				//对bean的拓展和修改
+				registerBeanPostProcessors(beanFactory);
+				//国际化操作
+				initMessageSource();
+
+				initApplicationEventMulticaster();
+
+				onRefresh();
+
+				registerListeners();
+
+		
+				finishBeanFactoryInitialization(beanFactory);
+				finishRefresh();
+			}
+```
+
+## BeanFactory与FactoryBean
+
+- BeanFatory 是IOC底层容器
+- FactoryBean是创建bean的一种方式，帮助实现负责的初始化操作
+
+# Spring Bean
+
+## BeanDefinition
+
+### 元信息
+
+| 属性(Property)           | 说明                                        |
+| ------------------------ | ------------------------------------------- |
+| Name                     | Bean的名称或者ID                            |
+| Class                    | Bean全类名,必须是具体类，不能用抽象类或接口 |
+| Scope                    | Bean的作用域(如: singleton、prototype 等)   |
+| Constructor arguments    | Bean构造器参数（用于依赖注入)               |
+| Properties               | Bean属性设置（用于依赖注入)                 |
+| Autowiring mode          | Bean自动绑定模式(如:通过名称byName)         |
+| Lazy initialization mode | Bean延迟初始化模式(延迟和非延迟)            |
+| Initialization method    | Bean初始化回调方法名称                      |
+| Destruction method       | Bean销毁回调方法名称                        |
+
+### 如何定义元信息
+
+```java
+BeanDefinitionBuilder beanDefinitionBuilder = BeanDefinitionBuilder.genericBeanDefinition(Person.class);
+//属性设置 第一种方式
+beanDefinitionBuilder.addPropertyValue("name", "张三").addPropertyValue("age", 12);
+//获取实例  beanDefinition不是bean的最终形态，不是生命周期，可以随时修改
+AbstractBeanDefinition beanDefinition = beanDefinitionBuilder.getBeanDefinition();
+
+//通过abstractBeanDefinition 获取beanDefinition
+GenericBeanDefinition genericBeanDefinition = new GenericBeanDefinition();
+genericBeanDefinition.setBeanClass(Person.class);
+MutablePropertyValues propertyValues = new MutablePropertyValues();
+propertyValues.add("name", "张三").add("age", 12);
+genericBeanDefinition.setPropertyValues(propertyValues);
+```
+
+## 命名SpringBean
+
+- Bean的名称
+  - bean名称在所在的beanFactory或者他的beanDefinition里是唯一的，而不是在应用里唯一
+
+## 将BeanDefinition注入容器
+
+### xml方式
+
+<bean name></bean>
+
+### 注解方式
+
+- @Bean
+- @Component
+
+### Java API方式
+
+- 命名的方式： registry.registerBeanDefinition(name, beanDefinitionBuilder.getBeanDefinition());
+- 非命名方式： BeanDefinitionReaderUtils.registerWithGeneratedName(beanDefinitionBuilder.getBeanDefinition(), registry);
+
+```java
+public static void main(String[] args) {
+    AnnotationConfigApplicationContext applicationContext = new AnnotationConfigApplicationContext(AnnotationBeanDefinitionDemo.class);
+
+    //命名的方式注册
+    registryBeanDefinition(applicationContext, "my-person");
+    //非命名的方式
+    registryBeanDefinition(applicationContext);
+
+    //获取bean信息
+    System.out.println(applicationContext.getBeansOfType(Person.class));
+    applicationContext.close();
+}
+
+private static void registryBeanDefinition(BeanDefinitionRegistry registry, String name) {
+    BeanDefinitionBuilder beanDefinitionBuilder = BeanDefinitionBuilder.genericBeanDefinition(Person.class);
+    beanDefinitionBuilder.addPropertyValue("name", "张三").addPropertyValue("age", 12);
+    if(StringUtils.isEmpty(name)) {
+        BeanDefinitionReaderUtils.registerWithGeneratedName(beanDefinitionBuilder.getBeanDefinition(), registry);
+        return;
+    }
+    registry.registerBeanDefinition(name, beanDefinitionBuilder.getBeanDefinition());
+
+}
+
+private static void registryBeanDefinition(BeanDefinitionRegistry registry) {
+    registryBeanDefinition(registry, null);
+}
+```
+
+- 日志显示
+  - 可以看到，非命名的方式#0，带了序号
+
+```log
+{my-person=Person(name=张三, age=12), com.xiao.pojo.Person#0=Person(name=张三, age=12)}
+```
 
 
-# bean 注入容器方式
+
+
+
+# Bean 注入容器方式
 
 ## bean.xml文件注入
 

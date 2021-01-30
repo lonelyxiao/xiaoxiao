@@ -9,7 +9,7 @@
 	* [SpringCloud2018](/java/SpringCloud2018.md)
 	* [SpringCloud2020](/java/SpringCloud2020.md)
 	* [SpringMvc](/java/SpringMvc.md)
-	* [Spring注解](/java/Spring注解.md)
+	* [Spring](/java/Spring.md)
 	* [工作流](/java/workflow.md)
 	* [设计模式](/java/设计模式.md)
 	* [常用工具](/java/util.md)
