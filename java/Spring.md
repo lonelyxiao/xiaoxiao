@@ -296,6 +296,9 @@ public void refresh() throws BeansException, IllegalStateException {
 
 ## BeanDefinition
 
+- 一个定义bean的元信息的接口
+- 这个接口有setter，getter方式来进行操作
+
 ### 元信息
 
 | 属性(Property)           | 说明                                        |
@@ -385,9 +388,178 @@ private static void registryBeanDefinition(BeanDefinitionRegistry registry) {
 {my-person=Person(name=张三, age=12), com.xiao.pojo.Person#0=Person(name=张三, age=12)}
 ```
 
+## Bean 初始化
+
+- 注解方式
+
+```java
+@PostConstruct
+public void postInit() {
+    System.out.println("==> PostConstruct init");
+}
+```
+
+- bean方式
+
+```java
+@Bean(initMethod = "initMethod")
+public Person person() {
+    return new Person();
+}
+```
+
+```java
+public class Person{
+    public void initMethod() {
+        System.out.println("==> init method");
+    }
+}
+```
 
 
 
+- 实现InitializingBean方式
+
+```java
+public class Person implements InitializingBean {
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        System.out.println("==> afterPropertiesSet init");
+    }
+}
+```
+
+## 层次性依赖查找
+
+- 类似双亲委派一样，当local beanFactory没有找到bean，则去parent寻找
+
+- 层次性依赖查找接口：HierarchicalBeanFactory
+- 根据bean名称查找
+  - 基于containsLocalBean方式实现
+  - spring api  没有实现，需要我们自己跟进localBean来实现
+
+```java
+public static void main(String[] args) {
+    AnnotationConfigApplicationContext applicationContext
+            = new AnnotationConfigApplicationContext(DependencyLookUpConfig.class);
+
+    // 获取HierarchicalBeanFactory
+    // HierarchicalBeanFactory <-- ConfigurableBeanFactory <-- ConfigurableListableBeanFactory
+    //所以此处我们只需要获取ConfigurableListableBeanFactory即可
+    ConfigurableListableBeanFactory beanFactory = applicationContext.getBeanFactory();
+    System.out.println("parent bean factory: "+ beanFactory.getParentBeanFactory());
+    //configurable代表可修改的，这里我们去修改parent BeanFactory
+    beanFactory.setParentBeanFactory(getBeanFactory());
+    System.out.println("parent bean factory: "+ beanFactory.getParentBeanFactory());
+}
+
+public static BeanFactory getBeanFactory() {
+    AnnotationConfigApplicationContext applicationContext
+            = new AnnotationConfigApplicationContext(DependencyLookUpConfig.class);
+    ConfigurableListableBeanFactory beanFactory = applicationContext.getBeanFactory();
+    return beanFactory;
+}
+```
+
+## 延迟依赖查找
+
+- ObjectFactory
+- ObjectProvider
+  - ObjectProvider  继承 ObjectFactory
+- ObjectProvider在java8的拓展
+
+```java
+public static void main(String[] args) {
+    AnnotationConfigApplicationContext applicationContext =
+            new AnnotationConfigApplicationContext(ObjectProviderDemo.class);
+    lookupIfAvailable(applicationContext);
+    applicationContext.close();
+}
+
+/**
+ * 如果bean不存在则创建（注意不会注入容器中）
+ * @param applicationContext
+ */
+private static void lookupIfAvailable(AnnotationConfigApplicationContext applicationContext) {
+    ObjectProvider<Person> beanProvider = applicationContext.getBeanProvider(Person.class);
+    Person person = beanProvider.getIfAvailable(Person::new);
+    System.out.println(person);
+}
+```
+
+- ObjectProvider的集合操作
+  - 定义两个String类型的bean
+  - 用过provider循环输出
+
+```java
+public static void main(String[] args) {
+    AnnotationConfigApplicationContext applicationContext =
+            new AnnotationConfigApplicationContext(ObjectProviderDemo.class);
+    lookupIterable(applicationContext);
+    applicationContext.close();
+}
+
+private static void lookupIterable(AnnotationConfigApplicationContext applicationContext) {
+    ObjectProvider<String> beanProvider = applicationContext.getBeanProvider(String.class);
+    for(String bean : beanProvider) {
+        System.out.println(bean);
+    }
+}
+@Bean
+public String getMessage() {
+    return "message";
+}
+
+@Bean
+public String getHello() {
+    return "hello";
+}
+```
+
+## 内建可查找的依赖
+
+- AbstractApplicationContext 内建可查找的依赖
+
+| Bean名称                    | Bean 实例                       | 使用场景             |
+| --------------------------- | ------------------------------- | -------------------- |
+| environment                 | Enviroment对象                  | 外部配置以及profiles |
+| systemProperties            | Properties对象                  | java系统属性         |
+| systemEnvironment           | Map对象                         | 操作系统环境变量     |
+| messageSource               | MessageSource对象               | 国际化文案           |
+| applicationEventMulticaster | applicationEventMulticaster对象 | Spring 事件广播      |
+
+- AutowiredAnnotationBeanPostProcessor
+  - 通过源码可以看到：他处理Autowired，Value相关的注解
+
+```java
+public AutowiredAnnotationBeanPostProcessor() {
+    this.autowiredAnnotationTypes.add(Autowired.class);
+    this.autowiredAnnotationTypes.add(Value.class);
+```
+
+- AnnotationConfigUtils
+
+  - 在给定的注册表中注册所有相关的注释后置处理器
+
+## 常见异常
+
+| 异常类型                      | 触发条件(举例)              | 场景举例                                      |
+| ----------------------------- | --------------------------- | --------------------------------------------- |
+| NoSuchBeanDefinitionException | 当查找Bean不存在于loC容器时 | BeanFactory#getBean、ObjectFactoryt#getObject |
+|                               |                             |                                               |
+|                               |                             |                                               |
+
+## ObjectFactory BeanFactory区别
+
+答:ObjectFactory 与 BeanFactory 均提供依赖查找的能力。
+
+不过ObjectFactory仅关注一个或一种类型的 Bean依赖查找，开且自身不具备依赖查找的能力，能力则由BeanFactory 输出。
+
+BeanFactory则提供了单一类型、集合类型以及层次性等多种依赖查找方式。
+
+## beanFactory.getBean是否线程安全
+
+是线程安全的
 
 # Bean 注入容器方式
 
