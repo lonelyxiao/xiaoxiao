@@ -561,11 +561,15 @@ BeanFactory则提供了单一类型、集合类型以及层次性等多种依赖
 
 是线程安全的
 
-# Bean 注入容器方式
+# IOC依赖注入
 
-## bean.xml文件注入
+## 自动绑定
 
-1定义一个实体类，供后面测试
+
+
+## 生成Bean
+
+定义一个实体类，供后面测试
 
 ```java
 public class TestBean {
@@ -599,7 +603,9 @@ public class TestBean {
 }
 ```
 
-2 在resources下建立bean.xml文件
+### xml文件注入
+
+- 在resources下建立bean.xml文件
 
 ```xml
 <!--以配置文件的方式配置bean-->
@@ -609,7 +615,7 @@ public class TestBean {
 </bean>
 ```
 
-3 在test类中获取
+- 在test类中获取
 
 ```java
 @Test
@@ -621,7 +627,7 @@ public void testBeanXml(){
 }
 ```
 
-## 以配置类config的方式进行配置
+### 注解方式
 
 定义一个配置类，这个方法中的bean的id默认是方法名
 
