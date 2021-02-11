@@ -563,11 +563,157 @@ BeanFactory则提供了单一类型、集合类型以及层次性等多种依赖
 
 # IOC依赖注入
 
-## 自动绑定
+## 注入方式
+
+- 手动模式
+  - xml资源模式
+  - java注解模式 @Bean
+  - API配置原信息：applicationContext.registerBeanDefinition(name, beanDefinitionBuilder.getBeanDefinition());
+- 构造器注入 constructor
+- setter注入的缺陷：setter注入是无序的，构造器注入是有序的
+- 字段注入
+
+### 接口回调注入
+
+- Aware系列回调
+  - BeanFactoryAware
+  - ApplicationContextAware
+
+日志打印为两个true，证明beanFactory和applicationContext是同一个
+
+```java
+private static BeanFactory beanFactory;
+
+private static ApplicationContext context;
+
+public static void main(String[] args) {
+    AnnotationConfigApplicationContext applicationContext = new AnnotationConfigApplicationContext();
+    applicationContext.register(AwareDependencyDemo.class);
+    applicationContext.refresh();
+
+    System.out.println(beanFactory == applicationContext.getBeanFactory());
+    System.out.println(context == applicationContext);
+    applicationContext.close();
+}
+
+@Override
+public void setBeanFactory(BeanFactory beanFactory) throws BeansException {
+    this.beanFactory=beanFactory;
+}
+
+@Override
+public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+    this.context=applicationContext;
+}
+```
+
+### 限定注入
+
+- 使用注解@Qualifier限定
+
+  - 通过Bean名称限定
+  - 通过分组限定
 
 
+因为使用了Qualifier，所以persons2只注入了对应的bean集合，而persons注入了所有bean
 
-## 生成Bean
+```java
+public class QualifierDependencyDemo {
+
+    @Autowired
+    private List<Person> persons;
+    @Autowired
+    @Qualifier
+    private List<Person> persons2;
+    public static void main(String[] args) {
+        AnnotationConfigApplicationContext applicationContext = new AnnotationConfigApplicationContext();
+        applicationContext.register(QualifierDependencyDemo.class);
+        applicationContext.refresh();
+
+        QualifierDependencyDemo bean = applicationContext.getBean(QualifierDependencyDemo.class);
+        //person person1 person2
+        System.out.println(bean.persons);
+        //person2, person3
+        System.out.println(bean.persons2);
+        applicationContext.close();
+    }
+    @Bean
+    public SuperPerson superPerson() {
+        return new SuperPerson();
+    }
+    @Bean
+    public Person person1() {
+        return new Person(1);
+    }
+    @Bean
+    @Qualifier
+    public Person person2() {
+        return new Person(2);
+    }
+}
+```
+
+- 基于注解@Qualifier拓展限定
+  - 自定义注解
+
+定义一个注解，它标注了Qualifier
+
+```java
+@Target({ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER, ElementType.TYPE, ElementType.ANNOTATION_TYPE})
+@Retention(RetentionPolicy.RUNTIME)
+@Inherited
+@Documented
+@Qualifier
+public @interface GroupBean {
+}
+```
+
+使用GroupBean注解
+
+可以看到，GroupBean注解的只有对应的bean，Qualifier有Qualifier和GroupBean注解对应分组的bean
+
+```java
+public class QualifierDependencyDemo {
+
+    @Autowired
+    private List<Person> persons;
+
+    @Autowired
+    @Qualifier
+    private List<Person> persons2;
+
+    @Autowired
+    @GroupBean
+    private List<Person> persons3;
+    public static void main(String[] args) {
+        AnnotationConfigApplicationContext applicationContext = new AnnotationConfigApplicationContext();
+        applicationContext.register(QualifierDependencyDemo.class);
+        applicationContext.refresh();
+
+        QualifierDependencyDemo bean = applicationContext.getBean(QualifierDependencyDemo.class);
+        //person person1 person2
+        System.out.println(bean.persons);
+        //person2, person3
+        System.out.println(bean.persons2);
+        //person3
+        System.out.println(bean.persons3);
+        applicationContext.close();
+    }
+
+    @Bean
+    @GroupBean
+    public Person person3() {
+        return new Person(3);
+    }
+}
+```
+
+## 延迟注入
+
+- ObjectFactory
+- ObjectProvider (推荐)
+
+## 其他注入方式
 
 定义一个实体类，供后面测试
 
@@ -665,6 +811,71 @@ public TestBean testBean(){
 }
 ```
 
+
+
+## 依赖处理过程
+
+- 为什么字段注入是通过类查找依赖
+  - 因为DependencyDescriptor继承了InjectionPoint
+  - 在InjectionPoint中，getDeclaredType方法返回字段通过什么类型查找
+
+### 注入普通了类分析
+
+- 从DefaultListableBeanFactory#resolveDependency入手
+
+- 定义一个启动类，注入一个Bean
+
+```java
+public class AnnotationDependencyResolveDemo {
+    @Autowired
+    private Person person;
+}
+```
+
+- 看到对应的DependencyDescriptor，他描述了需要注入的对应的Bean信息
+  - declaringClass:类信息，这里是demo类
+  - superPerson：注入的字段名称
+  - field：注入的字段信息
+
+- 进入doResolveDependency方法
+
+```java
+//查看上级有没有被嵌套过
+InjectionPoint previousInjectionPoint = ConstructorResolver.setCurrentInjectionPoint(descriptor);
+try {
+   //注入的字段类型，这里是superperson
+   Class<?> type = descriptor.getDependencyType();
+  //通过type(这里是Person)查到能够注入的bean
+   Map<String, Object> matchingBeans = findAutowireCandidates(beanName, type, descriptor);
+  
+
+   String autowiredBeanName;
+   Object instanceCandidate;
+//判断是不是有多个bean
+   if (matchingBeans.size() > 1) {
+       //再次筛选符合条件的bean名称
+      autowiredBeanName = determineAutowireCandidate(matchingBeans, descriptor);
+      
+      instanceCandidate = matchingBeans.get(autowiredBeanName);
+   }
+   else {
+      //一个bean直接获取
+      Map.Entry<String, Object> entry = matchingBeans.entrySet().iterator().next();
+      autowiredBeanName = entry.getKey();
+      instanceCandidate = entry.getValue();
+   }
+
+   if (autowiredBeanNames != null) {
+      autowiredBeanNames.add(autowiredBeanName);
+   }
+   if (instanceCandidate instanceof Class) {
+      //调用beanFactory.getBean(beanName)获取bean
+      instanceCandidate = descriptor.resolveCandidate(autowiredBeanName, type, this);
+   }
+   return result;
+}
+```
+
 ## 使用注解进行包扫描
 
 将指定包下的所有标注了@Controller、@Service、@Repository，@Component扫入容器
@@ -699,6 +910,61 @@ public class MainConfig {
         @ComponentScan.Filter(type = FilterType.ANNOTATION, classes = {Controller.class})
 }, useDefaultFilters = false)
 ```
+
+## Autowire注入过程
+
+注意AutowiredAnnotationBeanPostProcessor#postProcessProperties
+
+和MergedBeanDefinitionPostProcessor#postProcessMergedBeanDefinition进行元信息操作
+
+**注入在postProcessProperties 方法执行，早于setter注入， 也早于@PostConstruct**
+
+ ## 自定义注入
+
+- 定义一与Autowired注解类似的注解
+
+```java
+@Target({ElementType.CONSTRUCTOR, ElementType.METHOD, ElementType.PARAMETER, ElementType.FIELD, ElementType.ANNOTATION_TYPE})
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface InjectPerson {
+}
+```
+
+- 注入内容
+
+```java
+@InjectPerson
+private Person injectPerson;
+```
+
+- 生成注解处理post
+  - AUTOWIRED_ANNOTATION_PROCESSOR_BEAN_NAME：在AnnotationConfigUtils定义了这个名字，如果这个名称已经产生，则不再重新注入AutowiredAnnotationBeanPostProcessor
+  - static：如果是非静态的一个方法，当前bean产生依赖当前所在的类，定义为static能让这个bean独立于所在类
+
+```java
+@Bean(name = AUTOWIRED_ANNOTATION_PROCESSOR_BEAN_NAME)
+public static AutowiredAnnotationBeanPostProcessor beanPostProcessor() {
+    AutowiredAnnotationBeanPostProcessor beanPostProcessor = new AutowiredAnnotationBeanPostProcessor();
+    beanPostProcessor.setAutowiredAnnotationType(InjectPerson.class);
+    return beanPostProcessor;
+}
+```
+
+- 我们发现这样的注入方式，只能处理inject注解，不能处理autowired注解
+- 因为AnnotationConfigUtils的缘故，所以我们重新生产bean，并且，加入order，让其晚于AUTOWIRED_ANNOTATION_PROCESSOR_BEAN_NAME生成
+
+```java
+@Bean
+@Order(Ordered.LOWEST_PRECEDENCE - 3)
+public static AutowiredAnnotationBeanPostProcessor beanPostProcessor() {
+    AutowiredAnnotationBeanPostProcessor beanPostProcessor = new AutowiredAnnotationBeanPostProcessor();
+    beanPostProcessor.setAutowiredAnnotationType(InjectPerson.class);
+    return beanPostProcessor;
+}
+```
+
+如此，InjectPerson就能注入进去对应的bean了
 
 ## 组件的过滤规则
 
@@ -1240,7 +1506,162 @@ public void testBeanConfig2(){
 }
 ```
 
-# 注解 aop
+# 依赖来源
+
+依赖注入会比依赖来源多一项非spring容器管理对象
+
+即：
+
+```java
+beanFactory.registerResolvableDependency(BeanFactory.class, beanFactory);
+beanFactory.registerResolvableDependency(ResourceLoader.class, this);
+beanFactory.registerResolvableDependency(ApplicationEventPublisher.class, this);
+beanFactory.registerResolvableDependency(ApplicationContext.class, this);
+```
+
+这四个
+
+BeanFactory不能通过autowire的方式注入，其他都可以
+
+## 容器管理
+
+元信息：是不是primary,lazy
+
+| 来源                       | bean对象 | 生命周期管理 | 配置元信息 | 使用场景       |
+| -------------------------- | -------- | ------------ | ---------- | -------------- |
+| spring beanDefinition      | y        | Y            | Y          | 依赖注入，查找 |
+| 单体对象(beanDefinition等) | y        | n            | n          | 依赖注入，查找 |
+| Resolvable Dependency      | N        | N            | N          | 依赖注入       |
+
+## BeanDefinition
+
+- 注册中心接口：BeanDefinitionRegistry，它提供了一些正常的CURD的接口方法
+- 它的实现：DefaultListableBeanFactory
+- 通过registerBeanDefinition(String beanName, BeanDefinition beanDefinition)方法注入
+- 将其注入到对应的集合中
+
+```java
+//存储集合
+this.beanDefinitionMap.put(beanName, beanDefinition);
+//维护顺序
+this.beanDefinitionNames.add(beanName);
+```
+
+- 最后通过BeanDefinition元信息创建bean
+
+## 注入和查找来源是否相同
+
+否，查找来源Spring BeanDefinition 以及单例对象，而注入来源还包括Resolvable Dependency 以及@Value 外部配置
+
+# Bean 作用域
+
+## singleton
+
+- 主要是由BeanDefinition#isSingleton来进行元信息的判断
+- singleton 查找和注入都是同一个同一个对象
+- prototype 查找和注入 都是新生成的对象
+- singleton 有init和destroy  
+- prototype只有init
+
+## request scop
+
+- 每次返回前端的bean是新生成的
+- 但是后端的bean是cglib提升的，单例的
+
+## ApplicationScope
+
+- API:ServletContextScope
+
+## 自定义作用域
+
+- 实现scope
+
+```java
+public class ThreadLocalScope implements Scope {
+
+    public static final String SCOPE_NAME="thread-local";
+
+    private final NamedThreadLocal<Map<String, Object>> threadLocal = new NamedThreadLocal("thread-local-scope") {
+        @Override
+        protected Object initialValue() {
+            //没有获取到对象是兜底返回
+            return new HashMap<>();
+        }
+    };
+
+    @Override
+    public Object get(String name, ObjectFactory<?> objectFactory) {
+        Map<String, Object> context = threadLocal.get();
+        Object object = context.get(name);
+        if(ObjectUtils.isEmpty(object)) {
+            object = objectFactory.getObject();
+            context.put(name, object);
+        }
+        return object;
+    }
+
+    @Override
+    public Object remove(String name) {
+        return threadLocal.get().remove(name);
+    }
+
+    @Override
+    public void registerDestructionCallback(String name, Runnable callback) {
+
+    }
+
+    @Override
+    public Object resolveContextualObject(String key) {
+        return threadLocal.get().get(key);
+    }
+
+    @Override
+    public String getConversationId() {
+        return String.valueOf(Thread.currentThread().getId());
+    }
+}
+```
+
+- 注入scope
+
+```java
+public class ThreadLocalScopeDemo {
+
+    @Bean
+    @Scope(ThreadLocalScope.SCOPE_NAME)
+    public Person person() {
+        return new Person(String.valueOf(Thread.currentThread().getId()));
+    }
+
+    public static void main(String[] args) throws Exception {
+        AnnotationConfigApplicationContext applicationContext = new AnnotationConfigApplicationContext();
+        applicationContext.register(ThreadLocalScopeDemo.class);
+        applicationContext.addBeanFactoryPostProcessor(beanFactory -> {
+            beanFactory.registerScope(ThreadLocalScope.SCOPE_NAME, new ThreadLocalScope());
+        });
+
+        applicationContext.refresh();
+        for(int i=0; i<3; i++) {
+            new Thread(() -> {
+                Person bean = applicationContext.getBean(Person.class);
+                System.out.println(bean);
+                Person bean1 = applicationContext.getBean(Person.class);
+                System.out.println(bean1);
+            }).start();
+        }
+        Thread.sleep(Integer.MAX_VALUE);
+        applicationContext.close();
+    }
+}
+```
+
+
+
+# Bean 生命周期
+
+
+
+# Spring AOP
 
 ## aop功能的测试
 
