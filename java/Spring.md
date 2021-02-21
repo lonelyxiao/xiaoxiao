@@ -388,6 +388,24 @@ private static void registryBeanDefinition(BeanDefinitionRegistry registry) {
 {my-person=Person(name=张三, age=12), com.xiao.pojo.Person#0=Person(name=张三, age=12)}
 ```
 
+## BeanDefinition 合并
+
+- 当子类注入bean，父类也注入了并，那么采用合并的方式，能够将父类的值合并到子类
+- RootBeanDefinition表示顶层bean，这是不需要合并的
+- 子类的有GenericBeanDefinition，这个是需要合并的
+- 在ConfigurableBeanFactory#getMergedBeanDefinition会递归的向上合并
+
+```java
+//当前不包含这个beandefiniton，则去父类查找是否存在bean
+if (!containsBeanDefinition(beanName) && getParentBeanFactory() instanceof ConfigurableBeanFactory) {
+   return ((ConfigurableBeanFactory) getParentBeanFactory()).getMergedBeanDefinition(beanName);
+}
+//如果存在这个bean的话，则继续寻找
+return getMergedLocalBeanDefinition(beanName);
+```
+
+- 合并后会由GenericBeanDefinition --->RootBeanDefinition
+
 ## Bean 初始化
 
 - 注解方式
@@ -749,28 +767,12 @@ public class TestBean {
 }
 ```
 
-### xml文件注入
 
-- 在resources下建立bean.xml文件
-
-```xml
-<!--以配置文件的方式配置bean-->
-<bean id="testBean" class="com.xiao.entry.TestBean" >
-    <property name="username" value="xiao"></property>
-    <property name="password" value="123456"></property>
-</bean>
-```
 
 - 在test类中获取
 
 ```java
-@Test
-public void testBeanXml(){
-    //直接从bean文件获取bean
-    ApplicationContext applicationContext = new ClassPathXmlApplicationContext("bean.xml");
-    TestBean testBean = (TestBean) applicationContext.getBean("testBean");
-    System.out.println(testBean.toString());
-}
+
 ```
 
 ### 注解方式
@@ -1537,7 +1539,7 @@ BeanFactory不能通过autowire的方式注入，其他都可以
 
 - 注册中心接口：BeanDefinitionRegistry，它提供了一些正常的CURD的接口方法
 - 它的实现：DefaultListableBeanFactory
-- 通过registerBeanDefinition(String beanName, BeanDefinition beanDefinition)方法注入
+- 通过DefaultListableBeanFactory#registerBeanDefinition(String beanName, BeanDefinition beanDefinition)方法注入
 - 将其注入到对应的集合中
 
 ```java
@@ -1657,9 +1659,859 @@ public class ThreadLocalScopeDemo {
 
 
 
-# Bean 生命周期
+# Bean 元信息配置
+
+- BeanDefinition配置
+
+## 面向资源
+
+### xml配置方式
+
+1. 在resources下建立bean.xml文件
+
+```xml
+<!--以配置文件的方式配置bean-->
+<bean id="testBean" class="com.xiao.entry.TestBean" >
+    <property name="username" value="xiao"></property>
+    <property name="password" value="123456"></property>
+</bean>
+```
+
+2. 注入bean和获取bean
+
+```java
+@Test
+public void testBeanXml(){
+    //直接从bean文件获取bean
+    ApplicationContext applicationContext = new ClassPathXmlApplicationContext("bean.xml");
+    TestBean testBean = (TestBean) applicationContext.getBean("testBean");
+    System.out.println(testBean.toString());
+}
+```
+
+### properties 
+
+- 遵循的格式可以参考PropertiesBeanDefinitionReader
+- 如employee.(class)=MyClass  表示指定Bean的class
+
+- 在resource下定义数据
+
+```properties
+person.(class)=com.xiao.pojo.Person
+person.age=1
+person.name=老肖
+```
+
+- 定义加载类
+
+```java
+public static void main(String[] args) {
+        DefaultListableBeanFactory beanFactory = new DefaultListableBeanFactory();
+        PropertiesBeanDefinitionReader beanDefinitionReader = new PropertiesBeanDefinitionReader(beanFactory);
+        String location = "application.properties";
+        EncodedResource encodedResource = new EncodedResource(new ClassPathResource(location), "UTF-8");
+        int i = beanDefinitionReader.loadBeanDefinitions(encodedResource);
+        System.out.println("加载bean数量: " + i);
+
+        Person bean = beanFactory.getBean(Person.class);
+        System.out.println(bean);
+    }
+```
+
+## Bean Class 加载
+
+- AbstractBeanFactory#doGetBean 进入
+- 在获取完beanDefinition后
+
+```java
+final RootBeanDefinition mbd = getMergedLocalBeanDefinition(beanName);
+```
+
+- 调用DefaultSingletonBeanRegistry#getSingleton方法
+
+- 如果没有找到bean，则执行方法进行创建bean
+
+```java
+sharedInstance = getSingleton(beanName, () -> {
+   try {
+      return createBean(beanName, mbd, args);
+   }
+});
+```
+
+- 进入AbstractAutowireCapableBeanFactory#createBean方法创建bean
+
+```java
+//解析bean的class（利用java的classload）
+Class<?> resolvedClass = resolveBeanClass(mbd, beanName);
+```
+
+## Bean实例化前
+
+- 每实例化bean都会拿出所有的前置处理进行调用
+- InstantiationAwareBeanPostProcessor#postProcessBeforeInstantiation  
+- bean实例化前进行加载，如果返回对象不为空，则直接使用当前对象
+- 用处：如需要实现自己的远程bean等一些
+
+- 实例：
+
+```java
+public static void main(String[] args) {
+        AnnotationConfigApplicationContext applicationContext = new AnnotationConfigApplicationContext();
+        applicationContext.register(InstantiationBeforeProcessor.class);
+        applicationContext.addBeanFactoryPostProcessor(beanFactory -> {
+            beanFactory.addBeanPostProcessor(new MyInstantiationBeanProcessor());
+        });
+        applicationContext.refresh();
+
+        applicationContext.close();
+    }
+
+    static class MyInstantiationBeanProcessor implements InstantiationAwareBeanPostProcessor {
+        @Override
+        public Object postProcessBeforeInstantiation(Class<?> beanClass, String beanName) throws BeansException {
+            System.out.println(beanClass);
+            return null;
+        }
+    }
+```
+
+## 实例化
+
+### 传统
+
+- 从AbstractAutowireCapableBeanFactory#doCreateBean
+- 进入AbstractAutowireCapableBeanFactory#createBeanInstance
+
+```java
+protected BeanWrapper createBeanInstance(String beanName, RootBeanDefinition mbd, @Nullable Object[] args) {
 
 
+   Supplier<?> instanceSupplier = mbd.getInstanceSupplier();
+   if (instanceSupplier != null) {
+      return obtainFromSupplier(instanceSupplier, beanName);
+   }
+
+   if (mbd.getFactoryMethodName() != null) {
+       //工厂方法进行实例化
+      return instantiateUsingFactoryMethod(beanName, mbd, args);
+   }
+
+
+   // Candidate constructors for autowiring?
+   Constructor<?>[] ctors = determineConstructorsFromBeanPostProcessors(beanClass, beanName);
+   if (ctors != null || mbd.getResolvedAutowireMode() == AUTOWIRE_CONSTRUCTOR ||
+         mbd.hasConstructorArgumentValues() || !ObjectUtils.isEmpty(args)) {
+       //带参构造函数初始化
+      return autowireConstructor(beanName, mbd, ctors, args);
+   }
+
+   ctors = mbd.getPreferredConstructors();
+   if (ctors != null) {
+      return autowireConstructor(beanName, mbd, ctors, null);
+   }
+	//默认实例化，无构造参数实例化
+   return instantiateBean(beanName, mbd);
+}
+```
+
+- AbstractAutowireCapableBeanFactory#instantiateBean
+
+```java
+//使用策略的方式进行调用创建方法
+beanInstance = getInstantiationStrategy().instantiate(mbd, beanName, parent);
+```
+
+- SimpleInstantiationStrategy#instantiate
+- 最后调用BeanUtils.instantiateClass(constructorToUse);生成bean
+
+### 构造器注入
+
+- 按照类型注入
+- resolveDependency
+
+## 实例化后
+
+- InstantiationAwareBeanPostProcessor#postProcessAfterInstantiation
+- 已经实例化bean了，但是没有注入属性
+- 如果我们不想走传统复制方式，则可以采用这种方式赋值
+
+- 在AbstractAutowireCapableBeanFactory#doCreateBean中
+
+```java
+Object exposedObject = bean;
+try {
+    //实例化以后注入属性
+   populateBean(beanName, mbd, instanceWrapper);
+   exposedObject = initializeBean(beanName, exposedObject, mbd);
+}
+```
+
+- 使用方式
+
+```java
+static class MyInstantiationBeanProcessor implements InstantiationAwareBeanPostProcessor {
+
+    @Override
+    public boolean postProcessAfterInstantiation(Object bean, String beanName) throws BeansException {
+        if(ObjectUtils.nullSafeEquals(beanName, "person")) {
+            Person person = Person.class.cast(bean);
+            person.setAge(2);
+            return true;
+        }
+        return false;
+    }
+}
+```
+
+## 属性赋值前
+
+- InstantiationAwareBeanPostProcessor#postProcessProperties
+
+## Bean Aware
+
+- BeanNameAware
+- BeanClassLoaderAware
+- BeanFactoryAware
+
+## Bean 初始化前
+
+- 这个时候已经完成了Bean实例化、Bean属性赋值、Aware接口回调
+
+- BeanPostProcessor#postProcessBeforeInitialization
+- 从源码可以看出，如果返回的不为空，则会直接当成bean（可以返回代理对象）使用
+
+```java
+for (BeanPostProcessor processor : getBeanPostProcessors()) {
+   Object current = processor.postProcessBeforeInitialization(result, beanName);
+   if (current == null) {
+      return result;
+   }
+   result = current;
+}
+```
+
+- 这个执行在bean初始化方法里
+
+```java
+Object exposedObject = bean;
+try {
+   populateBean(beanName, mbd, instanceWrapper);
+   //执行初始化
+   exposedObject = initializeBean(beanName, exposedObject, mbd);
+}
+```
+
+
+
+## 初始化阶段
+
+- 
+
+## 初始化后
+
+- BeanPostProcessor#postProcessAfterInitialization
+
+## 初始化完成
+
+- SmartInitializingSingleton#afterSingletonsInstantiated
+- 通常在spring applicationcontext调用
+- 当前容器所有的beandefinition已经完全初始化后调用
+
+## Bean 销毁前阶段
+
+- DestructionAwareBeanPostProcessor#postProcessBeforeDestruction
+
+## Aware相关执行
+
+- 通过org.springframework.context.support.ApplicationContextAwareProcessor#invokeAwareInterfaces方法的顺序进行执行
+
+# Bean配置元信息
+
+- 配置元信息   BeanDefinition
+- 属性元信息 propertyValues
+  - 他是个集合
+- 外部化元信息  propertySource
+- Profile元信息  @Profile
+  - 如生产测试环境等的区分
+  - 在Environment#getDefaultProfiles中体现
+
+## XML配置元信息
+
+- 具体可以参考BeanDefinitionParserDelegate
+- 里面的默认值属性
+- 实现类为：XmlBeanDefinitionReader
+- 加载顺序XmlBeanDefinitionReader#loadBeanDefinitions->doLoadBeanDefinitions->registerBeanDefinitions->DefaultBeanDefinitionDocumentReader#doRegisterBeanDefinitions(解析)
+
+### 生效配置
+
+- 在META-INF/spring.handlers下，会有对应的命名空间对应的handler
+- META-INF/spring.schemas下有对应的xsd映射关系
+
+## properties配置元信息
+
+- 实现类：PropertiesBeanDefinitionReader
+
+## 注解的方式
+
+- 在ClassPathScanningCandidateComponentProvider#registerDefaultFilters中
+- 注册相关注解
+
+```java
+protected void registerDefaultFilters() {
+   this.includeFilters.add(new AnnotationTypeFilter(Component.class));
+```
+
+- 基于AnnotatedBeanDefinitionReader实现
+
+```java
+public class AnnotatedBeanDefinitionReader {
+	//bean名称的generator
+   private BeanNameGenerator beanNameGenerator = AnnotationBeanNameGenerator.INSTANCE;
+//解析元信息的相关信息，如代理类等信息
+   private ScopeMetadataResolver scopeMetadataResolver = new AnnotationScopeMetadataResolver();
+    //是否注册bean（条件）
+    private ConditionEvaluator conditionEvaluator;
+```
+
+- 在AnnotatedBeanDefinitionReader#doRegisterBean进行注册
+
+### 转配注解
+
+- @ImportResource   替换xml的<import>， 可以直接导入xml 的配置文件
+- @Import  导入 Configruation class
+- @ ComponentScan  扫描指定包
+
+### 配置属性
+
+- @PropertySource   利用java8特性，可以导入多个property文件
+
+```java
+@PropertySource("某配置1.properties")
+@PropertySource("某配置2.properties")
+public class InstantiationBeforeProcessor {
+```
+
+- @PropertySources  PropertySource   的集合
+
+## 扩展Spring XML文件
+
+- 编写xml schema 文件（定义xml的结构）
+  - 在resource下建立com/xiao/in/spring/xml/persons.xsd文件
+  - 可以仿照spring-beans.xsd
+  - id这个属性一定要配置
+
+```scheme
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<xsd:schema xmlns="http://www.xiao.org/schema/persons"
+            xmlns:xsd="http://www.w3.org/2001/XMLSchema"           targetNamespace="http://www.xiao.org/schema/persons">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace"/>
+    <!--定义复杂类型（person）-->
+    <xsd:complexType name="Person">
+    	<xsd:attribute name="id" type="xsd:string" 			         use="required"></xsd:attribute>
+        <!-- 必须填写-->
+        <xsd:attribute name="name" type="xsd:string" use="required"></xsd:attribute>
+        <xsd:attribute name="age" type="xsd:integer" ></xsd:attribute>
+    </xsd:complexType>
+
+    <!--定义person 元素-->
+    <xsd:element name="person" type="Person"></xsd:element>
+</xsd:schema>
+```
+
+- 定义xml引用
+  - 类似spring-bean.xml的文件
+  - 在META-INF下定义文件person-context.xml
+  - xmlns:persons要和persons.xsd定义一致
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:persons="http://www.xiao.org/schema/persons"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.xiao.org/schema/persons
+        http://www.xiao.org/schema/persons.xsd
+">
+   <persons:person id="person" name="老肖" age="1"></persons:person>
+</beans>
+```
+
+- 自定义namespaceHandlers实现（命名空间绑定）
+- 自定义BeanDefinition的解析
+
+```java
+public class PersonNamespaceHandler extends NamespaceHandlerSupport {
+    @Override
+    public void init() {
+        registerBeanDefinitionParser("person", new PersonBeanDefinitionParser());
+    }
+
+    private class PersonBeanDefinitionParser extends AbstractSingleBeanDefinitionParser {
+        @Override
+        protected Class<?> getBeanClass(Element element) {
+            return Person.class;
+        }
+
+        @Override
+        protected void doParse(Element element, BeanDefinitionBuilder builder) {
+            this.setAttribute("name", element.getAttribute("name"), builder);
+            this.setAttribute("age", element.getAttribute("age"), builder);
+        }
+
+        private void setAttribute(String name, String value, BeanDefinitionBuilder builder){
+            Optional.ofNullable(value).ifPresent(v -> builder.addPropertyValue(name, v));
+        }
+    }
+}
+```
+
+- 定义handler映射
+  - 配置spring.hanlders文件
+
+```handlers
+http\://www.xiao.org/schema/persons=com.xiao.in.spring.xml.PersonNamespaceHandler
+```
+
+- 注册XML扩展
+- 命名空间映射
+  - 定义spring.schemas文件
+
+```java
+http\://www.xiao.org/schema/persons.xsd=com/xiao/in/spring/xml/persons.xsd
+```
+
+- 解析测试
+
+```java
+public static void main(String[] args) {
+    DefaultListableBeanFactory beanFactory = new DefaultListableBeanFactory();
+    XmlBeanDefinitionReader xmlBeanDefinitionReader = new XmlBeanDefinitionReader(beanFactory);
+    xmlBeanDefinitionReader.loadBeanDefinitions("META-INF/person-context.xml");
+    Person bean = beanFactory.getBean(Person.class);
+    System.out.println(bean);
+}
+```
+
+## 扩展xml原理
+
+AbstractApplicationContext#obtainFreshBeanFactory
+
+->AbstractRefreshableApplicationContext#refreshBeanFactory
+
+->AbstractXmlApplicationContext#loadBeanDefinitions
+
+->XmlBeanDefinitionReader#doLoadBeanDefinitions
+
+->DefaultBeanDefinitionDocumentReader#parseBeanDefinitions
+
+## YAML资源装载
+
+
+
+# Spring 资源管理
+
+## Spring 内建Resource
+
+| 类                 | 描述                |
+| ------------------ | ------------------- |
+| UrlResource        |                     |
+| ClassPathResource  | 类路径  classpath:/ |
+| FileSystemResource |                     |
+| EncodedResource    | 带编码的resource    |
+
+## 资源加载器
+
+![](../image/java/spring/20210218145156.png)
+
+## 通配路径资源加载
+
+- ResourcePatternResolver
+
+```java
+public static void main(String[] args) throws IOException {
+    String currentPath = "/"+ System.getProperty("user.dir")+"/stu-spring/src/main/java/com/xiao/in/spring/resource/";
+    String localPath = currentPath+"*.java";
+
+    PathMatchingResourcePatternResolver patternResolver = new PathMatchingResourcePatternResolver(new FileSystemResourceLoader());
+    Resource[] resources = patternResolver.getResources(localPath);
+    Arrays.stream(resources).map(ResourcePatternResolverDemo::getContent).forEach(System.out::println);
+}
+
+public static String getContent(Resource resource) {
+    EncodedResource encodedResource = new EncodedResource(resource, "UTF-8");
+    try (Reader reader = encodedResource.getReader()){
+        return IoUtil.read(reader);
+    } catch (Exception e) {
+    }
+    return null;
+}
+```
+
+## 注解的方式加载
+
+```java
+@Value("classpath:/application.properties")
+private Resource resource;
+
+@Value("classpath*:/META-INF/spring.*")
+private Resource[] resources;
+
+@PostConstruct
+public void init() {
+    System.out.println(resource.getFilename());
+    System.out.println("=========");
+    Arrays.stream(resources).map(Resource::getFilename).forEach(System.out::println);
+ }
+
+public static void main(String[] args) {
+    AnnotationConfigApplicationContext applicationContext = new AnnotationConfigApplicationContext();
+    applicationContext.register(InjectResourceDemo.class);
+    applicationContext.refresh();
+    applicationContext.close();
+}
+```
+
+# 国际化
+
+- 核心接口
+  - MessageSource
+- 国际化层次性接口HierarchicalMessageSource
+
+## ResourceBundle核心特性
+
+- Key value 设计
+- 层次性设计
+- 缓存设计
+  - 一旦加载就缓存起来
+  - ResourceBundle#getBundleImpl可以看出，他是先从缓存中取数据的
+- 字符编码控制
+  - java.util.ResourceBundle.Control#Control
+  - 1.6开始支持
+
+## 在ApplicationContext中初始化
+
+- 通AbstractApplicationContext#initMessageSource方法初始化 
+
+- refresh中调用
+
+## Spring Boot使用
+
+- MessageSourceAutoConfiguration#messageSource
+- 注入messageSource的Bean
+
+# Spring 校验
+
+## Error文案
+
+- FieldError是ObjectError子类，他多了关联的哪个字段
+- reject:收集错误文案（如某个对象为空）
+- rejectValue: 收集对象字段的错误（如某个字段 为空）
+
+## Validate提升
+
+- 当想创建基于spring validated的bean时，使用**LocalValidatorFactoryBean**创建
+- 还有一个基于方法的AOP拦截
+- MethodValidationPostProcessor， 他是基于Validated注解来拦截的
+
+### 示例
+
+- 引入jar包
+
+```xml
+<dependency>
+  <groupId>org.hibernate.validator</groupId>
+    <artifactId>hibernate-validator</artifactId>
+</dependency>
+```
+
+- 主要是为了引入ELManager处理Spring 的el
+
+```xml
+<dependency>
+    <groupId>org.mortbay.jasper</groupId>
+    <artifactId>apache-el</artifactId>
+</dependency>
+```
+
+### 检测jar包是否正常
+
+```java
+public static void main(String[] args) {
+    AnnotationConfigApplicationContext applicationContext = new AnnotationConfigApplicationContext();
+    applicationContext.register(BeanValidatedDemo.class);
+    applicationContext.refresh();
+    Validator bean = applicationContext.getBean(Validator.class);
+    System.out.println(bean);
+    applicationContext.close();
+}
+
+@Bean
+static LocalValidatorFactoryBean validated() {
+    return new LocalValidatorFactoryBean();
+}
+```
+
+### 正式使用
+
+- 定义方法级别的处理
+
+```java
+@Bean
+static LocalValidatorFactoryBean validated() {
+    LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
+    return validator;
+}
+
+@Bean
+static MethodValidationPostProcessor methodValidator(Validator validator) {
+    MethodValidationPostProcessor methodValidation = new MethodValidationPostProcessor();
+    methodValidation.setValidator(validator);
+    return methodValidation;
+}
+```
+
+- 定义处理的pojo，NotNull标识不能为空
+
+```java
+@Setter
+@Getter
+@ToString
+static class User {
+    @NotNull
+    private String name;
+
+    private Integer id;
+}
+```
+
+- 定义需要拦截的处理类，Validated表示这个类会生成代理类
+
+```
+@Component
+@Validated
+static class  UserProcess {
+    public void process(@Valid User user) {
+        System.out.println(user);
+    }
+}
+```
+
+- 调用
+
+```java
+public static void main(String[] args) {
+    AnnotationConfigApplicationContext applicationContext = new AnnotationConfigApplicationContext();
+    applicationContext.register(BeanValidatedDemo.class);
+    applicationContext.refresh();
+    UserProcess bean = applicationContext.getBean(UserProcess.class);
+    bean.process(new User());
+    applicationContext.close();
+}
+```
+
+# 数据绑定
+
+## DataBinder
+
+- DataBinder 绑定方法
+  - bind(PropertyValues pvs)
+  - 通过PropertyValues的key-value与bean的属性映射
+
+- 数据来源
+  - BeanDefinition(xml格式的)
+- 通过BeanDefinition#MutablePropertyValues.getPropertyValues();方法获取PropertyValues 值
+- DataBinder 会默认忽略bean实体中不存在的属性
+- 如果是嵌套属性，properties可以是user.name-value的方式，进行嵌套
+
+### 绑定参数控制
+
+```java
+//是否忽略未知字段
+private boolean ignoreUnknownFields = true;
+//是否忽略非法字段
+private boolean ignoreInvalidFields = false;
+//是否增加前台路径，如user.name
+private boolean autoGrowNestedPaths = true;
+
+//绑定字段白名单
+private String[] allowedFields;
+
+//绑定字段黑名单
+private String[] disallowedFields;
+
+//必须绑定
+private String[] requiredFields;
+```
+
+# 类型转换
+
+## 实现
+
+- 基于javaBeans接口实现
+  - 基于java.beans.PropertyEditor拓展
+- Spring 3.0+ 通用类型转换实现
+
+## JavaBeans类型转换
+
+- 职责
+  - 将String 类型转为目标类型
+- 扩展原理
+  - Spring框架将文本内容传递到PropertyEditor 实现的setAsText(String)方法
+  - PropertyEditort#setAsText(String)方法实现将String类型转化为目标类型的对象
+  - 将目标类型的对象传入PropertyEditor#setValue(Object)方法暂存
+  - Spring框架将通过PropertyEditortgetValue()获取类型转换后的对象
+- 示例
+
+```java
+public static void main(String[] args) {
+    StringToPropertyEditor editor = new StringToPropertyEditor();
+    editor.setAsText("name=老肖");
+    //最终会输出Property对象数据
+    System.out.println(editor.getValue());
+}
+
+static class StringToPropertyEditor extends PropertyEditorSupport {
+    @Override
+    public void setAsText(String text) throws java.lang.IllegalArgumentException {
+        //将String 类型转为properties
+        Properties properties = new Properties();
+        try {
+            properties.load(new StringReader(text));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        //暂存
+        setValue(properties);
+    }
+}
+```
+
+## 通用类型转换
+
+- 类型转换接口：org.springframework.core.convert.converter.Converter
+  - 这个接口通过泛型来进行约束
+- 通用类型转换接口：org.springframework.core.convert.converter.GenericConverter
+  - 这个接口应用范围更广，使用TypeDescriptor类进行描述目标类型等
+
+## GenericConverter
+
+- 适合复杂类型转换，如集合，数组
+- 可以转换的类型：
+  - Set<ConvertiblePair>getConvertibleTypes();
+- 优化
+  - 融合了条件的接口
+
+```java
+interface ConditionalGenericConverter extends GenericConverter, ConditionalConverter 
+```
+
+# 泛型处理
+
+## 泛型辅助类
+
+- 核心api GenericTypeResolver
+
+```java
+//类型相关方法
+resolveReturnType(Method method, Class<?> clazz)
+//泛型参数类型相关
+resolveReturnTypeArgument(Method method, Class<?> genericIfc)
+```
+
+- 代码示例
+
+```java
+public class TypeResolverDemo {
+    public static void main(String[] args) throws Exception {
+        disableReturnGenericInfo(TypeResolverDemo.class, String.class, "getString");
+
+        disableReturnGenericInfo(TypeResolverDemo.class, List.class, "getList");
+
+        disableReturnGenericInfo(TypeResolverDemo.class, List.class, "getStringList");
+    }
+
+    public static void disableReturnGenericInfo(Class<?> containClass, Class typeClass,  String methodName, Class... argumentTypes) throws Exception {
+        Method method = containClass.getMethod(methodName, argumentTypes);
+        //获取常规方法返回的类型
+        Class<?> returnType = GenericTypeResolver.resolveReturnType(method, containClass);
+        System.out.println("方法返回["+methodName+"] 返回类型:"+returnType);
+
+        //获取泛型方法返回(如果泛型未指定，则返回为空)
+        Class<?> typeArgument = GenericTypeResolver.resolveReturnTypeArgument(method, typeClass);
+        System.out.println("方法返回["+methodName+"] 返回类型:"+typeArgument);
+    }
+
+    public static String getString() {
+        return null;
+    }
+
+    public static <E> List<E> getList() {
+        return null;
+    }
+
+    public static List<String> getStringList() {
+        return null;
+    }
+}
+```
+
+## 集合类型辅助
+
+- 使用ResolvableType类
+- 工厂方法： for*方法
+- 转换方法： as*方法
+- 处理方法: resolve*方法
+
+## MethodParameter
+
+
+
+# Spring 注解
+
+## Spring模式注解
+
+- @ComponentScan
+  - ComponentScanAnnotationParser#parse(AnnotationAttributes componentScan, final String declaringClass)进行解析这个注解
+  - 最后调用scanner.doScan(StringUtils.toStringArray(basePackages))来返回BeanDefinitionHolder集合
+  - 在ClassPathBeanDefinitionScanner#doScan中，会去调用Set<BeanDefinition> candidates = findCandidateComponents(basePackage);方法，找出component注解标注，或者元标注的类的beandefinition
+
+## Spring 注解别名
+
+- 显性别名
+
+如：ComponentScan的
+
+```
+@AliasFor("basePackages")
+String[] value() default {};
+```
+
+在代码中既可以用basePackages，也可以同value
+
+- 隐性别名
+
+```java
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+@Documented
+@ComponentScan
+public @interface MyComponentScan {
+
+    //使用MyComponentScan就可以直接使用myScan替换basePackages了
+    @AliasFor(annotation = ComponentScan.class, attribute = "basePackages")
+    String[] myScan() default {} ;
+}
+```
+
+- 隐性覆盖
+  - 如果注解出现于元标注的注解同名的字段，则它的内容会覆盖它
+
+# Spring 条件
+
+- 主要ConditionEvaluator#shouldSkip方法进行判断
+- 其中AnnotationAwareOrderComparator.sort(conditions);进行排序，将优先级高的取出来
 
 # Spring AOP
 
@@ -2397,39 +3249,141 @@ public class MyBeanDefinitionRegistryPostProcessor implements BeanDefinitionRegi
 }
 ```
 
-# 事件监听
+# Spring 事件
 
-## 用法
+## 编程模型
 
-在下面的代码中，我们在启动容器和close容器时，可以看到，分别收到两个发布的事件事件
-
-ContextRefreshedEvent和ContextClosedEvent
+- 观察者模式拓展
+  - 消息发送者：java.util.Observable
+  - 观察者：java.util.Observer
+- 标准化接口(没有特殊规则，一般都是约束)
+  - 事件对象：java.util.EventObject
+  - 事件接听器：java.util.EventListener
+- java示例
 
 ```java
-@Component
-public class MyApplicationLisener implements ApplicationListener<ApplicationEvent> {
-    public void onApplicationEvent(ApplicationEvent event) {
-        System.out.println("收到事件："+event);
+public static void main(String[] args) {
+    EventObservable eventObservable = new EventObservable();
+    eventObservable.addObserver(new EventObserver());
+    eventObservable.notifyObservers("发送某某消息");
+}
+
+static class EventObservable extends Observable {
+    @Override
+    public void notifyObservers(Object arg) {
+        //需要将事件打开
+        super.setChanged();
+        super.notifyObservers(arg);
+        super.clearChanged();
+    }
+}
+
+static class EventObserver implements Observer {
+    @Override
+    public void update(Observable o, Object arg) {
+        System.out.println("收到事件： " + arg);
     }
 }
 ```
 
-发布自定义事件，获得结果：
+## Spring标准事件
 
-收到事件：Test2$1[source=发布事件]
+- org.springframework.context.ApplicationEvent 
+- 拓展：org.springframework.context.event.ApplicationContextEvent
+
+## Spring监听器
+
+### 基于接口
+
+- 基于EventListener扩展
+- 扩展接口：org.springframework.context.ApplicationListener
+- 处理单一类型事件
+
+- 示例
 
 ```java
-@Test
-public void testBeanConfig5(){
-    AnnotationConfigApplicationContext applicationContext = new AnnotationConfigApplicationContext(ExtConfig.class);
-    applicationContext.publishEvent(new ApplicationEvent(new String("发布事件")) {
+GenericApplicationContext applicationContext = new GenericApplicationContext();
+applicationContext.addApplicationListener(new ApplicationListener<ApplicationEvent>() {
+    @Override
+    public void onApplicationEvent(ApplicationEvent event) {
+        System.out.println("收到事件:"+event);
+    }
+});
+applicationContext.refresh();
+applicationContext.start();
+applicationContext.close();
+```
 
-    });
+- 打印日志
+
+```
+---
+org.springframework.context.event.ContextRefreshedEvent
+----
+org.springframework.context.event.ContextStartedEvent
+-----
+org.springframework.context.event.ContextClosedEvent
+```
+
+### 基于注解
+
+
+
+- 示例
+
+```java
+public static void main(String[] args) {
+    AnnotationConfigApplicationContext applicationContext = new AnnotationConfigApplicationContext();
+    applicationContext.register(AnnotationListenerDemo.class);
+
+    applicationContext.refresh();
     applicationContext.close();
+}
+
+@EventListener
+public void commonEvent(ApplicationEvent event) {
+    System.out.println("事件:"+event);
 }
 ```
 
+- 专属事件
+
+```java
+@EventListener
+public void refreshEvent(ContextRefreshedEvent event) {
+    System.out.println("refresh事件:"+event);
+}
+```
+
+## 事件发布器
+
+- org.springframework.context.ApplicationEventPublisher	
+  - 依赖注入
+  - 示例
+
+```java
+public class AnnotationListenerDemo implements ApplicationEventPublisherAware {
+    @Override
+    public void setApplicationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
+        applicationEventPublisher.publishEvent(new ApplicationEvent("发布事件") {
+        });
+    }
+}
+```
+
+- org.springframework.context.event.ApplicationEventMulticaster
+  - 依赖注入
+  - 依赖查找
+
+### 注入ApplicationEventPublisher	
+
+- 通过ApplicationEventPublisherAware接口（ApplicationContext是ApplicationEventPublisher的子类，也可以通过它来发布，但是注入顺序可以参考aware执行顺序）
+- 通过@Autowired注入ApplicationEventPublisher
+
 ## 原理
+
+- 核心类：org.springframework.context.event.SimpleApplicationEventMulticaster
+- 添加事件：AbstractApplicationEventMulticaster#addApplicationListener
 
 ### 事件发布流程
 
@@ -2474,7 +3428,14 @@ public class MyListener {
 }
 ```
 
-## SmartInitializingSingleton
+## 事件异常处理
+
+- 当事件出现异常是，处理信息
+
+- 在SimpleApplicationEventMulticaster中有个ErrorHandler属性
+- 需要调用SimpleApplicationEventMulticaster#setErrorHandler方法才会生效
+
+# SmartInitializingSingleton
 
 在初始化容器，创建完所有单实例非懒加载bean之后，会执行实现了SmartInitializingSingleton接口的bean的afterSingletonsInstantiated方法，具体可见refresh()方法里的finishBeanFactoryInitialization(beanFactory);方法
 
