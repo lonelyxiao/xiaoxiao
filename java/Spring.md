@@ -3696,6 +3696,48 @@ ioc容器就是这些Map；很多的Map里面保存了单实例Bean，环境信�
 		ApplicationListener；事件监听；
 		ApplicationEventMulticaster；事件派发：
 
+# Spring Environment
+
+- 统一的Spring配置属性管理
+
+## 使用场景
+
+- PropertyPlaceholderConfigurer
+  - 3.1时代使用
+
+1. hu
+
+```java
+public static void main(String[] args) {
+    AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
+    context.register(PropertyPlaceholderConfigurerDemo.class);
+    context.refresh();
+    Person bean = context.getBean(Person.class);
+    System.out.println(bean);
+    context.close();
+}
+
+@Bean
+public PropertyPlaceholderConfigurer propertyPlaceholderConfigurer(@Value("classpath:/META-INF/person.properties") Resource resource) {
+    PropertyPlaceholderConfigurer configurer = new PropertyPlaceholderConfigurer();
+    configurer.setFileEncoding("UTF-8");
+    configurer.setLocation(resource);
+    return configurer;
+}
+
+@ToString
+@Setter
+static class Person {
+    @Value("${name}")
+    private String name;
+}
+
+@Bean
+public Person person() {
+    return new Person();
+}
+```
+
 # servlet3.0
 
 3.0可以不使用传统的web.xml，直接使用注解，就可以搭建器web项目
