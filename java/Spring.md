@@ -1337,6 +1337,20 @@ public class TestBean {
     private String password;
 ```
 
+### 原理
+
+- 在DefaultListableBeanFactory#doResolveDependency中
+
+```java
+
+String strVal = resolveEmbeddedValue((String) value);//获取@Value的value值
+Object value = getAutowireCandidateResolver().getSuggestedValue(descriptor);
+//获取解析的值
+String strVal = resolveEmbeddedValue((String) value);
+```
+
+
+
 ## 获取配置文件属性值
 
 建立配置文件testBean.properties
@@ -3705,7 +3719,8 @@ ioc容器就是这些Map；很多的Map里面保存了单实例Bean，环境信�
 - PropertyPlaceholderConfigurer
   - 3.1时代使用
 
-1. hu
+1. 建立一个/META-INF/person.properties， 属性为name=xxx
+2. 使用PropertyPlaceholderConfigurer加载
 
 ```java
 public static void main(String[] args) {
@@ -3737,6 +3752,35 @@ public Person person() {
     return new Person();
 }
 ```
+
+## Evironment依赖注入
+
+- 通过EnvironmentAware接口回调
+- 通过@Autowired
+- ApplicationContext#getEnvironment获取
+
+
+
+## Environment依赖查找
+
+```java
+@Autowired
+private Environment environment;
+
+public static void main(String[] args) {
+    AnnotationConfigApplicationContext applicationContext = new AnnotationConfigApplicationContext();
+    applicationContext.register(LookupEnvironmentDemo.class);
+    applicationContext.refresh();
+    //依赖查找
+    Environment environmentTmp = applicationContext.getBean(ConfigurableApplicationContext.ENVIRONMENT_BEAN_NAME, Environment.class);
+    System.out.println(environmentTmp == applicationContext.getBean(LookupEnvironmentDemo.class).environment);
+    applicationContext.close();
+}
+```
+
+## @PropertySource 原理
+
+- 入口方法：ConfigurationClassParser#doProcessConfigurationClass
 
 # servlet3.0
 
