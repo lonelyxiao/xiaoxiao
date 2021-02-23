@@ -3449,6 +3449,48 @@ public class MyListener {
 - 在SimpleApplicationEventMulticaster中有个ErrorHandler属性
 - 需要调用SimpleApplicationEventMulticaster#setErrorHandler方法才会生效
 
+# Spring 生命周期
+
+## 上下文启动准备
+
+- AbstractApplicationContext#prepareRefresh
+
+```java
+//记录启动时间，状态标识
+this.startupDate = System.currentTimeMillis();
+this.closed.set(false);
+this.active.set(true);
+//拓展属性，默认是没有，可以由子类拓展一些属性，如：web的一些属性
+initPropertySources();
+```
+
+## Beanfactory创建阶段
+
+- AbstractApplicationContext#obtainFreshBeanFactory
+- 调用AbstractRefreshableApplicationContext#refreshBeanFactory
+
+```java
+protected final void refreshBeanFactory() throws BeansException {
+    //如果有Beanfactory,则进行销毁
+   if (hasBeanFactory()) {
+      destroyBeans();
+      closeBeanFactory();
+   }
+   try {
+      //创建beanfactory
+      DefaultListableBeanFactory beanFactory = createBeanFactory();
+      beanFactory.setSerializationId(getId());
+      //是否允许beandefinition重复定义和是否允许循环依赖的属性设置
+      customizeBeanFactory(beanFactory);
+      //从注解，或者xml中加载beandefinition的信息
+      loadBeanDefinitions(beanFactory);
+      synchronized (this.beanFactoryMonitor) {
+         this.beanFactory = beanFactory;
+      }
+   }
+}
+```
+
 # SmartInitializingSingleton
 
 在初始化容器，创建完所有单实例非懒加载bean之后，会执行实现了SmartInitializingSingleton接口的bean的afterSingletonsInstantiated方法，具体可见refresh()方法里的finishBeanFactoryInitialization(beanFactory);方法
@@ -3456,7 +3498,6 @@ public class MyListener {
 ```
 public interface SmartInitializingSingleton {
    void afterSingletonsInstantiated();
-
 }
 ```
 
