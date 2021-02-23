@@ -3491,6 +3491,71 @@ protected final void refreshBeanFactory() throws BeansException {
 }
 ```
 
+## 准备阶段
+
+- AbstractApplicationContext#prepareBeanFactory
+- 添加aware
+- 忽略aware的注入
+
+```java
+//添加aware
+beanFactory.addBeanPostProcessor(new ApplicationContextAwareProcessor(this));
+```
+
+## 后置处理阶段
+
+- AbstractApplicationContext#postProcessBeanFactory 
+  - 依赖子类来实现他的拓展
+  - 子类可以通过这个方式来添加aware接口如：GenericWebApplicationContext#postProcessBeanFactory方法
+- AbstractApplicationContext#invokeBeanFactoryPostProcessors
+  - 执行BeanDefinitionRegistryPostProcessor#postProcessBeanDefinitionRegistry
+  - 然后再执行BeanFactoryPostProcessor#postProcessBeanFactory
+
+## 注册BeanpostProcessor
+
+- AbstractApplicationContext#registerBeanPostProcessors
+
+- 由源码可以看出，如果BeanPostProcessor标注了PriorityOrdered，那么他会提前依赖查找，但是这个初始化可能bean准备不是那么的充分
+
+```java
+if (beanFactory.isTypeMatch(ppName, PriorityOrdered.class)) {
+   BeanPostProcessor pp = beanFactory.getBean(ppName, BeanPostProcessor.class);
+   priorityOrderedPostProcessors.add(pp);
+   if (pp instanceof MergedBeanDefinitionPostProcessor) {
+      internalPostProcessors.add(pp);
+   }
+}
+```
+
+## 初始化MessageSource
+
+- 内建Bean(国际化文案)
+- AbstractApplicationContext#initMessageSource
+
+```java
+//判断MessageSource是否已构建好，springboot中，会在外部创建这个bean
+if (beanFactory.containsLocalBean(MESSAGE_SOURCE_BEAN_NAME)) {
+   this.messageSource = beanFactory.getBean(MESSAGE_SOURCE_BEAN_NAME, MessageSource.class);
+   }
+}
+```
+
+## Spring 广播事件初始化
+
+- 内建bean
+- AbstractApplicationContext#initApplicationEventMulticaster
+- 最终变为一个单例的bean
+
+# 上下文刷新阶段
+
+- AbstractApplicationContext#onRefresh
+- 提供子类来扩展
+- 应用于web项目
+
+## 事件监听器注册
+
+- AbstractApplicationContext#registerListeners
+
 # SmartInitializingSingleton
 
 在初始化容器，创建完所有单实例非懒加载bean之后，会执行实现了SmartInitializingSingleton接口的bean的afterSingletonsInstantiated方法，具体可见refresh()方法里的finishBeanFactoryInitialization(beanFactory);方法
