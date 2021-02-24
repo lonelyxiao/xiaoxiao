@@ -3546,7 +3546,7 @@ if (beanFactory.containsLocalBean(MESSAGE_SOURCE_BEAN_NAME)) {
 - AbstractApplicationContext#initApplicationEventMulticaster
 - 最终变为一个单例的bean
 
-# 上下文刷新阶段
+## 上下文刷新阶段
 
 - AbstractApplicationContext#onRefresh
 - 提供子类来扩展
@@ -3555,6 +3555,14 @@ if (beanFactory.containsLocalBean(MESSAGE_SOURCE_BEAN_NAME)) {
 ## 事件监听器注册
 
 - AbstractApplicationContext#registerListeners
+
+## 初始化完成阶段
+
+- AbstractApplicationContext#finishBeanFactoryInitialization
+- 当ConversionService存在时，关联ConversionService
+- 添加StringValueResolver
+  - 处理一系列字符串的逻辑比如：占位符解释、SpEL计算等等
+- 初始化单例Beans
 
 # SmartInitializingSingleton
 
