@@ -197,7 +197,76 @@ println range[3];
 
 - 执行流程图
 
+![](../image/java/groovy/15489991942120.png)
+
 - 执行流程测试
+
+```groovy
+def person = new Person();
+person.cry();
+
+//会抛出MissingMethodException异常，因为cry方法不存在
+```
+
+在Person中重写invokeMethod方法，会调用此方法，
+
+```groovy
+class Person {
+    @Override
+    Object invokeMethod(String name, Object args) {
+        println "invokeMethod: ${name}, ${args}";
+    }
+}
+```
+
+在person中定义methodMissing方法，智慧调用missing方法
+
+```groovy
+class Person {
+    @Override
+    Object invokeMethod(String name, Object args) {
+        println "invokeMethod: ${name}, ${args}";
+    }
+
+    def methodMissing(String name, Object args) {
+        println "methodMissing: ${name}, ${args}";
+    }
+}
+```
+
 - 动态添加属性
+  - 输出 变态，因为已经动态的给Person添加了不存在的属性
+
+```groovy
+Person.metaClass.sex="变态";
+def person = new Person();
+println person.sex;U
+```
+
 - 动态添加方法
+
+```groovy
+Person.metaClass.sex="变态";
+
+Person.metaClass.getSexUpper = {
+    -> println "get Sex uppder ${sex}"
+}
+def person2 = new Person();
+person2.getSexUpper();
+```
+
 - 动态添加静态方法
+
+```groovy
+Person.metaClass.static.getSexUpperStatic = {
+    -> println "get Sex getSexUpperStatic"
+}
+Person.getSexUpperStatic();
+```
+
+- 动态添加全局有效
+  - 默认情况下，只在当前闭包有效，想要全局有效则需要启动配置
+
+```groovy
+ExpandoMetaClass.enableGlobally()
+```
