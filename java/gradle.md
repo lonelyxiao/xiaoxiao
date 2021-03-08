@@ -270,3 +270,13 @@ Person.getSexUpperStatic();
 ```groovy
 ExpandoMetaClass.enableGlobally()
 ```
+
+## xml操作
+
+### 解析
+
+```groovy
+def parser = new XmlParser().parseText(xml);
+def to = parser.to.text();
+println to;
+```
