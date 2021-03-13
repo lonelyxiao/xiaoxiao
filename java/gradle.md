@@ -280,3 +280,80 @@ def parser = new XmlParser().parseText(xml);
 def to = parser.to.text();
 println to;
 ```
+
+## 生成xml
+
+- 通过MarkupBuilder
+
+# Gradle生命周期
+
+## grade组成
+
+- groovy核心语法
+- build script block
+- gradle api
+
+## 生命周期
+
+- Initaliztion
+  - 解析整个工程中所有的project
+
+- configuration
+  - 解析所有project对象的task，构建task拓扑图
+- Execution执行
+  - 执行具体的task集齐依赖task
+
+## 代码部分
+
+- settings文件输出
+
+```groovy
+println '初始化阶段执行'
+```
+
+- build文件输出
+
+```java
+this.beforeEvaluate {
+    println '初始化阶段执行'
+}
+
+this.afterEvaluate {
+    println '配置阶段完成后的监听'
+}
+
+this.gradle.buildFinished {
+    println '执行任务完成'
+}
+```
+
+- 执行输出
+
+```groovy
+$ ./gradlew clean
+初始化阶段执行
+
+> Configure project :
+配置阶段完成后的监听
+执行任务完成
+
+```
+
+
+
+# Project
+
+- 只要有build.gradle就是一个project
+
+```shell
+## 查看有多少个project
+$ ./gradlew project
+```
+
+- 获取所有的project，在build编写
+
+```groovy
+this.getAllprojects().eachWithIndex{ Project entry, int i ->
+    println "==>project : ${entry.name}"
+}
+```
