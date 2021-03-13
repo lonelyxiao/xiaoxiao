@@ -3494,13 +3494,15 @@ protected final void refreshBeanFactory() throws BeansException {
 ## 准备阶段
 
 - AbstractApplicationContext#prepareBeanFactory
-- 添加aware
+- 添加aware（通过addBeanPostProcessor）
 - 忽略aware的注入
 
 ```java
 //添加aware
 beanFactory.addBeanPostProcessor(new ApplicationContextAwareProcessor(this));
 ```
+
+- 依赖注入BeanFactory等
 
 ## 后置处理阶段
 
@@ -3563,6 +3565,15 @@ if (beanFactory.containsLocalBean(MESSAGE_SOURCE_BEAN_NAME)) {
 - 添加StringValueResolver
   - 处理一系列字符串的逻辑比如：占位符解释、SpEL计算等等
 - 初始化单例Beans
+
+
+
+## 应用上下文关闭阶段
+
+- AbstractApplicationContext#close 
+- 状态表示关闭:active(fales), closed(true)
+- 发布Spring应用上下文关闭时间
+- 注销Shutdown Hook（优雅关闭线程能够触发close事件）
 
 # SmartInitializingSingleton
 
