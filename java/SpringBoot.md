@@ -33,7 +33,9 @@
 </dependency>
 ```
 
-## spring boot 启动器
+- spring-boot-dependencies是spring-boot-starter-parent的parent
+
+## spring boot 可执行jar
 
 启动器其实就是jar包的集合
 
@@ -55,9 +57,93 @@
 </dependency>
 ```
 
+## Maven打包配置
+
+在pom中配置,表示打包成一个可执行的spring boot 的jar包
+
+```xml
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-maven-plugin</artifactId>
+        </plugin>
+    </plugins>
+</build>
+```
+
+- 如果是dependencies方式引用，则需要指定运行类
+
+```xml
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-maven-plugin</artifactId>
+            <executions>
+                <execution>
+                    <id>repackage</id>
+                    <goals>
+                        <goal>repackage</goal>
+                    </goals>
+                </execution>
+            </executions>
+            <configuration>
+                <mainClass>com.xiao.JdMainApplication</mainClass>
+            </configuration>
+        </plugin>
+    </plugins>
+</build>
+```
+
+## 注意点
+
+App启动类需要在其扫描的包同级或者同级之上
+
+## 启动器JarLauncher
+
+- 进入打好的jar包，可以在MANIFEST.MF中看到信息Main-Class: org.springframework.boot.loader.JarLauncher
+- JarLauncher不是项目中的文件
+- 引入jar包查看源码
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-loader</artifactId>
+    <scope>provided</scope>
+</dependency>
+```
+
+- org.springframework.boot.loader.JarLauncher#main是真正java -jar执行的类
+
+```java
+public static void main(String[] args) throws Exception {
+   new JarLauncher().launch(args);
+}
+```
+
+- 调用org.springframework.boot.loader.Launcher#launch方法
+  - 注册URL协议并清除应用缓存
+  - 设置类加载路径
+  - 执行main方法
+
+```java
+protected void launch(String[] args) throws Exception {
+   if (!isExploded()) {
+      JarFile.registerUrlProtocolHandler();
+   }
+   ClassLoader classLoader = createClassLoader(getClassPathArchivesIterator());
+   String jarMode = System.getProperty("jarmode");
+   String launchClass = (jarMode != null && !jarMode.isEmpty()) ? JAR_MODE_LAUNCHER : getMainClass();
+   launch(args, launchClass, classLoader);
+}
+```
+
 # 启动类源码解析
 
 主程序入口，进入@SpringBootApplication注解源码
+
+- AutoConfigurationExcludeFilter：排除其他标记了configuration和enableAutoconfigutation的类
 
 ```java
 @Target({ElementType.TYPE})
@@ -65,7 +151,7 @@
 @Documented
 @Inherited
 @SpringBootConfiguration
-@EnableAutoConfiguration
+@EnableAutoConfiguration //负责激活
 @ComponentScan(
     excludeFilters = {        @Filter(
             type = FilterType.CUSTOM,
@@ -74,7 +160,7 @@
             type = FilterType.CUSTOM,
             classes = {AutoConfigurationExcludeFilter.class}
         )}
-)
+)//激活扫描
 public @interface SpringBootApplication
 ```
 
@@ -84,7 +170,7 @@ public @interface SpringBootApplication
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
-@Configuration //相当于一个spring bean 的xml配置文件
+@Configuration //相当于一个spring bean 的xml配置文件,声明为配置类
 public @interface SpringBootConfiguration
 ```
 
@@ -254,50 +340,9 @@ public class HttpEncodingAutoConfiguration {
 	}
 ```
 
-## Maven打包配置
+# @Configuration
 
-在pom中配置,表示打包成一个可执行的spring boot 的jar包
-
-```xml
-<build>
-    <plugins>
-        <plugin>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-maven-plugin</artifactId>
-        </plugin>
-    </plugins>
-</build>
-```
-
-
-
-- 如果是dependencies方式引用，则需要指定运行类
-
-```xml
-<build>
-    <plugins>
-        <plugin>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-maven-plugin</artifactId>
-            <executions>
-                <execution>
-                    <id>repackage</id>
-                    <goals>
-                        <goal>repackage</goal>
-                    </goals>
-                </execution>
-            </executions>
-            <configuration>
-                <mainClass>com.xiao.JdMainApplication</mainClass>
-            </configuration>
-        </plugin>
-    </plugins>
-</build>
-```
-
-## 注意点
-
-App启动类需要在其扫描的包同级或者同级之上
+- @Bean在@Configuration中会被CGLIB提升
 
 # 配置文件
 
