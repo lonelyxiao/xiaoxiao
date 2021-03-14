@@ -357,3 +357,157 @@ this.getAllprojects().eachWithIndex{ Project entry, int i ->
     println "==>project : ${entry.name}"
 }
 ```
+
+- 对指定模块操作
+
+```groovy
+/**
+ * 对指定路径的project进行操作
+ */
+project("child") { Project project ->
+    //指定child的版本和group
+    group 'org.example1'
+    version '1.0-SNAPSHOT'
+}
+//输出：org.example1
+println project("child").group;
+```
+
+- 指定所有的模块的公共部分
+
+```groovy
+allprojects {
+    group 'org.example2'
+    version '1.0-SNAPSHOT'
+}
+println project("child").group;
+```
+
+- 对所有子模块进行操作
+
+```groovy
+subprojects {
+    group 'org.example3'
+    version '1.0-SNAPSHOT'
+}
+```
+
+## 属性
+
+```groovy
+//默认的编译文件
+String DEFAULT_BUILD_FILE = "build.gradle";
+String PATH_SEPARATOR = ":";
+//默认输出文件夹
+String DEFAULT_BUILD_DIR_NAME = "build";
+String GRADLE_PROPERTIES = "gradle.properties";
+```
+
+## 自定义属性
+
+- 根项目定义
+
+```groovy
+ext {
+    def_group="org.example4"
+}
+
+subprojects {
+    group this.ext.def_group
+    version '1.0-SNAPSHOT'
+}
+```
+
+- 使用通用文件来定义
+
+1. 在根目录定义common.gradle文件
+
+```groovy
+//在对应的模块建立属性的键值对
+ext {
+    java = [
+            my_group: "org.example5",
+    ]
+}
+```
+
+2. 在build中引入文件
+
+```java
+//apply from会自动去根目录寻找对应的文件并且引入进来
+apply from: this.file("common.gradle")
+```
+
+3. 调用文件中对应的属性
+
+```groovy
+subprojects {
+    group this.ext.java.my_group
+    version '1.0-SNAPSHOT'
+}
+```
+
+## 文件
+
+```groovy
+//获取跟路径
+println getRootDir().absolutePath;
+//获取build路径
+println getBuildDir().absolutePath;
+//获取当前模块路径
+println getProjectDir().absolutePath;
+```
+
+## file
+
+- file不需绝对路径，只需要相对于project的路径即可
+
+```groovy
+def file = file('common.gradle');
+println file.text;
+```
+
+### 拷贝
+
+- 将文件拷贝到build文件中
+
+```groovy
+copy {
+    from file('common.gradle')
+    into getRootProject().getBuildDir()
+}
+```
+
+- 还可以拷贝文件夹
+
+### 文件遍历
+
+- 对src目录下进行遍历操作
+
+```groovy
+fileTree('src/') { FileTree fileTree ->
+    fileTree.visit { FileTreeElement element ->
+        println element.file.getName()
+    }
+}
+```
+
+## 依赖配置
+
+``` 
+repositories {
+    mavenCentral()
+    //配置远程仓库的地址
+    maven {
+        url 'http://maven.aliyun.com/nexus/content/groups/public/'
+        //配置用户名密码
+        /*credentials {
+            username="xxx"
+            password="xxx"
+        }*/
+    }
+}
+```
+
+# Task
+
