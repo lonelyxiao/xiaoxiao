@@ -511,3 +511,16 @@ repositories {
 
 # Task
 
+## 创建方式
+
+```java
+//通过函数创建
+task helloTask() {
+    println 'hellotask1'
+}
+
+//通过TaskContainer创建
+this.tasks.create('hellotask2') {
+    println 'hellotask2'
+}
+```
