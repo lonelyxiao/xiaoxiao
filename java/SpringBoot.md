@@ -139,7 +139,9 @@ protected void launch(String[] args) throws Exception {
 }
 ```
 
-# 启动类源码解析
+# 自动装配
+
+## 启动类源码解析
 
 主程序入口，进入@SpringBootApplication注解源码
 
@@ -278,7 +280,7 @@ getCandidateConfigurations()
 
 从SpringFactoriesLoader.loadFactoryNames()方法中我们可以看到
 
-将META-INF/spring.factories配置的容器的EnableAutoConfiguration的配置加载，以数组方式返回，用这些配置来自动配置，如：org.springframework.boot.autoconfigure.web.WebMvcAutoConfiguration容器
+将**META-INF/spring.factories**配置的容器的EnableAutoConfiguration的配置加载，以数组方式返回，用这些配置来自动配置，如：org.springframework.boot.autoconfigure.web.WebMvcAutoConfiguration容器
 
 ```java
 public static List<String> loadFactoryNames(Class<?> factoryClass, ClassLoader classLoader) {
@@ -339,6 +341,13 @@ public class HttpEncodingAutoConfiguration {
 		return filter;
 	}
 ```
+
+## 简单概括
+
+- springboot启动注解的enable注解会import一个selector
+- 这个selector去META-INF/spring.factories下寻找需要自动装配的auto类
+- 通过selector将这些类注入其中
+- 这些类里面的大部分利用conditional这类的注解，来表明是否需要自动装配这个bean,如：@ConditionalOnMissingBean
 
 # @Configuration
 
@@ -698,6 +707,36 @@ spring:
       maxFileSize: 200MB
       ## 允许的总文件上传大小
       maxRequestSize: 200MB
+```
+
+# 内建 Endpoints
+
+## 监控
+
+- spring boot actuator
+- 默认暴露的web endpoints :health和info
+- 如果想要暴露其他，则需要添加属性：management.endpoints.web.exposure.include=*
+- 引入jar包
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-actuator</artifactId>
+</dependency>
+```
+
+- 启动后get地址：http://127.0.0.1:8080/actuator/beans
+- 显示对应的监控信息
+
+# ComponentScan
+
+## xml的处理
+
+- spring启动时，调用ContextNamespaceHandler#init方法
+- 注入scan处理器，解析xml
+
+```java
+registerBeanDefinitionParser("component-scan", new ComponentScanBeanDefinitionParser());
 ```
 
 # WEB开发
