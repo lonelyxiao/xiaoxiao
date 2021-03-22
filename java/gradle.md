@@ -524,3 +524,151 @@ this.tasks.create('hellotask2') {
     println 'hellotask2'
 }
 ```
+
+## 执行阶段
+
+- 编写task
+
+```groovy
+task hellotask {
+    println 'hello task1'
+    //task执行前
+    doFirst {
+        println '==>hello task doFirst'
+    }
+    //task执行后
+    doLast {
+        println '<==hello task doLast'
+    }
+}
+```
+
+- 查看语句执行
+
+```shell
+$ ./gradlew hellotask
+
+> Task :child:hellotask
+==>hello task doFirst
+<==hello task doLast
+执行任务完成
+
+```
+
+- 可以利用这个来计算编译的执行时间
+
+## task依赖
+
+### 静态依赖
+
+- 定义三个task
+- taskZ依赖taskX,taskY
+
+```groovy
+task taskX {
+    doLast {
+        println 'taskX'
+    }
+}
+
+task taskY {
+    doLast {
+        println 'taskY'
+    }
+}
+
+task taskZ(dependsOn : [taskX, taskY]) {
+    doLast {
+        println 'taskZ'
+    }
+}
+```
+
+- 输出结果
+
+```groovy
+> Task :child:taskX
+taskX
+
+> Task :child:taskY
+taskY
+
+> Task :child:taskZ
+taskZ
+```
+
+- 他们的执行顺序，是先执行依赖的task，再执行自己的task
+
+### 添加依赖的另一种方式
+
+```groovy
+taskZ.dependsOn(taskX, taskY);
+```
+
+### 程序输出添加依赖
+
+- 定义两个task
+
+```groovy
+task lib1() {
+    println 'lib1'
+}
+
+task lib2() {
+    println 'lib2'
+}
+```
+
+- 依赖lib相关的task
+
+```groovy
+task taskZ() {
+    dependsOn this.tasks.findAll {
+       task -> return task.name.startsWith('lib')
+    }
+    doLast {
+        println 'taskZ'
+    }
+}
+```
+
+### 指定task顺序
+
+- 使用mustRunAfter来指定输出在xxtask之后
+
+```groovy
+task taskX {
+    doLast {
+        println 'taskX'
+    }
+}
+
+task taskY {
+    mustRunAfter(taskX)
+    doLast {
+        println 'taskY'
+    }
+}
+
+task taskZ() {
+    mustRunAfter(taskY)
+    doLast {
+        println 'taskZ'
+    }
+}
+```
+
+# SourceSet
+
+- 可以在这个里面修改配置
+- 如：给java添加资源文件
+
+```groovy
+sourceSets {
+    main {
+        resources.srcDirs = [
+                "src/main/resources", "src/main/resources2"
+        ]
+    }
+}
+```
