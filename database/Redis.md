@@ -111,6 +111,21 @@ OK
 
 ## 字符串操作
 
+### 注意
+
+- 键命名规范：通常，公司用：：来代表一个级别
+
+- redis key 值是二进制安全的，这意味着可以用任何二进制序列作为key值
+
+  key取值原则
+
+  - 键值不需要过长，会消耗内存
+  - 键值不宜太短，可读性差
+
+  一个字符类型的值最多能存512M字节的内容
+
+### set
+
 - 设置值
 
 ```shell
@@ -161,48 +176,299 @@ redis 127.0.0.1:6379> SET KEY VALUE [EX seconds] [PX milliseconds] [NX|XX]
 (integer) 0
 ```
 
+- 自增指定数字
 
+```shell
+127.0.0.1:6379> INCRBY views 10
+(integer) 11
+```
 
-## Mset
+- 替换
 
-键命名规范：通常，公司用：：来代表一个级别
+```shell
+127.0.0.1:6379> SETRANGE name 2 zy
+(integer) 7
+127.0.0.1:6379> get name
+"lazyiao"
+```
+
+### mset
+
+- 表示一次可以设置多个键值对
 
 ```shell
 redis 127.0.0.1:6379> MSET key1 value1 key2 value2 .. keyN valueN
-redis 127.0.0.1:6379> MSET key1 "Hello" key2 "World" 
-OK 
-redis 127.0.0.1:6379> GET key1 
-"Hello" 
-redis 127.0.0.1:6379> GET key2 
-1) "World"
-
 ```
 
-## SETRANGE
+- msetnx 是原子性的，如果一个没有设置成功，则其他键值对都设置不成功
+- 可以用mset来设置用户是否已读文章，如： title:userid:docId  1,设置多个
+
+### Redis的CAS
+
+- getset
+- 如果存在值则进行替换
+
+## List
+
+### 基本操作
+
+- list命令都是L或者R开头的
+- 元素时字符串类型，列表头部和尾部增删快、元素可以重复，最多存2^32-1个元素
+- push操作,往key里面设置值，放入列表的头部
 
 ```shell
-redis 127.0.0.1:6379> SET key1 "Hello World" 
-OK 
-redis 127.0.0.1:6379> SETRANGE key1 6 "Redis" 
-(integer) 11 
-redis 127.0.0.1:6379> GET key1 
-"Hello Redis"
+127.0.0.1:6379> LPUSH list one
+(integer) 1
+127.0.0.1:6379> LPUSH list 2
+(integer) 2
+127.0.0.1:6379> lpush list 3
+(integer) 3
 ```
 
-## 其他
+- 获取值
 
-redis key 值是二进制安全的，这意味着可以用任何二进制序列作为key值
+```shell
+127.0.0.1:6379> LRANGE list 0 1
+1) "3"
+2) "2"
+```
 
-key取值原则
+- 将值push到列表尾部
 
-- 键值不需要过长，会消耗内存
-- 键值不宜太短，可读性差
+```shell
+127.0.0.1:6379> RPush list rpu
+(integer) 4
+127.0.0.1:6379> LRANGE list 0 -1
+1) "3"
+2) "2"
+3) "one"
+4) "rpu"
+```
 
-一个字符类型的值最多能存512M字节的内容
+- 从左边弹出值
 
-## 清空所有键
+```shell
+127.0.0.1:6379> LPOP list
+"3"
+127.0.0.1:6379> LRANGE list 0 -1
+1) "2"
+2) "one"
+3) "rpu"
+```
 
-Flushdb
+### 移除
+
+- 移除指定值
+  - count > 0 : 从表头开始向表尾搜索，移除与 VALUE 相等的元素，数量为 COUNT 。
+  - count < 0 : 从表尾开始向表头搜索，移除与 VALUE 相等的元素，数量为 COUNT 的绝对值。
+
+  - count = 0 : 移除表中所有与 VALUE 相等的值。
+
+```shell
+127.0.0.1:6379> LREM key count element
+```
+
+- 移除一个值
+  - 移除1个指定的值
+  - 可以用来如:取消某个人的关注
+
+```shell
+127.0.0.1:6379> LREM list 1 one
+(integer) 1
+
+```
+
+### 截断
+
+- 设置 0 1 2 3四个元素
+- 截取index =1  2的元素
+- 可以看到四个元素只剩下1 2了
+
+```shell
+127.0.0.1:6379> LTRIM mylist 1 2
+OK
+127.0.0.1:6379> LRANGE mylist 0 -1
+1) "2"
+2) "1"
+```
+
+### 弹入弹出
+
+- 从右边弹出一个元素，从左边push到一个新的元素中
+
+```shell
+127.0.0.1:6379> RPOPLPUSH mylist mylist2
+"1"
+```
+
+### 场景
+
+- 队列
+  - LPUSH  RPOP
+- 栈
+  - LPUSH LPOP
+
+## SET集合
+
+- 无序的、去重的、元素是字符串类型
+
+```shell
+# 添加一个或者多个成员
+SADD key member1 [member2]
+# 返回集合中的所有成员
+smembers key
+# 判断 member 元素是否是集合 key 的成员
+## 存在返回1
+sismember key member
+# 返回集合中一个或多个随机数
+srandmember key [count]
+# 获取集合的成员数
+scard key
+# 移除并返回集合中的一个随机元素
+
+```
+
+- 获取集合个数
+
+```shell
+127.0.0.1:6379> SCARD myset
+(integer) 4
+```
+
+- 移除指定元素
+
+```shell
+127.0.0.1:6379> SREM myset 3
+(integer) 1
+```
+
+### 多个集合操作
+
+- 将一个集合中的指定元素移动到另一个集合
+
+```shell
+127.0.0.1:6379> SMOVE myset myset2 2
+(integer) 1
+```
+
+- 求差集
+
+```shell
+127.0.0.1:6379> SDIFF myset myset2
+1) "1"
+2) "1,"
+```
+
+- 求交集(用户之间的共同关注)
+  - A用户的关注放一个集合，粉丝放一个集合
+  - A用户和B用户的关注求交集就是共同关注
+
+```shell
+127.0.0.1:6379> sadd myset laoxiao
+(integer) 1
+127.0.0.1:6379> sadd myset2 laoxiao
+(integer) 1
+127.0.0.1:6379> SINTER myset myset2
+1) "laoxiao"
+```
+
+- 求并集
+
+```shell
+127.0.0.1:6379> SUNION myset myset2
+1) "1"
+2) "laoxiao"
+3) "2,"
+4) "1,"
+```
+
+## HASH(哈希)
+
+- 由field和关联的value组成的map键值对
+
+- field和value是字符串类型
+
+- 一个hash中最多包含2^32-1个键值对
+
+```shell
+set key field value
+```
+
+```shell
+127.0.0.1:6379> hset myhash name laoxiao
+(integer) 1
+127.0.0.1:6379> hget myhash name
+"laoxiao"
+```
+
+- 获取所有的键或者值
+
+```shell
+127.0.0.1:6379> HKEYS myhash
+1) "name"
+127.0.0.1:6379> HVALS myhash
+1) "laoxiao"
+```
+
+
+
+- 不适用hash的情况
+  - 使用二进制位操作命令
+  - 使用过期键功能
+
+## 有序集合
+
+- 添加语法
+
+```shell
+127.0.0.1:6379> ZADD key [NX|XX] [GT|LT] [CH] [INCR] score member [score member ...]
+```
+
+- 返回指定下标区间
+
+```shell
+127.0.0.1:6379> ZRANGE key min max [BYSCORE|BYLEX] [REV] [LIMIT offset count] [WITHSCORES]
+## 查询下标的元素
+127.0.0.1:6379> zrange myz 1 2
+1) "lisi"
+2) "wangwu"
+
+```
+
+
+
+- 按照分数查询（返回指定分数区间）
+
+```shell
+127.0.0.1:6379> ZRANGEBYSCORE key min max [WITHSCORES] [LIMIT offset count]
+```
+
+- 获取分数2-3开始
+
+```shell
+127.0.0.1:6379> ZRANGEBYSCORE myz 2 3
+1) "lisi"
+2) "wangwu"
+```
+
+- 从负无穷到正无穷查询（升序查找）
+
+```shell
+127.0.0.1:6379> ZRANGEBYSCORE myz -inf +inf
+1) "laoxiao"
+2) "lisi"
+3) "wangwu"
+```
+
+- 降序查询
+
+```shell
+127.0.0.1:6379> ZREVRANGEBYSCORE key max min [WITHSCORES] [LIMIT offset count]
+```
+
+# 位运算
+
+
 
 ## 位操作
 
@@ -252,97 +518,11 @@ setbit u500 30 1
 
 bitcount u500
 
-# 基于LINKLIST
 
-元素时字符串类型，列表头部和尾部增删快、元素可以重复，最多存2^32-1个元素
 
-索引：从左至右，从0开始
 
-​			从右至左，从-1开始
 
-```shell
-#从右边插入一个或者多个值
-rpush key value1...valuen
-
-redis 127.0.0.1:6379> RPUSH mylist "hello"
-(integer) 1
-redis 127.0.0.1:6379> RPUSH mylist "foo"
-(integer) 2
-redis 127.0.0.1:6379> RPUSH mylist "bar"
-(integer) 3
-##移除列表的最后一个元素，并将该元素添加到另一个列表并返回
-redis 127.0.0.1:6379> RPOPLPUSH mylist myotherlist
-"bar"
-redis 127.0.0.1:6379> LRANGE mylist 0 -1
-1) "hello"
-2) "foo"
-
-```
-
-**Redis Lrem 根据参数 COUNT 的值，移除列表中与参数 VALUE 相等的元素。**
-
-COUNT 的值可以是以下几种：
-
-- count > 0 : 从表头开始向表尾搜索，移除与 VALUE 相等的元素，数量为 COUNT 。
-
-- count < 0 : 从表尾开始向表头搜索，移除与 VALUE 相等的元素，数量为 COUNT 的绝对值。
-
-- count = 0 : 移除表中所有与 VALUE 相等的值。
-
-```shell
-LREM KEY_NAME COUNT VALUE
-```
-
-**命令用于在列表的元素前或者后插入元素**
-
-LINSERT KEY_NAME BEFORE EXISTING_VALUE NEW_VALUE 
-
-**命令移出并获取列表的第一个元素， 如果列表没有元素会阻塞列表直到等待超时或发现可弹出元素为止**
-
-BLPOP LIST1 LIST2 .. LISTN TIMEOUT
-
-# hash散列
-
-由field和关联的value组成的map键值对
-
-field和value是字符串类型
-
-一个hash中最多包含2^32-1个键值对
-
-set key field value
-
-不适用hash的情况
-
-- 使用二进制位操作命令
-- 使用过期键功能
-
-# 基于set集合
-
-无序的、去重的、元素时字符串类型
-
-```shell
-# 添加一个或者多个成员
-SADD key member1 [member2]
-# 返回集合中的所有成员
-smembers key
-# 判断 member 元素是否是集合 key 的成员
-sismember key member
-# 返回集合中一个或多个随机数
-srandmember key [count]
-# 获取集合的成员数
-scard key
-# 移除并返回集合中的一个随机元素
-spop key
-# 返回给定所有集合的差集
-sdiff key1 key2
-
-```
-
-## 场景
-
-求交集：贴吧的共同关注
-
-# 链表
+# 源码解析
 
 - 每个链表都是用adlist.h来表示
 
