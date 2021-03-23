@@ -2,6 +2,8 @@
 
 下载、解压、编译
 
+ps:https://redis.io/download  有安装介绍
+
 ```shell
 wget http://download.redis.io/releases/redis-2.8.18.tar.gz    
 tar xzf redis-2.8.18.tar.gz     
@@ -9,27 +11,157 @@ cd redis-2.8.１８
 make    
 ```
 
-(注：执行make时可能会出现的错误:1.未安装gcc，请先: yum install gcc tcl -y；2.安装报错 error: jemalloc/jemalloc.h: No such file or directory；解决方案：make 换==》make MALLOC = libc)
+注：执行make时可能会出现的错误:
+
+1. 未安装gcc，请先: yum install gcc tcl -y；
+
+2. 安装报错 error: jemalloc/jemalloc.h: No such file or directory；解决方案：make 换==》make MALLOC = libc
 
 ```shell
+## 安装
+[root@localhost redis-6.2.1]# make install
+## 查看安装结果
+[root@localhost redis-6.2.1]# cd /usr/local/bin
+[root@localhost bin]# ll
+总用量 18844
+-rwxr-xr-x. 1 root root 4833416 3月  22 10:09 redis-benchmark
+lrwxrwxrwx. 1 root root      12 3月  22 10:09 redis-check-aof -> redis-server
+lrwxrwxrwx. 1 root root      12 3月  22 10:09 redis-check-rdb -> redis-server
+-rwxr-xr-x. 1 root root 5003464 3月  22 10:09 redis-cli
+lrwxrwxrwx. 1 root root      12 3月  22 10:09 redis-sentinel -> redis-server
+-rwxr-xr-x. 1 root root 9450288 3月  22 10:09 redis-server
+
+## 备份配置文件
+[root@localhost redis-6.2.1]# cp redis.conf redis.conf.bak
+
 # 测试启动
 cd /usr/local/redis    
 ./redis-server redis.conf
 ```
 
-# 基于字符串
+- redis默认不是后台启动的，如果想要后台启动，一个办法就是修改配置文件
 
-在SET命令中，有很多选项可用来修改命令的行为。 以下是SET命令可用选项的基本语法。
+```conf
+## 将其修改为yes
+daemonize yes
+```
+
+- 关闭redis
+
+```shell
+[root@localhost redis-6.2.1]# redis-cli 
+127.0.0.1:6379> shutdown 
+```
+
+# 性能测试
+
+- redis-benchmark
+- redis自带的测试
+
+```shell
+[root@localhost redis-6.2.1]# redis-benchmark -c 100 -n 100000
+```
+
+- 日志查看
+
+```shell
+====== SET ======                                                    
+  100000 requests completed in 1.01 seconds
+  100 parallel clients
+  3 bytes payload ## 每次请求3个字节
+  keep alive: 1  ## 只一台服务器接收请求
+  host configuration "save": 3600 1 300 100 60 10000
+  host configuration "appendonly": no
+  multi-thread: no
+
+Latency by percentile distribution:
+0.000% <= 0.127 milliseconds (cumulative count 1) ##  
+50.000% <= 0.463 milliseconds (cumulative count 54809)
+```
+
+# 基础知识
+
+- redis默认16个数据库
+- 切换数据库
+
+```shell
+127.0.0.1:6379> select 1
+OK
+127.0.0.1:6379[1]>
+```
+
+- 查看数据库大小
+
+```shell
+127.0.0.1:6379[1]> DBSIZE
+(integer) 1
+```
+
+- 清空当前数据库
+
+```shell
+127.0.0.1:6379[1]> FLUSHDB
+OK
+127.0.0.1:6379[1]> DBSIZE
+(integer) 0
+
+```
+
+# 数据结构
+
+## 字符串操作
+
+- 设置值
+
+```shell
+127.0.0.1:6379> set name laoxiao
+OK
+```
+
+- 设置过期时间,查看过期时间
+
+```shell
+127.0.0.1:6379> EXPIRE name 10
+(integer) 1
+127.0.0.1:6379> ttl name
+(integer) 2
+```
+
+- 在SET命令中，有很多选项可用来修改命令的行为。 以下是SET命令可用选项的基本语法。
+  - EX seconds − 设置指定的到期时间(以秒为单位)。
+  - PX milliseconds - 设置指定的到期时间(以毫秒为单位)。
+  - NX - 仅在键不存在时设置键。
+  - XX - 只有在键已存在时才设置。
 
 ```shell
 redis 127.0.0.1:6379> SET KEY VALUE [EX seconds] [PX milliseconds] [NX|XX]
 ```
 
-- EX seconds − 设置指定的到期时间(以秒为单位)。
+- 判断key是否存在
 
-- PX milliseconds - 设置指定的到期时间(以毫秒为单位)。
-- NX - 仅在键不存在时设置键。
-- XX - 只有在键已存在时才设置。
+```shell
+127.0.0.1:6379> EXISTS name
+(integer) 0
+```
+
+- 移除key
+
+```shell
+127.0.0.1:6379> MOVE name 1
+(integer) 1
+```
+
+- 自增,自减
+  - 可以用来设置某个文章的阅读量
+
+```
+127.0.0.1:6379> INCR count
+(integer) 1
+127.0.0.1:6379> DECR count
+(integer) 0
+```
+
+
 
 ## Mset
 
@@ -209,3 +341,19 @@ sdiff key1 key2
 ## 场景
 
 求交集：贴吧的共同关注
+
+# 链表
+
+- 每个链表都是用adlist.h来表示
+
+```c
+typedef struct listNode {
+    //上一个节点
+    struct listNode *prev;
+    //后置节点
+    struct listNode *next;
+    //节点值
+    void *value;
+} listNode;
+```
+
