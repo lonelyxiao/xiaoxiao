@@ -3907,6 +3907,107 @@ public static void main(String[] args) {
 
 - 入口方法：ConfigurationClassParser#doProcessConfigurationClass
 
+# Enable编程模型
+
+## 简单模式
+
+- ps:Configuration如果在componentscan里面，一样会生效，所以不建议这样写
+- 定义一个config
+
+```java
+@Configuration
+public class HelloWordConfig {
+
+    @Bean
+    public String helloWord() {
+        return "helloWord";
+    }
+}
+```
+
+- 编写enbale注解
+
+```java
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+@Documented
+@Import(HelloWordConfig.class)
+public @interface EnableHelloWord {
+
+}
+```
+
+- 编写启动类，启动enable相关bean
+
+```java
+@EnableHelloWord
+public class HelloWordBootStrap {
+
+    public static void main(String[] args) {
+        AnnotationConfigApplicationContext applicationContext = new AnnotationConfigApplicationContext();
+        applicationContext.register(HelloWordBootStrap.class);
+        applicationContext.refresh();
+        String bean = applicationContext.getBean("helloWord", String.class);
+        System.out.println(bean);
+        applicationContext.close();
+    }
+}
+```
+
+## ImportSelector模式
+
+- 模拟启动服务
+
+- 建立一个接口，下面实现两个实现类，分别是ftp服务，http服务
+
+```java
+public interface Server {
+    /**
+     * 启动
+     */
+    void start();
+    /**
+     * 停止
+     */
+    void stop();
+    enum Type {
+         FTP,
+        HTTP,
+        ;
+    }
+}
+```
+
+- 定义一个selector,如果启动ftp，则返回ftp的实现类
+
+```java
+public class ServerSelector implements ImportSelector {
+    @Override
+    public String[] selectImports(AnnotationMetadata importingClassMetadata) {
+        Map<String, Object> annotationAttributes = importingClassMetadata.getAnnotationAttributes(EnableServer.class.getName());
+        Server.Type type = (Server.Type) annotationAttributes.get("type");
+        if(Server.Type.FTP.equals(type)) {
+            return new String[] {FtpServerImpl.class.getName()};
+        } else {
+            return new String[] {HttpServerImpl.class.getName()};
+        }
+    }
+}
+```
+
+- 定义一个注解
+
+```java
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@Target(ElementType.TYPE)
+@Import(ServerSelector.class)
+public @interface EnableServer {
+
+    Server.Type type();
+}
+```
+
 # servlet3.0
 
 3.0可以不使用传统的web.xml，直接使用注解，就可以搭建器web项目
@@ -3915,11 +4016,11 @@ public static void main(String[] args) {
 
 建立web项目
 
-![](./image/servlet3.0/20190704212029.png)
+![](../image/servlet3.0/20190704212029.png)
 
-![](./image/servlet3.0/20190704212310.png)
+![](../image/servlet3.0/20190704212310.png)
 
-![](./image/servlet3.0/20190704212429.png)
+![](../image/servlet3.0/20190704212429.png)
 
 pom文件：
 
@@ -4156,7 +4257,7 @@ public Callable<String> async01(){
 
 第二种方式： 先将DeferredResult对象存入一个队列（消息中间件）中，然后另外一个线程取出对象，设置result，则createOrder将返回信息
 
-![](./image/servlet3.0/QQ20190728175259.png)
+![](../image/servlet3.0/QQ20190728175259.png)
 
 ```java
 @ResponseBody
