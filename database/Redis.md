@@ -466,61 +466,186 @@ set key field value
 127.0.0.1:6379> ZREVRANGEBYSCORE key max min [WITHSCORES] [LIMIT offset count]
 ```
 
-# 位运算
+# 特殊数据类型
 
+## 经纬度
 
-
-## 位操作
-
-设置某一位上的值
-
-offset: 偏移量，从0开始
-
-```shell
-setbit key offset value
-```
-
-获取某一位上的值
+- 3.2版本推出
+- 可以计算地理位置的距离
+  - longitude 经度
+  - latitude 纬度
 
 ```shell
-getbit key offset
+
+GEOADD key [NX|XX] [CH] longitude latitude member [longitude latitude member
+## 插入地理位置
+## 两级无法添加
+127.0.0.1:6379> GEOADD china:city 112.98626 28.25591 changsha
+(integer) 1
+127.0.0.1:6379> GEOADD china:city 113.64317 28.16378 liuyang
+(integer) 1
+
 ```
 
-返回指定值在区间第一次出现的位置
+- 获取经纬度
 
 ```shell
-bitpos key bit [start] [end]
+127.0.0.1:6379> GEOPOS china:city changsha
+1) 1) "112.98626035451889038"
+   2) "28.25590931465907119"
 ```
+
+- 获取城市距离
+
+```shell
+127.0.0.1:6379> GEODIST china:city changsha liuyang
+"65197.3795"
+
+##计算的距离单位（km）
+127.0.0.1:6379> GEOdist china:city changsha liuyang km
+"65.1974"
+
+```
+
+- 求附近人，（以半径为中心）
+  - 经度， 维度：longitude， latitude
+  - radius：半径
+  - withcoord：显示经度维度
+  - withdist：直线距离
+  - COUNT：查出来的数量
+
+```shell
+GEORADIUS key longitude latitude radius m|km|ft|mi [WITHCOORD] [WITHDIST] [WITHHASH] [COUNT count [ANY]] [ASC|DESC] [STORE key] [STOREDIST key]
+
+127.0.0.1:6379> GEORADIUS china:city 112 28 200 km
+1) "changsha"
+2) "liuyang"
+```
+
+- 以元素为中心寻找周围城市
+
+```shell
+GEORADIUSBYMEMBER key member radius m|km|ft|mi [WITHCOORD] [WITHDIST] [WITHHASH] [COUNT count [ANY]] [ASC|DESC] [STORE key] [STOREDIST key]
+
+## 获取长沙100km访问的城市
+127.0.0.1:6379> GEORADIUSBYMEMBER china:city changsha 100 km withdist
+1) 1) "changsha"
+   2) "0.0000"
+2) 1) "liuyang"
+   2) "65.1974"
+```
+
+- 删除地理位置
+
+```shell
+127.0.0.1:6379> ZREM china:city liuyang
+```
+
+## 基数
+
+基数：一组集合中，不重复的数据量
+
+- 网页的UV(一个人访问网站多次，但还是算作一个人访问)
+  - 传统方式：使用set保存userId---但是用户的数量大，就有弊端
+  - Hyperloglog：占用内存固定，2^64不同的元素，只需要12kb，但是有0.81%的错误率
+
+```shell
+PFADD key element [element ...]
+
+## 存入用户
+127.0.0.1:6379> PFADD uv user1 user2 user3 user4 user5
+(integer) 1
+## 统计
+127.0.0.1:6379> PFCOUNT uv
+(integer) 5
+
+##合并两个集合
+127.0.0.1:6379> PFADD uv2 user3 user 5 user6
+(integer) 1
+127.0.0.1:6379> PFMERGE uv3 uv uv2
+OK
+
+```
+
+
 
 ## 位运算
 
-对一个或者多个保存二进制位的字符串key进行位元操作，并将结果保存到destkey中
+- 网站用户的上线次数统计（活跃用户），统计用户的活跃信息， 活跃 0 不活跃 1
 
-operation 可以时and（与）、or（或）、not（异或）、xor（逻辑非） 这四种操作
+  - 网站用户的上线次数统计（活跃用户）
 
-bitop operation destkey key [key...]
+  - 用户id作为key，天作为offset，上线置为1
 
-bitop not destkey key 对给定的key进行逻辑非
+  - 例如：id为500的用户，今年第1天上线、第30天上线
 
-bitop处理不同长度的字符串时，较短的那个字符串所缺少的部分会被看做0
+    setbit u500 1 1
 
-## 场景
+    setbit u500 30 1
 
-网站用户的上线次数统计（活跃用户）
+    bitcount u500
 
-用户id作为key，天作为offset，上线置为1
+- 打卡， 哪天打卡=1
 
-例如：id为500的用户，今年第1天上线、第30天上线
+```shell
+## 设置第一天 第三天打卡
+127.0.0.1:6379> SETBIT u1 0 1
+(integer) 0
+127.0.0.1:6379> SETBIT u1 2 1
+(integer) 0
+##获取第二天和第三天有没有打卡（默认0）
+127.0.0.1:6379> GETBIT u1 1
+(integer) 0
+127.0.0.1:6379> GETBIT u1 2
+(integer) 1
+## 获取用户打卡天数
+127.0.0.1:6379> BITCOUNT u1 
+(integer) 2
 
-setbit u500 1 1
+```
 
-setbit u500 30 1
+# 事务
 
-bitcount u500
+- Redis单条命令保证原子性，但是事务不保证原子性
+- Redis事务没有隔离级别概念
+- Redis事务本质：一组命令，在队列中，按照顺序执行
 
+- Redis事务
+  - 开启事务：MULTI 
+  - 命令入队
+  - 执行事务
 
+```shell
+## 事务开启
+127.0.0.1:6379> MULTI
+OK
+## 入队操作
+127.0.0.1:6379(TX)> set k1 v1
+QUEUED
+127.0.0.1:6379(TX)> set k2 v2
+QUEUED
+## 执行命令
+127.0.0.1:6379(TX)> EXEC
+1) OK
+2) OK
 
+```
 
+- 放弃事务
+  - 事务里的命令不会执行
+
+```shell
+127.0.0.1:6379> MULTI
+OK
+127.0.0.1:6379(TX)> set k3 v3
+QUEUED
+127.0.0.1:6379(TX)> DISCARD
+OK
+```
+
+- 错误
+  - 命令错误，其他命令不会执行
+  - 运行时异常，其他命令照样执行
 
 # 源码解析
 
