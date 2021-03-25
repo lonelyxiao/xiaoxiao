@@ -647,6 +647,169 @@ OK
   - 命令错误，其他命令不会执行
   - 运行时异常，其他命令照样执行
 
+# Redis乐观锁
+
+```shell
+127.0.0.1:6379> set money 100
+OK
+## 监控money
+127.0.0.1:6379> WATCH money
+OK
+127.0.0.1:6379> MULTI
+OK
+## 执行新增的时候，在另一个线程执行加20
+127.0.0.1:6379(TX)> INCRBY money 10
+QUEUED
+##执行命令的时候发现money值改了，不再进行修改
+127.0.0.1:6379(TX)> EXEC
+(nil)
+127.0.0.1:6379> get money
+"120"
+## 解除监控 （ps：执行失败要先解锁，再执行watch）
+127.0.0.1:6379> UNWATCH
+OK
+```
+
+# 安全配置
+
+```shell
+## 默认获取密码是为空的
+127.0.0.1:6379> config get requirepass
+1) "requirepass"
+2) ""
+## 设置密码
+127.0.0.1:6379> config set requirepass 123456
+OK
+## 再吃执行命令没有权限
+127.0.0.1:6379> config set requirepass
+(error) ERR Unknown subcommand
+## 认证
+127.0.0.1:6379> auth 123456
+OK
+###
+127.0.0.1:6379> config get requirepass
+1) "requirepass"
+2) "123456"
+```
+
+
+
+# 配置文件
+
+```shell
+## 可以导入多个配置文件
+# include /path/to/local.conf
+# include /path/to/other.conf
+
+## 绑定ip
+bind 0.0.0.0 -::1
+port 6379
+
+# 是否以守护进程运行，默认是NO
+daemonize yes
+## 如果以守护进程运行，则需要指定一个进程文件
+pidfile /var/run/redis_6379.pid
+
+#日志级别
+loglevel notice
+
+## 日志文件名
+logfile ""
+
+#### 持久化配置
+
+## 如果3600秒内有一个key修改，就进行持久化操作
+# save 3600 1
+# save 300 100
+## 60秒内有一个key修改，就进行持久化
+# save 60 10000
+##持久化出错，是否继续工作
+stop-writes-on-bgsave-error yes
+
+## 是否压缩持久化（rdb）文件（会消耗cpu资源）
+rdbcompression yes
+
+## 是否校验rdb文件
+rdbchecksum yes
+
+# rdb保存文件
+dbfilename dump.rdb
+
+################################主从复制
+
+
+####################### SECURITY(安全)
+
+# 在配置文件中设置密码
+# requirepass foobared
+
+##最大的客户端连接数
+# maxclients 10000
+
+### 最大内存配置
+# maxmemory <bytes>
+
+## 内存满了的策略
+# maxmemory-policy noeviction
+
+
+##########APPEND ONLY MODE (另一种持久化模式)
+## 默认不开启
+appendonly no
+## 持久化文件
+appendfilename "appendonly.aof"
+
+### 同步机制
+## 每次修改都写入（速度慢）
+# appendfsync always
+## 每一秒同步
+appendfsync everysec
+## 不执行sync， 操作系统自己同步
+# appendfsync no
+```
+
+# Redis 持久化
+
+## RDB模式
+
+- RDB持久化是指在指定的时间间隔内将内存中的数据集快照写入磁盘。也是默认的持久化方式，这种方式是就是将内存中数据以快照的方式写入到二进制文件中,默认的文件名为dump.rdb
+- 既然RDB机制是通过把某个时刻的所有数据生成一个快照来保存，那么就应该有一种触发机制，是实现这个过程。对于RDB来说，提供了三种机制：save、bgsave、自动化
+- save模式
+  - 该命令会阻塞当前Redis服务器，执行save命令期间，Redis不能处理其他命令，直到RDB过程完成为止
+  - 执行完成时候如果存在老的RDB文件，就把新的替代掉旧的。我们的客户端可能都是几万或者是几十万，这种方式显然不可取
+
+```shell
+127.0.0.1:6379> save
+OK
+```
+
+- bgsave
+  - 执行该命令时，Redis会在后台异步进行快照操作，快照同时还可以响应客户端请求
+  - 具体操作是Redis进程执行fork操作创建子进程，RDB持久化过程由子进程负责，完成后自动结束。阻塞只发生在fork阶段，一般时间很短。基本上 Redis 内部所有的RDB操作都是采用 bgsave 命令
+
+```shell
+127.0.0.1:6379> BGSAVE
+Background saving started
+```
+
+- 自动触发
+  - 自动触发是由我们的配置文件来完成的
+- 如何恢复
+  - 将rdb文件放到对应文件下，redis启动会自动检查
+
+```shell
+127.0.0.1:6379> config get dir
+1) "dir"
+2) "/root"  ### 这个目录下存在rdb文件，就会恢复
+```
+
+- 优点
+  - 适合大规模的数据恢复
+  - 数据完整性要求不高，（在没有触发save规则的时候宕机，数据就没了）
+- 缺点
+  - 数据可能丢失（在没有触发save规则的时候宕机，数据就没了）
+  - fork进程会占用空间
+
 # 源码解析
 
 - 每个链表都是用adlist.h来表示
