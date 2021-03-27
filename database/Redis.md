@@ -754,7 +754,7 @@ dbfilename dump.rdb
 
 
 ##########APPEND ONLY MODE (另一种持久化模式)
-## 默认不开启
+## 默认不开启AOF
 appendonly no
 ## 持久化文件
 appendfilename "appendonly.aof"
@@ -809,6 +809,194 @@ Background saving started
 - 缺点
   - 数据可能丢失（在没有触发save规则的时候宕机，数据就没了）
   - fork进程会占用空间
+
+## AOP
+
+- AOF持久化是通过保存Redis所执行的写命令来记录数据库状态的
+
+# 发布订阅
+
+- 发布
+  - channel：管道名称
+  - message：消息
+
+```shell
+127.0.0.1:6379> PUBLISH channel message
+```
+
+- 订阅
+
+```shell
+127.0.0.1:6379> SUBSCRIBE laoxiao 
+Reading messages... (press Ctrl-C to quit)
+1) "subscribe"
+2) "laoxiao"
+```
+
+# 主从复制
+
+- 只一个redis服务器的数据，复制到其他redis服务器
+- 数据复制是单向的，只能 master -> slave
+- 主从复制作用
+  - 数据热备份，数据故障修复
+  - 负载均衡，主节点写，从节点进行读操作
+  - 高可用（防止一台服务器宕机）
+
+## 环境配置
+
+- 查看当前库信息
+
+```shell
+127.0.0.1:6379> info replication
+# Replication
+role:master
+connected_slaves:0
+master_failover_state:no-failover
+master_replid:413efdc5cccbb10f3430d1d012b52fed3209db1c
+master_replid2:0000000000000000000000000000000000000000
+master_repl_offset:0
+second_repl_offset:-1
+repl_backlog_active:0
+repl_backlog_size:1048576
+repl_backlog_first_byte_offset:0
+repl_backlog_histlen:0
+```
+
+- 复制三个配置文件
+
+```shell
+[root@localhost redis-6.2.1]# cp redis.conf redis79.conf
+[root@localhost redis-6.2.1]# cp redis.conf redis80.conf
+[root@localhost redis-6.2.1]# cp redis.conf redis81.conf
+```
+
+- 修改每个配置文件
+
+```conf
+port 6380
+pidfile /var/run/redis_6380.pid
+logfile "log-80.log"
+dbfilename dump80.rdb
+dir ./data/
+```
+
+## 一主二从
+
+### 通过命令配置
+
+- 不是永久的
+
+- 从机找主机，配置
+
+```shell
+127.0.0.1:6380> SLAVEOF 192.168.1.131 6379
+OK
+### 能够看到6379有两个从机
+127.0.0.1:6379> info replication
+# Replication
+role:master
+connected_slaves:2
+slave0:ip=192.168.1.131,port=6381,state=online,offset=42,lag=0
+slave1:ip=192.168.1.131,port=6380
+```
+
+### 配置文件配置
+
+```shell
+### 配置主机的ip 和端口
+# replicaof <masterip> <masterport>
+### 配置主机的密码
+# masterauth <master-password>
+
+```
+
+### 特性
+
+- 主机可以写，从机不能写只能读
+- 所有主机的信息都会被从机保存
+
+```shell
+## 从机只能读
+127.0.0.1:6380> set name laoxiao1
+(error) READONLY You can't write against a read only replica.
+```
+
+- 第一次连接主机，slave会发生全量复制，接收master的数据库文件数据
+- 后面的新增，则发生的是增量复制
+
+### 手动的从机变主机
+
+```shell
+127.0.0.1:6379> SLAVEOF no one
+```
+
+## 哨兵模式
+
+- 通过发送命令，让Redis服务器返回监控其运行状态，包括主服务器和从服务器
+- 当哨兵监测到master宕机，会自动将slave切换成master，然后通过**发布订阅模式**通知其他的从服务器，修改配置文件，让它们切换主机
+
+### 单哨兵模式
+
+![](../image/redis/57a77ca2757d0924.webp)
+
+- 配置sentinel配置
+  - port:端口
+  -  redis-master:自定义监控主节点名称， 
+  - 1：至少有一个sentinel来投票才能成为主节点，这里单哨兵，所以为1
+
+```shell
+[root@localhost conf]# vim sentinel.conf
+
+port 26379
+Sentinel monitor redis-master 127.0.0.1 6379 1
+```
+
+- 启动配置文件，能看到配置文件
+
+```shell
+[root@localhost redis-6.2.1]# redis-sentinel conf/sentinel.conf
+```
+
+```console
+16816:X 27 Mar 2021 00:54:35.398 # +monitor master redis-master 127.0.0.1 6379 quorum 1
+16816:X 27 Mar 2021 00:54:35.399 * +slave slave 192.168.1.131:6381 192.168.1.131 6381 @ redis-master 127.0.0.1 6379
+16816:X 27 Mar 2021 00:54:35.400 * +slave slave 192.168.1.131:6380 192.168.1.131 6380 @ redis-master 127.0.0.1 6379
+```
+
+- 关闭主节点，稍等能看到从节点有一个选举为主节点
+
+```
+16816:X 27 Mar 2021 00:56:35.055 * +slave slave 127.0.0.1:6379 127.0.0.1 6379 @ redis-master 192.168.1.131 6381
+```
+
+
+
+### 多哨兵模式
+
+![](../image/redis/3f40b17c0412116c.webp)
+
+### 常用配置
+
+```shell
+## 告诉sentinel去监听地址为ip:port的一个master，这里的master-name可以自定义，quorum是一个数字，指明当有多少个sentinel认为一个master失效时，master才算真正失效
+sentinel monitor <master-name> <ip> <redis-port> <quorum>
+
+## 设置连接master和slave时的密码，注意的是sentinel不能分别为master和slave设置不同的密码，因此master和slave的密码应该设置相同
+sentinel auth-pass <master-name> <password>
+
+## 这个配置项指定了需要多少失效时间，一个master才会被这个sentinel主观地认为是不可用的。 单位是毫秒，默认为30秒
+sentinel down-after-milliseconds <master-name> <milliseconds> 
+
+## 发生failover主备切换时最多可以有多少个slave同时对新的master进行 同步，这个数字越小，完成failover所需的时间就越长，但是如果这个数字越大，就意味着越 多的slave因为replication而不可用。可以通过将这个值设为 1 来保证每次只有一个slave 处于不能处理命令请求的状态
+sentinel parallel-syncs <master-name> <numslaves> 
+
+##  同一个sentinel对同一个master两次failover之间的间隔时间
+##  当一个slave从一个错误的master那里同步数据开始计算时间。直到slave被纠正为向正确的master那里同步数据时
+## 默认3分钟
+sentinel failover-timeout <master-name> <milliseconds>
+```
+
+
 
 # 源码解析
 
