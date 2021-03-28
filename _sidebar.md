@@ -36,6 +36,3 @@
 	* [Elasticsearch](/database/Elasticsearch.md)
 	* [Redis](/database/Redis.md)
 	* [Mysql](/database/Mysql.md)
-* 面试
-	* [2019](/interview/2019)
-	* [2020](/interview/2020)
