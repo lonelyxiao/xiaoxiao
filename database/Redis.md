@@ -111,6 +111,21 @@ OK
 
 ## 字符串操作
 
+### 注意
+
+- 键命名规范：通常，公司用：：来代表一个级别
+
+- redis key 值是二进制安全的，这意味着可以用任何二进制序列作为key值
+
+  key取值原则
+
+  - 键值不需要过长，会消耗内存
+  - 键值不宜太短，可读性差
+
+  一个字符类型的值最多能存512M字节的内容
+
+### set
+
 - 设置值
 
 ```shell
@@ -161,164 +176,141 @@ redis 127.0.0.1:6379> SET KEY VALUE [EX seconds] [PX milliseconds] [NX|XX]
 (integer) 0
 ```
 
+- 自增指定数字
 
+```shell
+127.0.0.1:6379> INCRBY views 10
+(integer) 11
+```
 
-## Mset
+- 替换
 
-键命名规范：通常，公司用：：来代表一个级别
+```shell
+127.0.0.1:6379> SETRANGE name 2 zy
+(integer) 7
+127.0.0.1:6379> get name
+"lazyiao"
+```
+
+### mset
+
+- 表示一次可以设置多个键值对
 
 ```shell
 redis 127.0.0.1:6379> MSET key1 value1 key2 value2 .. keyN valueN
-redis 127.0.0.1:6379> MSET key1 "Hello" key2 "World" 
-OK 
-redis 127.0.0.1:6379> GET key1 
-"Hello" 
-redis 127.0.0.1:6379> GET key2 
-1) "World"
-
 ```
 
-## SETRANGE
+- msetnx 是原子性的，如果一个没有设置成功，则其他键值对都设置不成功
+- 可以用mset来设置用户是否已读文章，如： title:userid:docId  1,设置多个
+
+### Redis的CAS
+
+- getset
+- 如果存在值则进行替换
+
+## List
+
+### 基本操作
+
+- list命令都是L或者R开头的
+- 元素时字符串类型，列表头部和尾部增删快、元素可以重复，最多存2^32-1个元素
+- push操作,往key里面设置值，放入列表的头部
 
 ```shell
-redis 127.0.0.1:6379> SET key1 "Hello World" 
-OK 
-redis 127.0.0.1:6379> SETRANGE key1 6 "Redis" 
-(integer) 11 
-redis 127.0.0.1:6379> GET key1 
-"Hello Redis"
-```
-
-## 其他
-
-redis key 值是二进制安全的，这意味着可以用任何二进制序列作为key值
-
-key取值原则
-
-- 键值不需要过长，会消耗内存
-- 键值不宜太短，可读性差
-
-一个字符类型的值最多能存512M字节的内容
-
-## 清空所有键
-
-Flushdb
-
-## 位操作
-
-设置某一位上的值
-
-offset: 偏移量，从0开始
-
-```shell
-setbit key offset value
-```
-
-获取某一位上的值
-
-```shell
-getbit key offset
-```
-
-返回指定值在区间第一次出现的位置
-
-```shell
-bitpos key bit [start] [end]
-```
-
-## 位运算
-
-对一个或者多个保存二进制位的字符串key进行位元操作，并将结果保存到destkey中
-
-operation 可以时and（与）、or（或）、not（异或）、xor（逻辑非） 这四种操作
-
-bitop operation destkey key [key...]
-
-bitop not destkey key 对给定的key进行逻辑非
-
-bitop处理不同长度的字符串时，较短的那个字符串所缺少的部分会被看做0
-
-## 场景
-
-网站用户的上线次数统计（活跃用户）
-
-用户id作为key，天作为offset，上线置为1
-
-例如：id为500的用户，今年第1天上线、第30天上线
-
-setbit u500 1 1
-
-setbit u500 30 1
-
-bitcount u500
-
-# 基于LINKLIST
-
-元素时字符串类型，列表头部和尾部增删快、元素可以重复，最多存2^32-1个元素
-
-索引：从左至右，从0开始
-
-​			从右至左，从-1开始
-
-```shell
-#从右边插入一个或者多个值
-rpush key value1...valuen
-
-redis 127.0.0.1:6379> RPUSH mylist "hello"
+127.0.0.1:6379> LPUSH list one
 (integer) 1
-redis 127.0.0.1:6379> RPUSH mylist "foo"
+127.0.0.1:6379> LPUSH list 2
 (integer) 2
-redis 127.0.0.1:6379> RPUSH mylist "bar"
+127.0.0.1:6379> lpush list 3
 (integer) 3
-##移除列表的最后一个元素，并将该元素添加到另一个列表并返回
-redis 127.0.0.1:6379> RPOPLPUSH mylist myotherlist
-"bar"
-redis 127.0.0.1:6379> LRANGE mylist 0 -1
-1) "hello"
-2) "foo"
-
 ```
 
-**Redis Lrem 根据参数 COUNT 的值，移除列表中与参数 VALUE 相等的元素。**
-
-COUNT 的值可以是以下几种：
-
-- count > 0 : 从表头开始向表尾搜索，移除与 VALUE 相等的元素，数量为 COUNT 。
-
-- count < 0 : 从表尾开始向表头搜索，移除与 VALUE 相等的元素，数量为 COUNT 的绝对值。
-
-- count = 0 : 移除表中所有与 VALUE 相等的值。
+- 获取值
 
 ```shell
-LREM KEY_NAME COUNT VALUE
+127.0.0.1:6379> LRANGE list 0 1
+1) "3"
+2) "2"
 ```
 
-**命令用于在列表的元素前或者后插入元素**
+- 将值push到列表尾部
 
-LINSERT KEY_NAME BEFORE EXISTING_VALUE NEW_VALUE 
+```shell
+127.0.0.1:6379> RPush list rpu
+(integer) 4
+127.0.0.1:6379> LRANGE list 0 -1
+1) "3"
+2) "2"
+3) "one"
+4) "rpu"
+```
 
-**命令移出并获取列表的第一个元素， 如果列表没有元素会阻塞列表直到等待超时或发现可弹出元素为止**
+- 从左边弹出值
 
-BLPOP LIST1 LIST2 .. LISTN TIMEOUT
+```shell
+127.0.0.1:6379> LPOP list
+"3"
+127.0.0.1:6379> LRANGE list 0 -1
+1) "2"
+2) "one"
+3) "rpu"
+```
 
-# hash散列
+### 移除
 
-由field和关联的value组成的map键值对
+- 移除指定值
+  - count > 0 : 从表头开始向表尾搜索，移除与 VALUE 相等的元素，数量为 COUNT 。
+  - count < 0 : 从表尾开始向表头搜索，移除与 VALUE 相等的元素，数量为 COUNT 的绝对值。
 
-field和value是字符串类型
+  - count = 0 : 移除表中所有与 VALUE 相等的值。
 
-一个hash中最多包含2^32-1个键值对
+```shell
+127.0.0.1:6379> LREM key count element
+```
 
-set key field value
+- 移除一个值
+  - 移除1个指定的值
+  - 可以用来如:取消某个人的关注
 
-不适用hash的情况
+```shell
+127.0.0.1:6379> LREM list 1 one
+(integer) 1
 
-- 使用二进制位操作命令
-- 使用过期键功能
+```
 
-# 基于set集合
+### 截断
 
-无序的、去重的、元素时字符串类型
+- 设置 0 1 2 3四个元素
+- 截取index =1  2的元素
+- 可以看到四个元素只剩下1 2了
+
+```shell
+127.0.0.1:6379> LTRIM mylist 1 2
+OK
+127.0.0.1:6379> LRANGE mylist 0 -1
+1) "2"
+2) "1"
+```
+
+### 弹入弹出
+
+- 从右边弹出一个元素，从左边push到一个新的元素中
+
+```shell
+127.0.0.1:6379> RPOPLPUSH mylist mylist2
+"1"
+```
+
+### 场景
+
+- 队列
+  - LPUSH  RPOP
+- 栈
+  - LPUSH LPOP
+
+## SET集合
+
+- 无序的、去重的、元素是字符串类型
 
 ```shell
 # 添加一个或者多个成员
@@ -326,23 +318,687 @@ SADD key member1 [member2]
 # 返回集合中的所有成员
 smembers key
 # 判断 member 元素是否是集合 key 的成员
+## 存在返回1
 sismember key member
 # 返回集合中一个或多个随机数
 srandmember key [count]
 # 获取集合的成员数
 scard key
 # 移除并返回集合中的一个随机元素
-spop key
-# 返回给定所有集合的差集
-sdiff key1 key2
 
 ```
 
-## 场景
+- 获取集合个数
 
-求交集：贴吧的共同关注
+```shell
+127.0.0.1:6379> SCARD myset
+(integer) 4
+```
 
-# 链表
+- 移除指定元素
+
+```shell
+127.0.0.1:6379> SREM myset 3
+(integer) 1
+```
+
+### 多个集合操作
+
+- 将一个集合中的指定元素移动到另一个集合
+
+```shell
+127.0.0.1:6379> SMOVE myset myset2 2
+(integer) 1
+```
+
+- 求差集
+
+```shell
+127.0.0.1:6379> SDIFF myset myset2
+1) "1"
+2) "1,"
+```
+
+- 求交集(用户之间的共同关注)
+  - A用户的关注放一个集合，粉丝放一个集合
+  - A用户和B用户的关注求交集就是共同关注
+
+```shell
+127.0.0.1:6379> sadd myset laoxiao
+(integer) 1
+127.0.0.1:6379> sadd myset2 laoxiao
+(integer) 1
+127.0.0.1:6379> SINTER myset myset2
+1) "laoxiao"
+```
+
+- 求并集
+
+```shell
+127.0.0.1:6379> SUNION myset myset2
+1) "1"
+2) "laoxiao"
+3) "2,"
+4) "1,"
+```
+
+## HASH(哈希)
+
+- 由field和关联的value组成的map键值对
+
+- field和value是字符串类型
+
+- 一个hash中最多包含2^32-1个键值对
+
+```shell
+set key field value
+```
+
+```shell
+127.0.0.1:6379> hset myhash name laoxiao
+(integer) 1
+127.0.0.1:6379> hget myhash name
+"laoxiao"
+```
+
+- 获取所有的键或者值
+
+```shell
+127.0.0.1:6379> HKEYS myhash
+1) "name"
+127.0.0.1:6379> HVALS myhash
+1) "laoxiao"
+```
+
+
+
+- 不适用hash的情况
+  - 使用二进制位操作命令
+  - 使用过期键功能
+
+## 有序集合
+
+- 添加语法
+
+```shell
+127.0.0.1:6379> ZADD key [NX|XX] [GT|LT] [CH] [INCR] score member [score member ...]
+```
+
+- 返回指定下标区间
+
+```shell
+127.0.0.1:6379> ZRANGE key min max [BYSCORE|BYLEX] [REV] [LIMIT offset count] [WITHSCORES]
+## 查询下标的元素
+127.0.0.1:6379> zrange myz 1 2
+1) "lisi"
+2) "wangwu"
+
+```
+
+
+
+- 按照分数查询（返回指定分数区间）
+
+```shell
+127.0.0.1:6379> ZRANGEBYSCORE key min max [WITHSCORES] [LIMIT offset count]
+```
+
+- 获取分数2-3开始
+
+```shell
+127.0.0.1:6379> ZRANGEBYSCORE myz 2 3
+1) "lisi"
+2) "wangwu"
+```
+
+- 从负无穷到正无穷查询（升序查找）
+
+```shell
+127.0.0.1:6379> ZRANGEBYSCORE myz -inf +inf
+1) "laoxiao"
+2) "lisi"
+3) "wangwu"
+```
+
+- 降序查询
+
+```shell
+127.0.0.1:6379> ZREVRANGEBYSCORE key max min [WITHSCORES] [LIMIT offset count]
+```
+
+# 特殊数据类型
+
+## 经纬度
+
+- 3.2版本推出
+- 可以计算地理位置的距离
+  - longitude 经度
+  - latitude 纬度
+
+```shell
+
+GEOADD key [NX|XX] [CH] longitude latitude member [longitude latitude member
+## 插入地理位置
+## 两级无法添加
+127.0.0.1:6379> GEOADD china:city 112.98626 28.25591 changsha
+(integer) 1
+127.0.0.1:6379> GEOADD china:city 113.64317 28.16378 liuyang
+(integer) 1
+
+```
+
+- 获取经纬度
+
+```shell
+127.0.0.1:6379> GEOPOS china:city changsha
+1) 1) "112.98626035451889038"
+   2) "28.25590931465907119"
+```
+
+- 获取城市距离
+
+```shell
+127.0.0.1:6379> GEODIST china:city changsha liuyang
+"65197.3795"
+
+##计算的距离单位（km）
+127.0.0.1:6379> GEOdist china:city changsha liuyang km
+"65.1974"
+
+```
+
+- 求附近人，（以半径为中心）
+  - 经度， 维度：longitude， latitude
+  - radius：半径
+  - withcoord：显示经度维度
+  - withdist：直线距离
+  - COUNT：查出来的数量
+
+```shell
+GEORADIUS key longitude latitude radius m|km|ft|mi [WITHCOORD] [WITHDIST] [WITHHASH] [COUNT count [ANY]] [ASC|DESC] [STORE key] [STOREDIST key]
+
+127.0.0.1:6379> GEORADIUS china:city 112 28 200 km
+1) "changsha"
+2) "liuyang"
+```
+
+- 以元素为中心寻找周围城市
+
+```shell
+GEORADIUSBYMEMBER key member radius m|km|ft|mi [WITHCOORD] [WITHDIST] [WITHHASH] [COUNT count [ANY]] [ASC|DESC] [STORE key] [STOREDIST key]
+
+## 获取长沙100km访问的城市
+127.0.0.1:6379> GEORADIUSBYMEMBER china:city changsha 100 km withdist
+1) 1) "changsha"
+   2) "0.0000"
+2) 1) "liuyang"
+   2) "65.1974"
+```
+
+- 删除地理位置
+
+```shell
+127.0.0.1:6379> ZREM china:city liuyang
+```
+
+## 基数
+
+基数：一组集合中，不重复的数据量
+
+- 网页的UV(一个人访问网站多次，但还是算作一个人访问)
+  - 传统方式：使用set保存userId---但是用户的数量大，就有弊端
+  - Hyperloglog：占用内存固定，2^64不同的元素，只需要12kb，但是有0.81%的错误率
+
+```shell
+PFADD key element [element ...]
+
+## 存入用户
+127.0.0.1:6379> PFADD uv user1 user2 user3 user4 user5
+(integer) 1
+## 统计
+127.0.0.1:6379> PFCOUNT uv
+(integer) 5
+
+##合并两个集合
+127.0.0.1:6379> PFADD uv2 user3 user 5 user6
+(integer) 1
+127.0.0.1:6379> PFMERGE uv3 uv uv2
+OK
+
+```
+
+
+
+## 位运算
+
+- 网站用户的上线次数统计（活跃用户），统计用户的活跃信息， 活跃 0 不活跃 1
+
+  - 网站用户的上线次数统计（活跃用户）
+
+  - 用户id作为key，天作为offset，上线置为1
+
+  - 例如：id为500的用户，今年第1天上线、第30天上线
+
+    setbit u500 1 1
+
+    setbit u500 30 1
+
+    bitcount u500
+
+- 打卡， 哪天打卡=1
+
+```shell
+## 设置第一天 第三天打卡
+127.0.0.1:6379> SETBIT u1 0 1
+(integer) 0
+127.0.0.1:6379> SETBIT u1 2 1
+(integer) 0
+##获取第二天和第三天有没有打卡（默认0）
+127.0.0.1:6379> GETBIT u1 1
+(integer) 0
+127.0.0.1:6379> GETBIT u1 2
+(integer) 1
+## 获取用户打卡天数
+127.0.0.1:6379> BITCOUNT u1 
+(integer) 2
+
+```
+
+# 事务
+
+- Redis单条命令保证原子性，但是事务不保证原子性
+- Redis事务没有隔离级别概念
+- Redis事务本质：一组命令，在队列中，按照顺序执行
+
+- Redis事务
+  - 开启事务：MULTI 
+  - 命令入队
+  - 执行事务
+
+```shell
+## 事务开启
+127.0.0.1:6379> MULTI
+OK
+## 入队操作
+127.0.0.1:6379(TX)> set k1 v1
+QUEUED
+127.0.0.1:6379(TX)> set k2 v2
+QUEUED
+## 执行命令
+127.0.0.1:6379(TX)> EXEC
+1) OK
+2) OK
+
+```
+
+- 放弃事务
+  - 事务里的命令不会执行
+
+```shell
+127.0.0.1:6379> MULTI
+OK
+127.0.0.1:6379(TX)> set k3 v3
+QUEUED
+127.0.0.1:6379(TX)> DISCARD
+OK
+```
+
+- 错误
+  - 命令错误，其他命令不会执行
+  - 运行时异常，其他命令照样执行
+
+# Redis乐观锁
+
+```shell
+127.0.0.1:6379> set money 100
+OK
+## 监控money
+127.0.0.1:6379> WATCH money
+OK
+127.0.0.1:6379> MULTI
+OK
+## 执行新增的时候，在另一个线程执行加20
+127.0.0.1:6379(TX)> INCRBY money 10
+QUEUED
+##执行命令的时候发现money值改了，不再进行修改
+127.0.0.1:6379(TX)> EXEC
+(nil)
+127.0.0.1:6379> get money
+"120"
+## 解除监控 （ps：执行失败要先解锁，再执行watch）
+127.0.0.1:6379> UNWATCH
+OK
+```
+
+# 安全配置
+
+```shell
+## 默认获取密码是为空的
+127.0.0.1:6379> config get requirepass
+1) "requirepass"
+2) ""
+## 设置密码
+127.0.0.1:6379> config set requirepass 123456
+OK
+## 再吃执行命令没有权限
+127.0.0.1:6379> config set requirepass
+(error) ERR Unknown subcommand
+## 认证
+127.0.0.1:6379> auth 123456
+OK
+###
+127.0.0.1:6379> config get requirepass
+1) "requirepass"
+2) "123456"
+```
+
+
+
+# 配置文件
+
+```shell
+## 可以导入多个配置文件
+# include /path/to/local.conf
+# include /path/to/other.conf
+
+## 绑定ip
+bind 0.0.0.0 -::1
+port 6379
+
+# 是否以守护进程运行，默认是NO
+daemonize yes
+## 如果以守护进程运行，则需要指定一个进程文件
+pidfile /var/run/redis_6379.pid
+
+#日志级别
+loglevel notice
+
+## 日志文件名
+logfile ""
+
+#### 持久化配置
+
+## 如果3600秒内有一个key修改，就进行持久化操作
+# save 3600 1
+# save 300 100
+## 60秒内有一个key修改，就进行持久化
+# save 60 10000
+##持久化出错，是否继续工作
+stop-writes-on-bgsave-error yes
+
+## 是否压缩持久化（rdb）文件（会消耗cpu资源）
+rdbcompression yes
+
+## 是否校验rdb文件
+rdbchecksum yes
+
+# rdb保存文件
+dbfilename dump.rdb
+
+################################主从复制
+
+
+####################### SECURITY(安全)
+
+# 在配置文件中设置密码
+# requirepass foobared
+
+##最大的客户端连接数
+# maxclients 10000
+
+### 最大内存配置
+# maxmemory <bytes>
+
+## 内存满了的策略
+# maxmemory-policy noeviction
+
+
+##########APPEND ONLY MODE (另一种持久化模式)
+## 默认不开启AOF
+appendonly no
+## 持久化文件
+appendfilename "appendonly.aof"
+
+### 同步机制
+## 每次修改都写入（速度慢）
+# appendfsync always
+## 每一秒同步
+appendfsync everysec
+## 不执行sync， 操作系统自己同步
+# appendfsync no
+```
+
+# Redis 持久化
+
+## RDB模式
+
+- RDB持久化是指在指定的时间间隔内将内存中的数据集快照写入磁盘。也是默认的持久化方式，这种方式是就是将内存中数据以快照的方式写入到二进制文件中,默认的文件名为dump.rdb
+- 既然RDB机制是通过把某个时刻的所有数据生成一个快照来保存，那么就应该有一种触发机制，是实现这个过程。对于RDB来说，提供了三种机制：save、bgsave、自动化
+- save模式
+  - 该命令会阻塞当前Redis服务器，执行save命令期间，Redis不能处理其他命令，直到RDB过程完成为止
+  - 执行完成时候如果存在老的RDB文件，就把新的替代掉旧的。我们的客户端可能都是几万或者是几十万，这种方式显然不可取
+
+```shell
+127.0.0.1:6379> save
+OK
+```
+
+- bgsave
+  - 执行该命令时，Redis会在后台异步进行快照操作，快照同时还可以响应客户端请求
+  - 具体操作是Redis进程执行fork操作创建子进程，RDB持久化过程由子进程负责，完成后自动结束。阻塞只发生在fork阶段，一般时间很短。基本上 Redis 内部所有的RDB操作都是采用 bgsave 命令
+
+```shell
+127.0.0.1:6379> BGSAVE
+Background saving started
+```
+
+- 自动触发
+  - 自动触发是由我们的配置文件来完成的
+- 如何恢复
+  - 将rdb文件放到对应文件下，redis启动会自动检查
+
+```shell
+127.0.0.1:6379> config get dir
+1) "dir"
+2) "/root"  ### 这个目录下存在rdb文件，就会恢复
+```
+
+- 优点
+  - 适合大规模的数据恢复
+  - 数据完整性要求不高，（在没有触发save规则的时候宕机，数据就没了）
+- 缺点
+  - 数据可能丢失（在没有触发save规则的时候宕机，数据就没了）
+  - fork进程会占用空间
+
+## AOP
+
+- AOF持久化是通过保存Redis所执行的写命令来记录数据库状态的
+
+# 发布订阅
+
+- 发布
+  - channel：管道名称
+  - message：消息
+
+```shell
+127.0.0.1:6379> PUBLISH channel message
+```
+
+- 订阅
+
+```shell
+127.0.0.1:6379> SUBSCRIBE laoxiao 
+Reading messages... (press Ctrl-C to quit)
+1) "subscribe"
+2) "laoxiao"
+```
+
+# 主从复制
+
+- 只一个redis服务器的数据，复制到其他redis服务器
+- 数据复制是单向的，只能 master -> slave
+- 主从复制作用
+  - 数据热备份，数据故障修复
+  - 负载均衡，主节点写，从节点进行读操作
+  - 高可用（防止一台服务器宕机）
+
+## 环境配置
+
+- 查看当前库信息
+
+```shell
+127.0.0.1:6379> info replication
+# Replication
+role:master
+connected_slaves:0
+master_failover_state:no-failover
+master_replid:413efdc5cccbb10f3430d1d012b52fed3209db1c
+master_replid2:0000000000000000000000000000000000000000
+master_repl_offset:0
+second_repl_offset:-1
+repl_backlog_active:0
+repl_backlog_size:1048576
+repl_backlog_first_byte_offset:0
+repl_backlog_histlen:0
+```
+
+- 复制三个配置文件
+
+```shell
+[root@localhost redis-6.2.1]# cp redis.conf redis79.conf
+[root@localhost redis-6.2.1]# cp redis.conf redis80.conf
+[root@localhost redis-6.2.1]# cp redis.conf redis81.conf
+```
+
+- 修改每个配置文件
+
+```conf
+port 6380
+pidfile /var/run/redis_6380.pid
+logfile "log-80.log"
+dbfilename dump80.rdb
+dir ./data/
+```
+
+## 一主二从
+
+### 通过命令配置
+
+- 不是永久的
+
+- 从机找主机，配置
+
+```shell
+127.0.0.1:6380> SLAVEOF 192.168.1.131 6379
+OK
+### 能够看到6379有两个从机
+127.0.0.1:6379> info replication
+# Replication
+role:master
+connected_slaves:2
+slave0:ip=192.168.1.131,port=6381,state=online,offset=42,lag=0
+slave1:ip=192.168.1.131,port=6380
+```
+
+### 配置文件配置
+
+```shell
+### 配置主机的ip 和端口
+# replicaof <masterip> <masterport>
+### 配置主机的密码
+# masterauth <master-password>
+
+```
+
+### 特性
+
+- 主机可以写，从机不能写只能读
+- 所有主机的信息都会被从机保存
+
+```shell
+## 从机只能读
+127.0.0.1:6380> set name laoxiao1
+(error) READONLY You can't write against a read only replica.
+```
+
+- 第一次连接主机，slave会发生全量复制，接收master的数据库文件数据
+- 后面的新增，则发生的是增量复制
+
+### 手动的从机变主机
+
+```shell
+127.0.0.1:6379> SLAVEOF no one
+```
+
+## 哨兵模式
+
+- 通过发送命令，让Redis服务器返回监控其运行状态，包括主服务器和从服务器
+- 当哨兵监测到master宕机，会自动将slave切换成master，然后通过**发布订阅模式**通知其他的从服务器，修改配置文件，让它们切换主机
+
+### 单哨兵模式
+
+![](../image/redis/57a77ca2757d0924.webp)
+
+- 配置sentinel配置
+  - port:端口
+  -  redis-master:自定义监控主节点名称， 
+  - 1：至少有一个sentinel来投票才能成为主节点，这里单哨兵，所以为1
+
+```shell
+[root@localhost conf]# vim sentinel.conf
+
+port 26379
+Sentinel monitor redis-master 127.0.0.1 6379 1
+```
+
+- 启动配置文件，能看到配置文件
+
+```shell
+[root@localhost redis-6.2.1]# redis-sentinel conf/sentinel.conf
+```
+
+```console
+16816:X 27 Mar 2021 00:54:35.398 # +monitor master redis-master 127.0.0.1 6379 quorum 1
+16816:X 27 Mar 2021 00:54:35.399 * +slave slave 192.168.1.131:6381 192.168.1.131 6381 @ redis-master 127.0.0.1 6379
+16816:X 27 Mar 2021 00:54:35.400 * +slave slave 192.168.1.131:6380 192.168.1.131 6380 @ redis-master 127.0.0.1 6379
+```
+
+- 关闭主节点，稍等能看到从节点有一个选举为主节点
+
+```
+16816:X 27 Mar 2021 00:56:35.055 * +slave slave 127.0.0.1:6379 127.0.0.1 6379 @ redis-master 192.168.1.131 6381
+```
+
+
+
+### 多哨兵模式
+
+![](../image/redis/3f40b17c0412116c.webp)
+
+### 常用配置
+
+```shell
+## 告诉sentinel去监听地址为ip:port的一个master，这里的master-name可以自定义，quorum是一个数字，指明当有多少个sentinel认为一个master失效时，master才算真正失效
+sentinel monitor <master-name> <ip> <redis-port> <quorum>
+
+## 设置连接master和slave时的密码，注意的是sentinel不能分别为master和slave设置不同的密码，因此master和slave的密码应该设置相同
+sentinel auth-pass <master-name> <password>
+
+## 这个配置项指定了需要多少失效时间，一个master才会被这个sentinel主观地认为是不可用的。 单位是毫秒，默认为30秒
+sentinel down-after-milliseconds <master-name> <milliseconds> 
+
+## 发生failover主备切换时最多可以有多少个slave同时对新的master进行 同步，这个数字越小，完成failover所需的时间就越长，但是如果这个数字越大，就意味着越 多的slave因为replication而不可用。可以通过将这个值设为 1 来保证每次只有一个slave 处于不能处理命令请求的状态
+sentinel parallel-syncs <master-name> <numslaves> 
+
+##  同一个sentinel对同一个master两次failover之间的间隔时间
+##  当一个slave从一个错误的master那里同步数据开始计算时间。直到slave被纠正为向正确的master那里同步数据时
+## 默认3分钟
+sentinel failover-timeout <master-name> <milliseconds>
+```
+
+
+
+# 源码解析
 
 - 每个链表都是用adlist.h来表示
 
