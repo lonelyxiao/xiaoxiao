@@ -725,7 +725,7 @@ mvn clean package
 - 安装[Pipeline](https://plugins.jenkins.io/workflow-aggregator)插件
 - 创建一个PipeLine任务
 - pipeLine语法
-#### 声明式
+### 声明式
 
 ```shell
 pipeline {
@@ -772,11 +772,21 @@ sh '''
 
 
 
-#### 将pipeline语法写入项目文件中
+### 将pipeline语法写入项目文件中
 
 - 语法配置在任务中不好管理，所以可以选择将部署代码写在项目中
 - 在项目根目录新建Jenkinsfile文件
 - 任务配置->流水线->scm->git->脚本路径:Jenkinsfile 
+
+### 动态参数控制
+
+- 在一些脚本中，有些参数需要动态的控制，如版本号等
+
+![](../image/jkens/20210324154123.png)
+
+- 在项目中传入对应的参数
+
+![](../image/jkens/20210324154732.png)
 
 ## 构建触发器
 
@@ -901,5 +911,5 @@ stage('Build') {
 
 ![1608079876705](../image/jkens/1608079876705.png)
 
-password:在用户 --> 设置 --->  API Token中获取
+password:在用户列表 --> 设置 --->  API Token中获取
 
