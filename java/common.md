@@ -1,15 +1,17 @@
-# 概述
+# Jackson
+
+## 概述
 
 1. jackson是java技术栈内最好的JSON解析工具(官网所言)
 2. 除了JSON解析，jackson还是个数据处理工具集：基于流的解析库和生成库、数据绑定、数据格式化模块(Avro、XML、Protobuf、YAML等)
 
-## 三个核心模块
+### 三个核心模块
 
 - Streaming（jackson-core）：低阶API库，提供流式解析工具JsonParser，流式生成工具JsonGenerator
 - Annotations（jackson-annotations）：jackson注解
 - Databind (jackson-databind)：基于java对象的序列化、反序列化能力，需要前面两个模块的支持才能实现
 
-# JsonFactory 
+## JsonFactory 
 
 - jsonFactory是线程安全的（Factory instances are thread-safe and reusable after configuration (if any)）
 - 引入jar包
@@ -21,7 +23,7 @@
 </dependency>
 ```
 
-## 反序列化
+### 反序列化
 
 - JsonFactory 是jackson-core的基本功能
 - JsonParser负责将JSON解析成对象的变量值，核心是循环处理JSON中的所有内容
@@ -54,7 +56,7 @@ private static void deserializeJSONStr() throws Exception {
 }
 ```
 
-## 序列化
+### 序列化
 
 - JsonGenerator负责将对象的变量写入JSON的各个属性，这里是开发者自行决定要处理哪些字段
 
@@ -73,9 +75,9 @@ private static void serialize() throws Exception {
 }
 ```
 
-# 核心API
+## 核心API
 
-## 常用操作
+### 常用操作
 
 - 序列化反序列化
 
@@ -94,7 +96,7 @@ private static void serialize() throws Exception {
 }
 ```
 
-## 常用配置
+### 常用配置
 
 ```java
 //序列化结果格式化
@@ -113,7 +115,7 @@ mapper.configure(JsonParser.Feature.ALLOW_UNQUOTED_FIELD_NAMES, true);
 mapper.configure(JsonParser.Feature.ALLOW_SINGLE_QUOTES, true);
 ```
 
-## JsonInclude
+### JsonInclude
 
 | 标识         | 描述                                                         |
 | ------------ | ------------------------------------------------------------ |
@@ -125,9 +127,9 @@ mapper.configure(JsonParser.Feature.ALLOW_SINGLE_QUOTES, true);
 | CUSTOM       | 此时要指定valueFilter属性，该属性对应一个类，用来自定义判断被JsonInclude修饰的字段是否序列化,在序列化的时候会执行CustomFilter的equals方法，该方法的入参就是field0的值，如果equals方法返回true，field0就不会被序列化，如果equals方法返回false时field0才会被序列化 |
 | USE_DEFAULTS | 当JsonInclude在类和属性上都有时，优先使用属性上的注解，此时如果在序列化的get方法上使用了JsonInclude，并设置为USE_DEFAULTS，就会使用类注解的设置 |
 
-## Field注解
+### Field注解
 
-### JsonProperty
+#### JsonProperty
 
 - jsonProperty可以作用在成员变量和方法上，作用是在**序列化**和**反序列化**操作中指定json字段的名称
 - 可以作用在字段上，也可以作用在get或者set方法上
@@ -162,13 +164,14 @@ Person person = mapper.readValue(json, Person.class);
 
 ```
 Person(id=1, name=laoxiao, fileName=测试中)
+
 ```
 
-### JsonIgnore
+#### JsonIgnore
 
 - 作用在成员变量或者方法上，指定被注解的变量或者方法不参与序列化和反序列化操作
 
-### JsonSerialize
+#### JsonSerialize
 
 - JsonSerialize用于序列化场景，被此注解修饰的字段或者get方法会被用于序列化，并且using属性指定了执行序列化操作的类
 
@@ -177,6 +180,7 @@ public class Person {
     @JsonSerialize(using = IdJsonSerializer.class)
     private Long id;
 }
+
 ```
 
 - 可以对 对应的值调整，也可以新增字段
@@ -191,6 +195,7 @@ public class IdJsonSerializer extends JsonSerializer<Long> {
         gen.writeNumberField("id_tmp", value);
     }
 }
+
 ```
 
 ```
@@ -200,9 +205,10 @@ public class IdJsonSerializer extends JsonSerializer<Long> {
   "name" : "laoxiao",
   "file_name" : "test"
 }
+
 ```
 
-### JsonDeserialize
+#### JsonDeserialize
 
 - 用于反序列化场景，被此注解修饰的字段或者set方法会被用于反序列化，并且using属性指定了执行反序列化操作的类；
 
@@ -215,6 +221,7 @@ public class Person {
     @JsonProperty(value = "file_name")
     private String fileName;
 }
+
 ```
 
 ```java
@@ -225,18 +232,19 @@ public class IdJsonDeserializer extends JsonDeserializer<Long> {
         return 222L;
     }
 }
+
 ```
 
-## 方法注解
+### 方法注解
 
-### JsonValue
+#### JsonValue
 
 - 在序列化时起作用，可以用来注解get方法或者成员变量
 - 一个类中，JsonValue只允许出现一次
 - 如果注解的是方法，那么该方法的返回值就是整个实例的序列化结果；
 - 如果注解的是成员变量，那么该成员变量的值就是整个实例的序列化结果；
 
-### JsonCreator
+#### JsonCreator
 
 - 在反序列化时，当出现有参构造方法时（可能是多个有参构造方法），需要通过JsonCreator注解指定反序列化时用哪个构造方法，并且在入参处还要通过JsonProperty指定字段关系
 
@@ -249,9 +257,10 @@ public class Person {
 		this.id = id;
     }
 }
+
 ```
 
-### JsonAnyGetter
+#### JsonAnyGetter
 
 - 在序列化时，用Map对象的键值对转成json的字段和值
 
@@ -272,6 +281,7 @@ public class Person {
     }
 
 }
+
 ```
 
 序列化后
@@ -284,12 +294,12 @@ public class Person {
   "file_name" : "test",
   "aaaa" : "aaa"
 }
+
 ```
 
-### JsonAnySetter
+#### JsonAnySetter
 
 - 反序列化时，对json中不认识的字段，统统调用JsonAnySetter注解修饰的方法去处理
-
 - 可以作用在成员变量上
 
 ```java
@@ -301,15 +311,17 @@ public class Person {
     private Map<String, String> map = new HashMap<>();
 
 }
+
 ```
 
 ```shell
 Person(id=222, name=laoxiao, fileName=测试中, map={tests=testsss})
+
 ```
 
-# Spring Boot
+## Spring Boot
 
-## 配置文件
+### 配置文件
 
 ```yaml
 spring:
@@ -333,9 +345,10 @@ spring:
       allow_unquoted_control_chars: true
       # 允许单引号
       allow_single_quotes: true
+
 ```
 
-## 配置类
+### 配置类
 
 - 对Jackson2ObjectMapperBuilderCustomizer进行相关的处理
 
@@ -400,5 +413,6 @@ public class JacksonConfig {
     }
 
 }
+
 ```
 
