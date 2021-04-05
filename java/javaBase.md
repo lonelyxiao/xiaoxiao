@@ -266,9 +266,13 @@ public class Test {
 
 - jdk9目录不包含jre
 - 模块化系统
+
+## JSHELL
+
 - REPL工具：jShell命令
   - 以交互式的方式，对语句和表达式进行求值
   - 如同scala之类一样
+- 帮助文档：/help
 
 ```shell
 ##进入jshell
@@ -463,4 +467,18 @@ public static void main(String[] args) throws IOException, InterruptedException 
 ```
 
 ## 默认使用G1垃圾回收
+
+# JAVA11
+
+## 局部变量的类型推断
+
+- var其实就是从右边推断类型，并不是弱类型
+- 它的作用可以看做：定义当一个很长的类名时，我们可以用var来代替
+
+```shell
+jshell> var a = "hello";
+a ==> "hello"
+jshell> System.out.println(a.getClass());
+class java.lang.String
+```
 
