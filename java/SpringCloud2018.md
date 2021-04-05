@@ -632,6 +632,14 @@ public class DepFeignApplication80 {
 }
 ```
 
+# OpenFeign
+
+## 常见错误
+
+- Method Not Allowed
+  - 可能是调用的type出错
+  - 可能是返回值问题（如返回string， feign接口是实体对象）
+
 # Hystrix断路器
 
 - 服务降级：服务器忙，请稍后再试，不让客户端等待，立刻返回一个友好提示
@@ -883,6 +891,116 @@ public String paymentCircuitBreaker_fallback(@PathVariable("id") Integer id) {
 1、起到保护微服务名称的作用
 
 2、Zuul和Eureka进行整合，将Zuul自身注册为Eureka服务治理下的应用，同时从Eureka中获得其他微服务的消息，也即以后的访问微服务都是通过Zuul跳转后获得。 
+
+# Gateway新一代网关
+
+## 三大概念
+
+- 路由(Route)
+  - 路由为一组断言与一组过滤器的集合，他是网关的一个基本组件
+
+- 断言(Predicate)
+  - 我们匹配的条件，为true就进入相对路由
+
+- 过滤器(Filter)
+  - 在pre类型的过滤器可以做参数校验，权限校验、流量监控等，
+  - 在post类型可以做响应类容，响应头修改，等作用
+
+## 配置
+
+- 新建gateway模块，引入jar包（包括：starter-web、nacos-discovery），注意，如果引入zookeeper-discovery，则需要exclusion掉他的默认的zoukeeperjar包
+
+```xml
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-gateway</artifactId>
+</dependency>
+<dependency>
+    <groupId>com.alibaba.cloud</groupId>
+    <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
+</dependency>
+```
+
+- 增加配置文件，gateway也是要注册进入注册中心的的
+  - id:路由的ID，没有固定规则但要求唯一，简易配合服务名
+  - uri:  匹配后提供服务的路由地址
+  - predicates: 断言
+
+```yaml
+server:
+  port: 9527
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 192.168.1.131:8848
+    gateway:
+      routes:
+        - id: renren_fast_route
+          #匹配后提供服务的路由地址
+          #uri: http://localhost:8004         
+          ## 对注册中心的renren-fast进行轮询请求
+          uri: lb://renren-fast
+          predicates:
+            - Path=/api/**   
+```
+
+## 断言
+
+### 地址断言
+
+```yaml
+routes:
+    - id: renren_fast_route
+      uri: lb://renren-fast
+      predicates:
+        - Path=/api/** 
+```
+
+## 过滤器
+
+### 重写地址
+
+RewritePath：
+
+相当于访问 http://renren-fast/api,重定向的时候，访问第三方地址为
+
+http://renren-fast/renren-fast
+
+```yaml
+routes:
+  - id: renren_fast_route
+    uri: lb://renren-fast
+    predicates:
+      - Path=/api/**
+    filters:
+      - RewritePath=/api/?(?<segment>.*), /renren-fast/$\{segment}
+```
+
+## 跨域配置
+
+```java
+@Configuration
+public class AppCorsConfiguration {
+    @Bean
+    public CorsWebFilter corsWebFilter() {
+        //此处要选择reactive的，因为Gateway是响应式的
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        CorsConfiguration corsConfiguration = new CorsConfiguration();
+        corsConfiguration.addAllowedHeader("*");
+        corsConfiguration.addAllowedMethod("*");
+        corsConfiguration.addAllowedOrigin("*");
+        corsConfiguration.setAllowCredentials(Boolean.TRUE);
+        source.registerCorsConfiguration("/**", corsConfiguration);
+        return new CorsWebFilter(source);
+    }
+}
+```
+
+- 如果发现类似的错误，测需要将服务端的跨域配置去掉，只需要在网关配置统一跨域
+
+```
+header contains multiple values 'http://localhost:8001, http://localhost:8001', but only one is allowed.
+```
 
 
 
