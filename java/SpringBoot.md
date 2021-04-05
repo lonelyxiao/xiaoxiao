@@ -349,6 +349,15 @@ public class HttpEncodingAutoConfiguration {
 - 通过selector将这些类注入其中
 - 这些类里面的大部分利用conditional这类的注解，来表明是否需要自动装配这个bean,如：@ConditionalOnMissingBean
 
+## 自动装配排序
+
+- Spring Boot自动排序手段
+  - @AutoConfigureOrder ：绝对排序，与@Order类似
+  - @AutoConfigureAfter  @AutoConfigureBefore ： 相对排序
+- 排序主要实现在AutoConfigurationImportSelector.AutoConfigurationGroup中
+- 然后调用AutoConfigurationSorter#getInPriorityOrder
+  - 如果没有配置order，则按照字母排序
+
 # @Configuration
 
 - @Bean在@Configuration中会被CGLIB提升
@@ -2114,15 +2123,17 @@ public ConfigurableApplicationContext run(String... args) {
 }
 ```
 
-# 自定义start
+# 自定义自动装配
 
-启动器只用来做依赖导入；
+## 概述
 
-专门来写一个自动配置模块；
+- 启动器只用来做依赖导入；
 
-启动器依赖自动配置；别人只需要引入启动器（starter）
+- 专门来写一个自动配置模块；
 
-mybatis-spring-boot-starter；自定义启动器名-spring-boot-starter
+- 启动器依赖自动配置；别人只需要引入启动器（starter）
+
+- 命名潜规则：mybatis-spring-boot-starter；自定义启动器名-spring-boot-starter
 
 ## 步骤
 
@@ -2132,44 +2143,44 @@ mybatis-spring-boot-starter；自定义启动器名-spring-boot-starter
   
   ```xml
   <groupId>com.xiao</groupId>
-      <artifactId>xiao-spring-boot-starter</artifactId>
-      <packaging>jar</packaging>
-      <version>1.0-SNAPSHOT</version>
-      <modelVersion>4.0.0</modelVersion>
-      <dependencies>
-          <dependency>
-              <groupId>com.xiao</groupId>
-              <artifactId>xiao-spring-boot-starter-autoconfigurer</artifactId>
-              <version>1.0-SNAPSHOT</version>
-          </dependency>
-      </dependencies>
+  <artifactId>xiao-spring-boot-starter</artifactId>
+  <packaging>jar</packaging>
+  <version>1.0-SNAPSHOT</version>
+  <modelVersion>4.0.0</modelVersion>
+  <dependencies>
+      <dependency>
+          <groupId>com.xiao</groupId>
+          <artifactId>xiao-spring-boot-starter-autoconfigurer</artifactId>
+          <version>1.0-SNAPSHOT</version>
+      </dependency>
+  </dependencies>
   ```
   
-- 建立自动配置的maven 类
+- 建立自动配置的maven模块，这个模块名就是上面引用的：xiao-spring-boot-starter-autoconfigurer
 ```xml
 <groupId>com.xiao</groupId>
-    <artifactId>xiao-spring-boot-starter-autoconfigurer</artifactId>
-    <packaging>jar</packaging>
-    <version>1.0-SNAPSHOT</version>
-    <modelVersion>4.0.0</modelVersion>
-    <parent>
+<artifactId>xiao-spring-boot-starter-autoconfigurer</artifactId>
+<packaging>jar</packaging>
+<version>1.0-SNAPSHOT</version>
+<modelVersion>4.0.0</modelVersion>
+<parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>1.5.9.RELEASE</version>
+    <relativePath/>
+</parent>
+<properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <java.version>1.8</java.version>
+</properties>
+<dependencies>
+    <!--引入spring-boot-starter；所有starter的基本配置-->
+    <dependency>
         <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>1.5.9.RELEASE</version>
-        <relativePath/>
-    </parent>
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <java.version>1.8</java.version>
-    </properties>
-    <dependencies>
-        <!--引入spring-boot-starter；所有starter的基本配置-->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter</artifactId>
-        </dependency>
-    </dependencies>
+        <artifactId>spring-boot-starter</artifactId>
+    </dependency>
+</dependencies>
 ```
 
 - 建立config类，读取配置文件的数据

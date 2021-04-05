@@ -148,3 +148,30 @@ ProcessInstance processInstance = runtimeService.startProcessInstanceByKey(proce
 List<Task> list = taskService.createTaskQuery().processInstanceId(processInstance.getId()).list();
 System.out.println(list.toString());
 ```
+
+## 流程线程安全问题
+
+- 流程流转过程中，将当前用户绑定当前线程
+
+```java
+Authentication.setAuthenticatedUserId("123");
+runtimeService.startProcessInstanceByKey("ceshi");
+Authentication.setAuthenticatedUserId(null);
+```
+
+## 流程属性
+
+
+
+# 数据库表结构
+
+1. 部署内容表：act_ge_bytearray
+
+| 字段           | 字段名称           | 字段默认值 | 是否允许为空 | 数据类型 | 字段长度   | 键                | 备注                                                         |
+| -------------- | ------------------ | ---------- | ------------ | -------- | ---------- | ----------------- | ------------------------------------------------------------ |
+| ID_            | 主键               |            | NO           | varchar  | 64         | PRI               |                                                              |
+| REV_           | 版本号             | NULL       | YES          | int      | NULL       |                   | version                                                      |
+| NAME_          | 名称               | NULL       | YES          | varchar  | 255        |                   | 部署的文件名称，如：mail.bpmn、mail.png 、mail.bpmn20.xml    |
+| DEPLOYMENT_ID_ | 部署ID             | NULL       | YES          | varchar  | 64         | ACT_RE_DEPLOYMENT |                                                              |
+| BYTES_         | 字节（二进制数据） | NULL       | YES          | longblob | 4294967295 |                   |                                                              |
+| GENERATED_     | 是否系统生成       | NULL       | YES          | tinyint  | NULL       |                   | 0为用户上传， 1为系统自动生 成， 比如系统会 自动根据xml生 成png |

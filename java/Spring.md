@@ -1015,7 +1015,7 @@ public TestBean testBean(){
 }
 ```
 
-## 满足条件则加载bean（condition）
+## 条件装配（condition）
 
 @condition注解，spring 4.0后产生，大量运用于spring boot中
 
@@ -4008,7 +4008,32 @@ public @interface EnableServer {
 }
 ```
 
-# servlet3.0
+## ImportBeanDefinition
+
+- 使用beandefinition的方式
+
+```java
+public class ServerBeanDefinition implements ImportBeanDefinitionRegistrar {
+
+    @Override
+    public void registerBeanDefinitions(AnnotationMetadata importingClassMetadata, BeanDefinitionRegistry registry) {
+        BeanDefinitionBuilder beanDefinitionBuilder = BeanDefinitionBuilder.genericBeanDefinition(HttpServerImpl.class.getName());
+        AbstractBeanDefinition beanDefinition = beanDefinitionBuilder.getBeanDefinition();
+        BeanDefinitionReaderUtils.registerWithGeneratedName(beanDefinition, registry);
+    }
+}
+```
+
+- 引入
+
+```java
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+@Documented
+@Import(HelloWordConfig.class)
+```
+
+# Servlet3.0
 
 3.0可以不使用传统的web.xml，直接使用注解，就可以搭建器web项目
 
@@ -4064,9 +4089,9 @@ public class HelloServlet extends HttpServlet {
 
 直接访问servlet，就能获得对应的输出结果
 
-# 整合springmvc
+## 整合springmvc
 
-进入spring mvc 官网：<https://docs.spring.io/spring/docs/current/spring-framework-reference/web.html>参考，这里我们利用servlet30的方式来整合spring mvc
+进入spring mvc 官网：<https://docs.spring.io/spring/docs/current/spring-framework-reference/web.html>参考，这里我们利用servlet3.0的方式来整合spring mvc
 
 引入jar包
 
@@ -4078,7 +4103,7 @@ public class HelloServlet extends HttpServlet {
 </dependency>
 ```
 
-我们spring-web的jar包下可以看到：META-INF/services/javax.servlet.ServletContainerInitializer文件
+我们spring-web的jar包下可以看到：META-INF/services/javax.servlet.ServletContainerInitializer文件（ps:这个是文件文件里面有SpringServletContainerInitializer的全路径内容）
 
 在web容器启动时，会扫描每个jar包下的这个文件
 
@@ -4092,11 +4117,25 @@ public class SpringServletContainerInitializer implements ServletContainerInitia
 			throws ServletException {
 ```
 
-它回去加载所有实现了WebApplicationInitializer接口的组件
+它会去加载所有实现了**WebApplicationInitializer**接口的组件
 
 并且为WebApplicationInitializer组件创建对象（组件不是接口，不是抽象类）
 
+以下是WebApplicationInitializer的实现类：
+
 - AbstractContextLoaderInitializer：创建根容器；createRootApplicationContext()；
+
+```java
+@Override
+public void onStartup(ServletContext servletContext) throws ServletException {
+   registerContextLoaderListener(servletContext);
+}
+protected void registerContextLoaderListener(ServletContext servletContext) {
+    
+    //调用createRootApplicationContext方法，进而创建根容器
+		WebApplicationContext rootAppContext = createRootApplicationContext();
+```
+
 - AbstractDispatcherServletInitializer：
 
   - 创建一个web的ioc容器；createServletApplicationContext();
@@ -4107,12 +4146,25 @@ public class SpringServletContainerInitializer implements ServletContainerInitia
 - AbstractAnnotationConfigDispatcherServletInitializer：注解方式配置的DispatcherServlet初始化器
   - 创建根容器：createRootApplicationContext()：getRootConfigClasses();传入一个配置类
   - 创建web的ioc容器： createServletApplicationContext();：获取配置类；getServletConfigClasses();
+
+```java
+/**
+  *  通过getRootConfigClasses获取配置类
+  **/
+@Override
+@Nullable
+protected WebApplicationContext createRootApplicationContext() {
+   Class<?>[] configClasses = getRootConfigClasses();
+```
+
 ## 总结
+
+![](../image/spring/20210324180122.png)
 
 以注解方式来启动SpringMVC；继承AbstractAnnotationConfigDispatcherServletInitializer；
 实现抽象方法指定DispatcherServlet的配置信息；
 
-## 开工
+## 代码示例
 
 ```xml
 <dependencies>
@@ -4151,8 +4203,6 @@ public class AppConfig {
 public class RootConfig {
 }
 ```
-
-
 
 ```java
 //web容器启动的时候创建对象；调用方法来初始化容器以前前端控制器
