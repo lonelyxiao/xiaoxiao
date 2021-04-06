@@ -2793,7 +2793,22 @@ public class ScheduledService {
     public void hello(){
 ```
 
-# @Valid注解
+# JSR303校验
+
+- 使用JSR303的@Valid注解能够校验前端传过来的校验字段
+
+## SpringBoot使用
+
+- 引入jar
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-validation</artifactId>
+</dependency>
+```
+
+## 常用注解
 
 | 限制                      | 说明                                                         |
 | :------------------------ | :----------------------------------------------------------- |
@@ -2814,6 +2829,42 @@ public class ScheduledService {
 | @NotEmpty                 | 验证注解的元素值不为null且不为空（字符串长度不为0、集合大小不为0） |
 | @NotBlank                 | 验证注解的元素值不为空（不为null、去除首位空格后长度为0），不同于@NotEmpty，@NotBlank只应用于字符串且在比较时会去除字符串的空格 |
 | @Email                    | 验证注解的元素值是Email，也可以通过正则表达式和flag指定自定义的email格式 |
+
+## 拦截信息返回
+
+- 使用 **BindingResult**来返回值
+
+```java
+@PostMapping("/save")
+private String save(@Valid @RequestBody User user, BindingResult result) {
+    if(result.hasErrors()) {
+        //将错误信息合并起来返回
+        StringBuilder builder = new StringBuilder();
+        result.getFieldErrors().forEach(item -> builder.append(item.getDefaultMessage()));
+        return builder.toString();
+    }
+    return null;
+}
+```
+
+- 如果我们不显示的使用BindingResult,可以使用**ControllerAdvice**注解来进行统一的处理
+
+```java
+@ControllerAdvice
+@RestController
+public class ExceptionControllerAdvice {
+
+    @ExceptionHandler(value = MethodArgumentNotValidException.class)
+    public String handleValidException(MethodArgumentNotValidException exception) {
+        BindingResult result = exception.getBindingResult();
+        StringBuilder builder = new StringBuilder();
+        result.getFieldErrors()
+            .forEach(item -> builder.append(item.getDefaultMessage()));
+        return builder.toString();
+    }
+
+}
+```
 
 ## 自定义注解拦截
 
@@ -2842,26 +2893,62 @@ public class ConstraintBean {
 
 - 定义处理器
 
-```public class MyConstraintValidator implements ConstraintValidator<MyConstraint, Object> {
-
+```java
+public class MyConstraintValidator 
+    implements ConstraintValidator<MyConstraint, Object> {
+    //初始化方法
     @Override
-
     public void initialize(MyConstraint constraintAnnotation) {
-
         System.out.println(constraintAnnotation);
-
     }
 
 
     @Override
-
     public boolean isValid(Object object, ConstraintValidatorContext constraintValidatorContext) {
-
         System.out.println("valid"+object.getClass());
-
         return false;
-
     }
 
+}
+```
+
+## 分组校验
+
+- 有的时候，同一个DTO会用于不同的接口，不同的接口对字段校验不同，这时候，则需要分组校验
+- **一旦加上分组，则每个字段校验都需要加上分组的标识**
+
+- 定义两个用于标识的接口
+
+```java
+public interface SaveUserValid {
+}
+```
+
+```java
+public interface UpdateUserValid {
+}
+```
+
+- 在实体类上标识分组标识
+
+```java
+public class User {
+    @NotBlank(message = "用户名不能为空", groups = SaveUserValid.class)
+    @Null(message = "修改不能传用户名", groups = UpdateUserValid.class)
+    private String name;
+}
+```
+
+- 不同的方法处理不同的分组
+
+```java
+@PostMapping("/save")
+public String save(@Validated(SaveUserValid.class) @RequestBody User user) {
+    return null;
+}
+
+@PostMapping("/update")
+public void update(@Validated(UpdateUserValid.class) @RequestBody User user) {
+    System.out.println("update -> "+ user.toString());
 }
 ```
