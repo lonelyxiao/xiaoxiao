@@ -384,7 +384,7 @@ total 4
 -rwx------. 1 root root 836 Mar  5 17:36 ks-script-eC059Y
 -rw-------. 1 root root   0 Mar  5 17:34 yum.log
 #也可以直接进入docker容器中
-[root@localhost ~]# docker exec -t 132c9b24081e /bin/bash
+[root@localhost ~]# docker exec -it 132c9b24081e /bin/bash
 [root@132c9b24081e /]# 
 
 ```
