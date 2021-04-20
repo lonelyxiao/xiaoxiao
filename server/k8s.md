@@ -35,6 +35,45 @@
 
 # 部署
 
+## supervisorctl 安装
+
+- 安装前先要安装epel
+
+```shell
+[root@localhost ~]# yum install epel-release
+```
+
+```shell
+## 安装supervisor
+[root@k8sm ~]# yum install supervisor -y
+[root@k8sm ~]# systemctl start supervisord
+[root@k8sm ~]# systemctl enable supervisord
+```
+
+- 配置启动文件,如下配置java启动程序ini
+
+```shell
+[root@localhost ~]# vim /etc/supervisord.d/sales-test.ini                              
+```
+
+```shell
+[program:sales-test]
+directory = /home/sales-server/test ; 程序的启动目录
+command = java -Xms2048m -Xmx2048m -XX:+PrintGC -XX:+PrintGCTimeStamps -XX:+UseG1GC -jar dym-sales-webapp.jar ; 启动命令，可以看出与手动在命令行启动的命令是一样的
+autostart = true     ; 在 supervisord 启动的时候也自动启动
+startsecs = 30        ; 启动 30 秒后没有异常退出，就当作已经正常启动了
+autorestart = true   ; 程序异常退出后自动重启
+startretries = 3     ; 启动失败自动重试次数，默认是 3
+user = root          ; 用哪个用户启动
+redirect_stderr = true  ; 把 stderr 重定向到 stdout，默认 false
+stdout_logfile_maxbytes = 20MB  ; stdout 日志文件大小，默认 50MB
+stdout_logfile_backups = 20     ; stdout 日志文件备份数
+; stdout 日志文件，需要注意当指定目录不存在时无法正常启动，所以需要手动创建目录（supervisord 会自动创建日志文件）
+stdout_logfile = /data/log/sale-test/springboot-sales-test.log ;应用日志目录  
+```
+
+
+
 ## kubeadmin方式
 
 - 准备三台服务器， master， node1, node2
@@ -662,13 +701,6 @@ EOF
 8. 安装supervisord
 
 因为etcd是后台启动的，如果掉了可以重启
-
-```shell
-## 安装supervisor
-[root@k8sm ~]# yum install supervisor -y
-[root@k8sm ~]# systemctl start supervisord
-[root@k8sm ~]# systemctl enable supervisord
-```
 
 创建etcd的启动文件
 

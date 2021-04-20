@@ -4,9 +4,12 @@
 
 - 将一组对象直接打包存储于单一对象中。可以从该对象读取其中的元素，但不允许向其中存储新对象
 
+### get方法的另一种优化
+
 - 下面是一个可以存储两个对象的元组
-  - 为什么a1 a2 是private类型
+  - 为什么a1 a2 不是private类型（安装java规范，应该是定义private类型，然后定义getset方法来操作）
   - 元组的使用程序可以读取 `a1` 和 `a2` 然后对它们执行任何操作，但无法对 `a1` 和 `a2` 重新赋值。例子中的 `final` 可以实现同样的效果，并且更为简洁明了。
+  - 这里不可以再对元祖赋值了，只有初始化的时候可以赋值，所以可以这样优化代码
 
 ```java
 public class Tuple2<A, B> {
@@ -16,7 +19,52 @@ public class Tuple2<A, B> {
 }
 ```
 
-## 集合工具
+
+
+## 泛型擦除
+
+- Java的泛型是使用擦除实现的 ，这是因为Java在编译期间，所有的泛型信息都会被擦掉
+- 因此， List<String> 和 List<Integer> 在运行时实际上是相同的类型。它们都被擦除成原生类型 List 
+- 无论两个T无论是啥类型，他们的class都是相同的
+
+```java
+//结果输出为：true
+public static void main(String[] args) {
+    Class c1 = new ArrayList<String>().getClass();
+    Class c2 = new ArrayList<Integer>().getClass();
+    System.out.println(c1 == c2);
+}
+```
+
+
+
+- 如下，编译器是无法通过编译的，因为 obj.f(); obj是不知道什么类型的，只有改成Manipulator2<T extends HasF>，才能通过编译，因为泛型会擦除到边界（HasF），T 擦除到了 HasF 
+
+```java
+class Manipulator<T> {
+    private T obj;
+    
+    Manipulator(T x) {
+        obj = x;
+    }
+    public void manipulate() {
+        obj.f();
+    }
+}
+public class Manipulation {
+    public static void main(String[] args) {
+        HasF hf = new HasF();
+        Manipulator<HasF> manipulator = new Manipulator<>(hf);
+        manipulator.manipulate();
+    }
+}
+```
+
+# 集合
+
+## Set工具Api
+
+- 定义一个set工具
 
 - 前三个方法通过将第一个参数的引用复制到新的 **HashSet** 对象中来复制第一个参数，因此不会直接修改参数集合。因此，返回值是一个新的 **Set** 对象。
 
@@ -43,44 +91,6 @@ public class Sets {
 
     public static <T> Set<T> complement(Set<T> a, Set<T> b) {
         return difference(union(a, b), intersection(a, b));
-    }
-}
-```
-
-## 泛型擦除
-
-- Java的泛型是伪泛型，这是因为Java在编译期间，所有的泛型信息都会被擦掉
-- 
-
-```java
-public static void main(String[] args) {
-    Class c1 = new ArrayList<String>().getClass();
-    Class c2 = new ArrayList<Integer>().getClass();
-    System.out.println(c1 == c2);
-}
-```
-
-- 输出结果为true
-- 无论两个T是啥类型，他们的class都是相同的
-
-- 如下，编译器是无法通过编译的，因为 obj.f(); obj是不知道什么类型的，只有改成Manipulator2<T extends HasF>，才能通过编译，因为泛型会擦除到边界（HasF）
-
-```java
-class Manipulator<T> {
-    private T obj;
-    
-    Manipulator(T x) {
-        obj = x;
-    }
-    public void manipulate() {
-        obj.f();
-    }
-}
-public class Manipulation {
-    public static void main(String[] args) {
-        HasF hf = new HasF();
-        Manipulator<HasF> manipulator = new Manipulator<>(hf);
-        manipulator.manipulate();
     }
 }
 ```
@@ -518,6 +528,38 @@ Stream<User> stream2 = Arrays.stream(users1);
 ```java
 Stream<Integer> integerStream = Stream.of(1, 2, 3, 4);
 ```
+
+## Stream穿件无限流
+
+- static <T> Stream<T> generate(Supplier<T> s)
+- 可以利用泛型的方法来创建无限流(示例来源：on java8)
+
+```java
+public class BasicSupplier<T> implements Supplier<T> {
+	private Class<T> type;
+    public BasicSupplier(Class<T> type) {
+        this.type = type;
+    }
+	@Override
+	public T get() {
+    	return type.newInstance();
+    }
+    public static <T> Supplier<T> create(Class<T> type) {
+        return new BasicSupplier<>(type);
+    }
+} 
+```
+
+```java
+public static void main(String[] args) {
+    Stream.generate(
+    	BasicSupplier.create(CountedObject.class))
+    	.limit(5)
+    	.forEach(System.out::println);
+}
+```
+
+
 
 ### Stream的中间操作
 

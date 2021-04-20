@@ -2,7 +2,6 @@
 * java
 	* [java8](/java/java8.md)
 	* [java基础](/java/javaBase.md)
-	* [jenkins](/java/jenkins.md)
 	* [通用](/java/common.md)
 	* [mybatis](/java/mybatis.md)
 	* [MybatisPlus](/java/MybatisPlus.md)
@@ -28,6 +27,7 @@
 	* [Nginx](/network/nginx)
 * 服务器
 	* [Docker](/server/docker)
+	* [jenkins](/server/jenkins.md)
 	* [Linux配置](/server/linuxConfig)
 	* [Linux基础](/server/linuxBase)
 	* [Linux用户](/server/linuxUser)
