@@ -1534,6 +1534,24 @@ public RestHighLevelClient restHighLevelClient(){
 }
 ```
 
+## RequestOptions
+
+- 请求的设置项
+- 如一些安全的头需要设置
+- 官方推荐使用静态的方式进行配置
+
+```java
+private static final RequestOptions COMMON_OPTIONS;
+static {
+    RequestOptions.Builder builder = RequestOptions.DEFAULT.toBuilder();
+    builder.addHeader("Authorization", "Bearer " + TOKEN); 
+    builder.setHttpAsyncResponseConsumerFactory(           
+        new HttpAsyncResponseConsumerFactory
+            .HeapBufferedResponseConsumerFactory(30 * 1024 * 1024 * 1024));
+    COMMON_OPTIONS = builder.build();
+}
+```
+
 ## 创建索引
 
 ```java
@@ -1599,3 +1617,25 @@ void bulkDocument() throws IOException {
    restHighLevelClient.bulk(bulkRequest, RequestOptions.DEFAULT);
 }
 ```
+
+## 检索
+
+## 普通查询
+
+- 创建一个分页的检索**order**索引的查询
+
+```java
+SearchRequest searchRequest = new SearchRequest("order");
+SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+sourceBuilder.from(1);
+sourceBuilder.size(3);
+sourceBuilder.timeout(new TimeValue(30, TimeUnit.SECONDS));
+//检索条件
+searchRequest.source(sourceBuilder);
+SearchResponse search = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
+List<Map<String, Object>> list = Arrays.stream(search.getHits().getHits()).map(SearchHit::getSourceAsMap).collect(Collectors.toList());
+System.out.println(list);
+```
+
+## 聚合查询
+
