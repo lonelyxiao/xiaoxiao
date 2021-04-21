@@ -1,19 +1,6 @@
 # 基本操作
 
-## 索引
 
-```shell
-# 查看所有缩影相关信息
-GET /_cat/indices?v
-
-# 查看索引数量
-GET table_4182d99ae22f4c55a487d886d71f42df/_count
-## 查看索引前十条了解索引结构
-POST table_4182d99ae22f4c55a487d886d71f42df/_search
-{
-}
-
-```
 
 ## fields
 
@@ -66,56 +53,17 @@ POST /test_index/_search
 }
 ```
 
-## 插入不允许有多余字段
-
-当插入超出mapping多余字段之后，则报错
-
-```json
-PUT /sys_org_company
-{
-  "mappings": {
-    "dynamic": "strict",
-    "properties": {
-```
-
 
 
 # 批量查询
 
 - ## 批量查询
 
-```json
-## 批量查询
-GET /_mget
-{
-  "docs": [
-      {
-        "_index": "table_4182d99ae22f4c55a487d886d71f42df",
-        "_id":"GHcA-XUBb4eiMhXMyWxb"
-      },
-      {
-        "_index": "table_048cbad320f649858efbc56fbfd7320b",
-        "_id":"H44GF3YBSjjQlEnFqXEA"
-      }
-    ]
-}
-```
 
-```json
-## 批量查询指定索引id集合
-GET table_4182d99ae22f4c55a487d886d71f42df/_mget
-{
-  "ids": ["GHcA-XUBb4eiMhXMyWxb", "H44GF3YBSjjQlEnFqXEA"]
-}
-```
 
-Search
 
-| 语法                      | 描述                      |
-| ------------------------- | ------------------------- |
-| GET /_search              | 查询所有index             |
-| GET /index1,index2/search | 查询index1, index2的index |
-| GET /index*/search        | 查询index开头的           |
+
+
 
 - 通过url query来实现搜索
 
@@ -521,14 +469,14 @@ value_count:查看当前范围有多有不同的值
 
 nested: 
 
-因此除了基本数据类型之外，ES也支持使用複杂的数据类型，像是数组、内部对象，而要使用内部对象的话，需要使用`nested`来定义索引，使文档内可以包含一个内部对象
+因此除了基本数据类型之外，ES也支持使用复杂的数据类型，像是数组、内部对象，而要使用内部对象的话，需要使用`nested`来定义索引，使文档内可以包含一个内部对象
 
 - 为什麽不用object而要使用nested来定义索引的原因是，obejct类型会使得内部对象的关联性丢失
   - 这是因为Lucene底层其实没有内部对象的概念，所以ES会利用简单的列表储存字段名和值，将object类型的对象层次摊平，再传给Lucene
   - 假设user类型是object，当插入一笔新的数据时，ES会将他转换为下面的内部文档，其中可以看见alice和white的关联性丢失
 
 ```json
-PUT 127.0.0.1/mytest/doc/1
+PUT /mytest/doc/1
 {
     "group": "fans",
     "user": [
@@ -538,7 +486,8 @@ PUT 127.0.0.1/mytest/doc/1
 }
 ```
 
-- 转换后
+- 转换后(内部隐式转换)
+  - 所以，在检索John，Smith一起满足时，不会将{ "first": "John", "last": "Smith" }看成一条数据
 
 ```json
 {
@@ -548,13 +497,29 @@ PUT 127.0.0.1/mytest/doc/1
 }
 ```
 
+- 定义nested索引
+  - 定义之后，我们就可以用嵌套查询去查询一条完整的数据
+
+```json
+PUT /mytest
+{
+  "mappings": {
+    "properties": {
+      "user" : {
+        "type": "nested"
+      }
+    }
+  }
+}
+```
+
 ## 嵌套查询
 
 - 由于嵌套对象被索引在独立的隐藏文档中，因此我们无法直接使用一般的query去查询他，我们必须改使用 "nested查询" 去查询他们
 - nested查询的内部必须要包含一个`path`参数，负责指定要用的是哪个nested类型的字段，且要包含一个`query`，负责进行此嵌套对象内的查询
 
 ```shell
-GET 127.0.0.1/mytest/doc/_search
+GET /mytest/_doc/_search
 {
     "query": {
         "nested": {
@@ -562,8 +527,8 @@ GET 127.0.0.1/mytest/doc/_search
             "query": {
                 "bool": {
                     "must": [
-                        { "term": { "user.first": "Amy" } },
-                        { "term": { "user.last": "White" } }
+                        { "match": { "user.first": "Amy" } },
+                        { "match": { "user.last": "White" } }
                     ]
                 }
             }
@@ -582,7 +547,7 @@ GET 127.0.0.1/mytest/doc/_search
      },
      "aggs": {
        "temp": {
-         "terms": {
+         "match": {
            "field": "user.first"
          }
        }
