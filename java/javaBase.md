@@ -36,7 +36,7 @@ public static void main(String[] args) {
 }
 ```
 
-
+### 泛型边界
 
 - 如下，编译器是无法通过编译的，因为 obj.f(); obj是不知道什么类型的，只有改成Manipulator2<T extends HasF>，才能通过编译，因为泛型会擦除到边界（HasF），T 擦除到了 HasF 
 
@@ -57,6 +57,21 @@ public class Manipulation {
         Manipulator<HasF> manipulator = new Manipulator<>(hf);
         manipulator.manipulate();
     }
+}
+```
+
+- 如下，则显示false
+  - 因为编译的时候，泛型擦除到第一个边界 Integer/String
+
+```java
+static class Border1<T extends Integer> {
+}
+static class Border2<T extends String> {
+}
+public static void main(String[] args) {
+    Border1<Integer> border1 = new Border1<>();
+    Border2<String> border2 = new Border2<>();
+    System.out.println(border1.getClass().equals(border2.getClass()));
 }
 ```
 

@@ -71,6 +71,38 @@ wget https://cdn.jsdelivr.net/gh/lework/jenkins-update-center/rootCA/update-cent
 
 ```
 
+## RPM方式
+
+- 前往华为云下载rpm包
+- 安装
+
+```shell
+[root@localhost opt]# rpm -ivh jenkins-2.277.2-1.1.noarch.rpm
+```
+
+- 如果发现java环境问题，可以前往/etc/init.d/jenkins配置java环境
+- 启动
+
+```shell
+systemctl start jenkins
+```
+
+- 查看初始化密码
+
+```shell
+[root@localhost log]# cat /var/lib/jenkins/secrets/initialAdminPassword
+```
+
+- 默认工作目录：JENKINS_HOME="/var/lib/jenkins"
+
+- 如果插件响应时间过长，则可以更换源
+
+```shell
+ vi /var/lib/jenkins/hudson.model.UpdateCenter.xml
+
+ 将 https://updates.jenkins.io/update-center.json" 修改为 "http://mirror.xmission.com/jenkins/updates/update-center.json"
+```
+
 
 
 # 插件配置
@@ -109,7 +141,14 @@ https://mirrors.tuna.tsinghua.edu.cn/jenkins/updates/update-center.json
 - 安装Localization: Chinese (Simplified)插件
 - 选择下载后重启（这个插件需要重启）
 
+## 用户添加
+
+- manage jenkins->manage users
+- 添加用户
+
 ## 用户权限插件
+
+- 前往manage jenkins->manage Plugins
 
 - 搜索Role
 
