@@ -328,6 +328,22 @@ myes@localhost home]$ ./kibana-7.3.2/bin/kibana
 
 
 
+# 索引
+
+```shell
+# 查看所有索引相关信息
+GET /_cat/indices?v
+
+# 查看索引数量
+GET table_4182d99ae22f4c55a487d886d71f42df/_count
+## 查看索引前十条了解索引结构
+POST table_4182d99ae22f4c55a487d886d71f42df/_search
+{
+}
+```
+
+
+
 # 简单的CRUD
 
 **在7.X后，官方废弃type,默认type为_doc**
@@ -738,6 +754,8 @@ GET /order/product/_search
 
 ## 批量查询
 
+### 多个index查询
+
 ```json
 GET /_mget
 {
@@ -747,7 +765,7 @@ GET /_mget
 }
 ```
 
-或者查同一个index下
+### 同一个index查询
 
 ```json
 GET /order/_mget
@@ -757,6 +775,20 @@ GET /order/_mget
   ]
 }
 ```
+
+## Search查询
+
+| 语法                       | 描述                      |
+| -------------------------- | ------------------------- |
+| GET /_search               | 查询所有index             |
+| GET /index1,index2/_search | 查询index1, index2的index |
+| GET /index*/_search        | 查询index开头的           |
+
+
+
+
+
+
 
 ## 如何定制排序
 
@@ -1004,7 +1036,7 @@ GET /order*/_search?from=2&size=2
 
 - deep paging问题（深度分页）
 
-# mapping（映射规则）
+# Mapping（映射规则）
 
 当我们PUT /order/product/1一条数据时，es会自动给我们建立一个dynamic mapping，里面包括了分词或者搜索的行为,mapping会自定义每个field的数据类型
 
@@ -1025,6 +1057,43 @@ GET /order*/_search?from=2&size=2
 ## 字段类型
 
 text会被分词解析，keyword不会被分词
+
+- 一个字段多个分词设置
+  - 将**name**字段设置成既ik分词，又不分词
+
+```json
+POST /test_index/_mapping
+{
+  "properties": {
+      "name": {
+          "type": "text",
+          "fields": {
+              "name": {
+                  "type": "text",
+                  "analyzer": "ik_smart"
+              },
+              "name1": {
+                  "type": "keyword"
+              }
+          }
+      }
+   }
+}
+```
+
+## 插入不允许有多余字段
+
+- 设置mapping，当插入超出mapping多余字段之后，就会报错
+
+```json
+PUT /sys_org_company
+{
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+```
+
+
 
 ## 倒排索引分析
 
