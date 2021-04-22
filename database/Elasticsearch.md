@@ -516,7 +516,7 @@ GET /_search?timeout=10m
 - 查询全部
 
 ```
-GET /order/product/_search
+GET /order/product/_search?ignore_unavailable=true
 {
   "query":{
     "match_all": {}
@@ -524,22 +524,9 @@ GET /order/product/_search
 }
 ```
 
-- 分页
-
-```
-GET /order/product/_search
-{
-  "query":{
-    "match_all": {}
-  },
-  "from": 0,
-  "size": 2
-}
-```
-
 - 带条件查询
 
-```
+```json
 GET /order/product/_search
 {
   "query":{
@@ -551,10 +538,10 @@ GET /order/product/_search
 ```
 
 - 查指定字段
+  - 只包含name，price两个字段
+  - source指定查询的字段
 
-只包含name，price两个字段
-
-```
+```json
 GET /order/product/_search
 {
   "query":{
@@ -566,11 +553,7 @@ GET /order/product/_search
 }
 ```
 
-- 多个组合条件搜索
-
-
-
-- range
+- 范围查询
 
 ```json
 GET /order/_search
@@ -586,7 +569,28 @@ GET /order/_search
 }
 ```
 
+### 分页
+
+- 从0开始，一页2条
+
+```
+GET /order/product/_search
+{
+  "query":{
+    "match_all": {}
+  },
+  "from": 0,
+  "size": 2
+}
+```
+
+
+
+
+
 ## query filter
+
+- 多个组合条件搜索
 
 must:必须满足
 
@@ -612,7 +616,7 @@ GET /order/product/_search
 }
 ```
 
-- 全文检索
+### 全文检索
 
 他会将搜索的词进行拆分，然后在进行匹配
 
@@ -629,7 +633,7 @@ GET /order/product/_search
 }
 ```
 
-- phrase query（短语检索）
+### phrase query（短语检索）
 
 搜索的词不会进行拆分,并且对desc字段进行高亮
 
@@ -649,7 +653,7 @@ GET /order/product/_search
 }
 ```
 
-## 字段不进行分词
+### 字段不分词
 
 **term**表示字段不能进行分词，一定要全部匹配
 
@@ -682,35 +686,33 @@ GET /order/_search?explain
 }
 ```
 
+### 排序
 
+在使用 ElasticSearch 的时候，如果索引中的字段是 text 类型，针对该字段聚合、排序和查询的时候常会出现 `Fielddata is disabled on text fields by default. Set fielddata=true` 的错误
 
-## 分组查询
-
-- 查询数量
-
-aggs：聚合
-
-group_by_price:给聚合起个名字
-
-size：指定size的个数，默认为10，即返回10条聚合查询结果
-
-结果按照聚合信息返回price的数量
+所以一般排序字段，不使用text类型
 
 ```json
-GET /order/product/_search
+POST index/_search
 {
-  "size": 0,
-  "aggs":{
-    "group_by_price":{
-      "terms": {
-        "field": "price"
+  "sort": [
+    {
+      "field": {
+        "order": "desc"
       }
     }
-  }
+  ]
 }
 ```
 
-执行完后会报错： Set fielddata=true on [price] ，这个时候，我们需要修改这个字段的属性
+
+
+## 聚合查询
+
+### 基本语法
+
+- 常见报错
+  - 执行完后会报错： Set fielddata=true on [price]，是因为**默认es不支持对text字段聚合** ，这个时候，我们需要修改这个字段的属性
 
 ```json
 PUT /order/_mapping
@@ -723,6 +725,22 @@ PUT /order/_mapping
   }
 }
 ```
+
+### 分组聚合
+
+- 按照价格分组查询每个价格的数量
+
+group_by_price:给聚合起个名字
+
+size：指定size的个数，默认为10，即返回10条聚合查询结果，**这里size=0表示普通查询的字段不显示出来**
+
+结果按照聚合信息返回price的数量
+
+![](../image/es/20210422182646.png)
+
+- 查询出不同价格种类的数量
+
+![](../image/es/20210422183107.png)
 
 - 先分组，再计算查询平均值（嵌套聚合）
 
@@ -784,7 +802,18 @@ GET /order/_mget
 | GET /index1,index2/_search | 查询index1, index2的index |
 | GET /index*/_search        | 查询index开头的           |
 
+- 忽略错误索引，查询两个索引，一个不存在则忽略
+- ignore_unavailable=true表示不存在的索引会忽略
 
+```json
+POST /test_index,404_index/_search?ignore_unavailable=true
+{
+    "profile": true,
+    "query": {
+        "match_all": {}
+    }
+}
+```
 
 
 
@@ -909,7 +938,33 @@ GET /_search/scroll
 }
 ```
 
+## 高亮查询
 
+- 通过对查询的字段加对应的标签，来进行前端的高亮
+
+```json
+GET /sys_org_company/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {"match": {
+          "companyName": "腾讯"
+        }}
+      ]
+    }
+  },
+  "highlight": {
+    "fields": {
+      "companyName": {"pre_tags": "<tag>", "post_tags": "</tag>"}
+    }
+  }
+}
+```
+
+## 通过http请求查询
+
+![1607563675460](../image/es\1607563675460.png)
 
 # 批量增删改
 

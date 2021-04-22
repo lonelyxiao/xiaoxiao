@@ -35,26 +35,6 @@ POST /test_index/_doc
 }
 ```
 
-## 高亮
-
-```shell
-POST /test_index/_search
-{
-  "query": {
-    "match": {
-      "name.name": "深圳市腾讯计算机系统有限公司"
-    }
-  },
-  "highlight": {
-    "fields": {
-      "name.name": {"pre_tags": "<calss>", "post_tags": "</calss>"}
-    }
-  }
-}
-```
-
-
-
 # 批量查询
 
 - ## 批量查询
@@ -78,60 +58,7 @@ from,size：用于分页
 GET /movies/_search?q= title:2012&sort=year:asc&from=0&size=10
 ```
 
-- 通过http请求查询
 
-![1607563675460](../image/es\1607563675460.png)
-
-## Body 查询
-
-- 忽略错误索引，查询两个索引，一个不存在则忽略
-  - ignore_unavailable=true表示不存在的索引会忽略
-
-```shell
-POST /test_index,404_index/_search?ignore_unavailable=true
-{
-    "profile": true,
-    "query": {
-        "match_all": {}
-    }
-}
-```
-
-### 分页
-
-- 从0开始，一页2条
-
-```shell
-POST /bs_trail_log/_search
-{
-  "from": 0,
-  "size": 2,
-  "query": {
-    "match_all": {
-      
-    }
-  }
-}
-```
-
-### 排序
-
-在使用 ElasticSearch 的时候，如果索引中的字段是 text 类型，针对该字段聚合、排序和查询的时候常会出现 `Fielddata is disabled on text fields by default. Set fielddata=true` 的错误
-
-所以一般排序字段，不使用text类型
-
-```shell
-POST index/_search
-{
-  "sort": [
-    {
-      "field": {
-        "order": "desc"
-      }
-    }
-  ]
-}
-```
 
 ### 脚本字段
 
