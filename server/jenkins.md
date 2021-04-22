@@ -4,7 +4,7 @@
 
 ```shell
 [root@localhost ~]# docker pull jenkins/jenkins
-    [root@localhost home]# chmod 777 /home/jenkins_node
+[root@localhost home]# chmod 777 /home/jenkins_node
 
 ## 创建并启动容器
 [root@localhost ~]# docker run -d -p 8080:8080 -p 10241:50000 -v /home/jenkins_node:/var/jenkins_home -v /etc/localtime:/etc/localtime --name jenkins jenkins/jenkins
@@ -208,6 +208,10 @@ using GIT_ASKPASS to set credentials gitee
 
 
 # Maven配置
+
+- maven配置步骤：
+  - 配置环境变量（java/maven）
+  - 配置jdk地址以及maven地址
 
 ## 配置地址
 
