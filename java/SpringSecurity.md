@@ -38,62 +38,7 @@
   - 处理认证过程中抛出的异常
 - UsernamePasswordAuthenticationFilter
 
-## 过滤器加载过程
 
-- springboot已经通过自动装配配置了这些过滤器
-- springboot通过org.springframework.web.filter.DelegatingFilterProxy来加载的过滤器的
-- 项目启动后，访问连接，进入这个DelegatingFilterProxy类
-- 在这个类的doFilter方法中
-
-```java
-if (delegateToUse == null) {
-   WebApplicationContext wac = findWebApplicationContext();
-   if (wac == null) {
-      throw new IllegalStateException("No WebApplicationContext found: " +
-            "no ContextLoaderListener or DispatcherServlet registered?");
-   }
-   delegateToUse = initDelegate(wac);
-}
-```
-
-- 有一个doFilter ---> initDelegate方法
-  - 在初始化方法中，从wac.getBean获取org.springframework.security.web.FilterChainProxy的过滤器
-
-```
-protected Filter initDelegate(WebApplicationContext wac) throws ServletException {
-   String targetBeanName = getTargetBeanName();
-   Assert.state(targetBeanName != null, "No target bean name set");
-   Filter delegate = wac.getBean(targetBeanName, Filter.class);
-   if (isTargetFilterLifecycle()) {
-      delegate.init(getFilterConfig());
-   }
-   return delegate;
-}
-```
-
-- FilterChainProxy --->doFilter调用doFilterInternal方法
-- doFilterInternal
-
-```java
-FirewalledRequest fwRequest = firewall
-				.getFirewalledRequest((HttpServletRequest) request);
-HttpServletResponse fwResponse = firewall
-    .getFirewalledResponse((HttpServletResponse) response);
-//获取过滤器链的集合
-List<Filter> filters = getFilters(fwRequest);
-```
-
-- doFilterInternal---->getFilters
-
-## 使用自定义认证
-
-- 创建一个类继承UsernamePasswordAuthenticationFilter
-  - 重写attemptAuthentication方法
-    - 这个方法主要就是用来做认证的
-  - successfulAuthentication方法：认证成功
-  - unsuccessfulAuthentication方法：认证失败
-- UserDetailsService
-  - 查询数据库和密码的方法写在这个接口
 
 ## 登录方式
 
@@ -147,6 +92,8 @@ public class MyUserDetailsServiceImpl implements UserDetailsService {
 }
 ```
 
+
+
 # 核心概念
 
 ## 核心类
@@ -175,7 +122,11 @@ public class MyUserDetailsServiceImpl implements UserDetailsService {
 | SessionFixationProtectionFilter         | 防御会话伪造攻击。有关防御会话伪造的详细信息                 |
 | FilterSecurityInterceptor               | 用户的权限控制都包含在这个过滤器中。功能一：如果用户尚未登陆，则抛出AuthenticationCredentialsNotFoundException“尚未认证异常”。功能二：如果用户已登录，但是没有访问当前资源的权限，则抛出AccessDeniedException“拒绝访问异常”。功能三：如果用户已登录，也具有访问当前资源的权限，则放行。我们可以通过配置方式来自定义拦截规则 |
 
-# 自定义登录
+# 自定义模式
+
+
+
+## 自定义登录
 
 - 新建登录页
 
@@ -225,7 +176,7 @@ protected void configure(HttpSecurity http) throws Exception {
 }
 ```
 
-# 设置登录参数名
+## 自定义登录参数名
 
 在默认登录中，必须是post请求，并且参数是username password
 
@@ -256,7 +207,17 @@ public class UsernamePasswordAuthenticationFilter extends
                 .passwordParameter("password123")
 ```
 
-# 自定义登陆成功跳转
+## 使用自定义认证
+
+- 创建一个类继承UsernamePasswordAuthenticationFilter
+  - 重写attemptAuthentication方法
+    - 这个方法主要就是用来做认证的
+  - successfulAuthentication方法：认证成功
+  - unsuccessfulAuthentication方法：认证失败
+- UserDetailsService
+  - 查询数据库和密码的方法写在这个接口
+
+## 自定义登陆成功跳转
 
 ## 自定义跳转外链
 
@@ -311,6 +272,15 @@ public class MyAuthenticationSuccessHandler implements AuthenticationSuccessHand
 Collection<? extends GrantedAuthority> getAuthorities();
 //获取权限 密码
 Object getCredentials();
+```
+
+## 替换默认过滤器
+
+- filter替换的过滤器
+- 被替换的过滤器
+
+```java
+HttpSecurity addFilterAt(Filter filter, Class<? extends Filter> atFilter) 
 ```
 
 # 授权
@@ -420,9 +390,97 @@ public class MyServiceImpl implements MyService {
 .anyRequest().access("@myServiceImpl.hasPermission(request, authentication)");
 ```
 
+## 异常处理
+
+- **ExceptionTranslationFilter** 能够捕获来自 FilterChain 所有的异常
+- 但是它只会处理两类异常：
+  AuthenticationException 和 AccessDeniedException，其它的异常它会继续抛出
+
 # 基于注解开发
 
+
+
+# 源码分析
+
+## 配置类加载
+
+- 在EnableWebSecurity中，启动了EnableWebSecurity配置
+- 在*WebSecurityConfiguration*配置类，会创建一个名为SpringSecurityFilterChain的Servlet过滤器，类型为
+  org.springframework.security.web.FilterChainProxy，它实现了javax.servlet.Filter，因此外部的请求会经过此类
+
+![](D:/git/gitee/xiaoxiao/image/java/security/20210423105627.png)
+
+- FilterChainProxy是一个代理，真正起作用的是FilterChainProxy中SecurityFilterChain所包含的各个Filter
+- Filter不直接进行直接的认证操作和权限判断操作，它们交给了认证管理器（AuthenticationManager）和决策管理器 （AccessDecisionManager）进行处理
+
+![](../image/java/security/20210423154544.png)
+
+## Filter顺序
+
+- 在webSecurity.build()的时候，调用HttpSecurity#performBuild方法，进行filter的排序
+
+![](../image/java/security/20210423152623.png)
+
+- 在FilterComparator中的构造方法中，会初始化filter信息
+
+![](../image/java/security/20210423152809.png)
+
+## 过滤器初始化
+
+- springboot已经通过自动装配配置了这些过滤器
+- springboot通过org.springframework.web.filter.DelegatingFilterProxy来加载的过滤器的
+- 项目启动后，访问连接，进入这个DelegatingFilterProxy类
+- 在这个类的doFilter方法中
+
+```java
+if (delegateToUse == null) {
+   WebApplicationContext wac = findWebApplicationContext();
+   if (wac == null) {
+      throw new IllegalStateException("No WebApplicationContext found: " +
+            "no ContextLoaderListener or DispatcherServlet registered?");
+   }
+   delegateToUse = initDelegate(wac);
+}
+```
+
+- 有一个doFilter ---> initDelegate方法
+  - 在初始化方法中，从wac.getBean获取org.springframework.security.web.FilterChainProxy的过滤器
+
+```
+protected Filter initDelegate(WebApplicationContext wac) throws ServletException {
+   String targetBeanName = getTargetBeanName();
+   Assert.state(targetBeanName != null, "No target bean name set");
+   Filter delegate = wac.getBean(targetBeanName, Filter.class);
+   if (isTargetFilterLifecycle()) {
+      delegate.init(getFilterConfig());
+   }
+   return delegate;
+}
+```
+
+- FilterChainProxy --->doFilter调用doFilterInternal方法
+- doFilterInternal
+
+```java
+FirewalledRequest fwRequest = firewall
+				.getFirewalledRequest((HttpServletRequest) request);
+HttpServletResponse fwResponse = firewall
+    .getFirewalledResponse((HttpServletResponse) response);
+//获取过滤器链的集合
+List<Filter> filters = getFilters(fwRequest);
+```
+
+- doFilterInternal---->getFilters
+
 # 自定义Token校验
+
+## 认证流程
+
+```sequence
+
+```
+
+
 
 ## 登录模块
 
