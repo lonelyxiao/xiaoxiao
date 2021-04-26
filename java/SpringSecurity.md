@@ -1,4 +1,4 @@
-# 基础
+#  基础
 
 ## demo搭建
 
@@ -476,8 +476,17 @@ List<Filter> filters = getFilters(fwRequest);
 
 ## 认证流程
 
-```sequence
+![](../image/java/security/20210423220634.png)
 
+## 校验流程
+
+```mermaid
+sequenceDiagram
+
+OncePerRequestFilter->>OncePerRequestFilter: 获取token，获取用户
+OncePerRequestFilter ->>FilterInvocationSecurityMetadataSource:获取角色信息
+FilterInvocationSecurityMetadataSource->>AccessDecisionManager: 调用权限校验
+AccessDecisionManager->>AccessDecisionManager  : 通过角色，校验当前权限
 ```
 
 
@@ -775,19 +784,65 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
 # OAUTH2协议
 
+## 名词定义
+
+（1） **Third-party application**：第三方应用程序，又称"客户端"（client）
+
+（2）**HTTP service**：HTTP服务提供商，简称"服务提供商"
+
+（3）**Resource Owner**：资源所有者，又称"用户"（user）。
+
+（4）**User Agent**：用户代理，一般就是指浏览器。
+
+（5）**Authorization server**：认证服务器，即服务提供商专门用来处理认证的服务器。
+
+（6）**Resource server**：资源服务器，即服务提供商存放用户生成的资源的服务器。它与认证服务器，可以是同一台服务器，也可以是不同的服务器。
+
+## 运行流程java
+
+1. 用户打开客户端以后，客户端要求用户给予授权。
+
+2. 用户同意给予客户端授权。
+
+3. 客户端使用上一步获得的授权，向认证服务器申请令牌。
+
+4. 认证服务器对客户端进行认证以后，确认无误，同意发放令牌。
+
+5. 客户端使用令牌，向资源服务器申请获取资源。
+
+6. 资源服务器确认令牌无误，同意向客户端开放资源
+
+![](../image/java/security/202142323.png)
+
 ## 授权模式
+
+- 授权码模式（authorization code）
+  - 如qq登录，跳转到qq授权中心，点授权之后，跳转到第三方应用，获取code
+- 简化模式（implicit）
+- 密码模式（resource owner password credentials）
+  - 如：docker
+  - 使用用户名/密码作为授权方式从授权服务器上获取令牌，一般不支持刷新令牌。
+- 客户端模式（client credentials）
+  - 内部应用一般采用
 
 ### 授权码模式
 
-### 密码模式
+```text
+owner: 用户
+user-agent: 浏览器
+authorization：认证服务器
+client：第三个应用
+```
 
-如：docker
 
-- 使用用户名/密码作为授权方式从授权服务器上获取令牌，一般不支持刷新令牌。
+
+![](..\image\java\OAuth2\0.png)
 
 ## 刷新令牌
 
-## 搭建认证服务器
+## 认证服务器
+
+
 
 - 引入jar包
 
@@ -804,7 +859,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     </dependencies>
 ```
 
-- 自定义密码
+### 自定义密码
 
 ```java
 @Service
@@ -821,7 +876,9 @@ public class MyUserDetailsServiceImpl implements UserDetailsService {
 }
 ```
 
-- 开启security的认证配置
+### 开启security的认证配置
+
+- 必须要对oauth等路径放行
 
 ```java
 @Configuration
@@ -833,12 +890,22 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http.formLogin().permitAll()
+                .and().authorizeRequests()
+                .antMatchers("/login", "/oauth/authorize", "/oauth/token").permitAll()
+                .anyRequest().authenticated()
+                .and().csrf().disable();
+    }
 
 }
 
 ```
 
-### 基于内存模式
+### 认证服务器配置
+
+### 基于内存
 
 - 开启认证服务
 
@@ -877,3 +944,49 @@ public class AuthorizationServerConfig extends AuthorizationServerConfigurerAdap
 - 也可以如此传输
 
 ![](..\image\java\security\20210119232149.png)
+
+### Token存储redis
+
+- 采用TokenStore
+
+- 生成redisstorebean
+
+```java
+@Bean
+public TokenStore tokenStore(RedisConnectionFactory redisConnectionFactory) {
+    return new RedisTokenStore(redisConnectionFactory);
+}
+```
+
+- 注入使用
+
+```java
+private DefaultTokenServices createDefaultTokenServices() {
+    DefaultTokenServices tokenServices = new DefaultTokenServices();
+    tokenServices.setTokenStore(tokenStore);
+    tokenServices.setSupportRefreshToken(true);
+    tokenServices.setReuseRefreshToken(true);
+    return tokenServices;
+}
+
+@Override
+public void configure(AuthorizationServerEndpointsConfigurer endpoints) throws Exception {
+    endpoints.tokenServices(createDefaultTokenServices());
+}
+```
+
+## 资源服务器
+
+```java
+@Configuration
+@EnableResourceServer
+public class ResourceConfig extends ResourceServerConfigurerAdapter {
+
+       @Override
+       public void configure(HttpSecurity http) throws Exception {
+           http.authorizeRequests().anyRequest().authenticated()
+                   .and().requestMatchers().antMatchers("/user/**");
+       }
+
+}
+```
