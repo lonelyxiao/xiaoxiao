@@ -59,46 +59,7 @@
 
 ## Maven打包配置
 
-在pom中配置,表示打包成一个可执行的spring boot 的jar包
 
-```xml
-<build>
-    <plugins>
-        <plugin>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-maven-plugin</artifactId>
-        </plugin>
-    </plugins>
-</build>
-```
-
-- 如果是dependencies方式引用，则需要指定运行类
-
-```xml
-<build>
-    <plugins>
-        <plugin>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-maven-plugin</artifactId>
-            <executions>
-                <execution>
-                    <id>repackage</id>
-                    <goals>
-                        <goal>repackage</goal>
-                    </goals>
-                </execution>
-            </executions>
-            <configuration>
-                <mainClass>com.xiao.JdMainApplication</mainClass>
-            </configuration>
-        </plugin>
-    </plugins>
-</build>
-```
-
-## 注意点
-
-App启动类需要在其扫描的包同级或者同级之上
 
 ## 启动器JarLauncher
 
@@ -2952,3 +2913,111 @@ public void update(@Validated(UpdateUserValid.class) @RequestBody User user) {
     System.out.println("update -> "+ user.toString());
 }
 ```
+
+# MAVEN打包
+
+## 普通打包
+
+在pom中配置,表示打包成一个可执行的spring boot 的jar包
+
+```xml
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-maven-plugin</artifactId>
+        </plugin>
+    </plugins>
+</build>
+```
+
+- 如果是dependencies方式引用，则需要指定运行类
+
+```xml
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-maven-plugin</artifactId>
+            <executions>
+                <execution>
+                    <id>repackage</id>
+                    <goals>
+                        <goal>repackage</goal>
+                    </goals>
+                </execution>
+            </executions>
+            <configuration>
+                <mainClass>com.xiao.JdMainApplication</mainClass>
+            </configuration>
+        </plugin>
+    </plugins>
+</build>
+```
+
+- 注意点
+  - App启动类需要在其扫描的包同级或者同级之上
+
+## 瘦身打包
+
+- 编译打包后，不带相应的jar包
+  - include:jar包中包含的jar包
+- copy：将jar包拷贝到某个目录，方便服务器上使用
+
+```xml
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-maven-plugin</artifactId>
+            <configuration>
+                <mainClass>com.xiao.JdMainApplication</mainClass>
+                <layout>ZIP</layout>
+                <includes>
+                    <include>
+                        <groupId>nothing</groupId>
+                        <artifactId>nothing</artifactId>
+                    </include>
+                    <include>
+                        <groupId>${project.groupId}</groupId>
+                        <artifactId>laoxiaio-xxx-api</artifactId>
+                    </include>
+                </includes>
+            </configuration>
+            <executions>
+                <execution>
+                    <goals>
+                        <goal>repackage</goal>
+                    </goals>
+                </execution>
+            </executions>
+        </plugin>
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-dependency-plugin</artifactId>
+            <executions>
+                <execution>
+                    <id>copy</id>
+                    <phase>package</phase>
+                    <goals>
+                        <goal>copy-dependencies</goal>
+                    </goals>
+                    <configuration>
+                        <outputDirectory>
+                            ${project.build.directory}/lib
+                        </outputDirectory>
+                    </configuration>
+                </execution>
+            </executions>
+        </plugin>
+    </plugins>
+```
+
+- 瘦身打包后启动命令
+  - APP_NAME: 包名
+  - APP_LIB：存放第三方包的全路径
+
+```shell
+nohup java -jar -Dloader.path=$APP_LIB  $APP_NAME --spring.profiles.active=prod --server.port=6589 >> catalina.out 2>&1 &
+```
+
