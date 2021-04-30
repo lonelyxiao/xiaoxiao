@@ -59,46 +59,7 @@
 
 ## Maven打包配置
 
-在pom中配置,表示打包成一个可执行的spring boot 的jar包
 
-```xml
-<build>
-    <plugins>
-        <plugin>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-maven-plugin</artifactId>
-        </plugin>
-    </plugins>
-</build>
-```
-
-- 如果是dependencies方式引用，则需要指定运行类
-
-```xml
-<build>
-    <plugins>
-        <plugin>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-maven-plugin</artifactId>
-            <executions>
-                <execution>
-                    <id>repackage</id>
-                    <goals>
-                        <goal>repackage</goal>
-                    </goals>
-                </execution>
-            </executions>
-            <configuration>
-                <mainClass>com.xiao.JdMainApplication</mainClass>
-            </configuration>
-        </plugin>
-    </plugins>
-</build>
-```
-
-## 注意点
-
-App启动类需要在其扫描的包同级或者同级之上
 
 ## 启动器JarLauncher
 
@@ -686,26 +647,7 @@ logback.xml：直接就被日志框架识别了；
 
 
 
-# @RestController详解
 
-```
-表示这个类的方法类默认返回转为json，不再需要@ResponseBody
-```
-
-### 代码
-
-```java
-@RestController //表示这个类的方法类默认返回转为json，不再需要@ResponseBody
-public class FileController {
-
-    @RequestMapping("/fileupload")
-    public Map fileUpload(MultipartFile filename){
-        Map map = new HashMap<>();
-        map.put("name", filename.getOriginalFilename());
-        return map;
-    }
-}
-```
 
 # 文件上传设置
 ```yml
@@ -749,6 +691,87 @@ registerBeanDefinitionParser("component-scan", new ComponentScanBeanDefinitionPa
 ```
 
 # WEB开发
+
+## @RestController详解
+
+```
+表示这个类的方法类默认返回转为json，不再需要@ResponseBody
+```
+
+### 代码示例
+
+```java
+@RestController //表示这个类的方法类默认返回转为json，不再需要@ResponseBody
+public class FileController {
+
+    @RequestMapping("/fileupload")
+    public Map fileUpload(MultipartFile filename){
+        Map map = new HashMap<>();
+        map.put("name", filename.getOriginalFilename());
+        return map;
+    }
+}
+```
+
+## 统一json处理
+
+```java
+@Component
+public class ResponseBodyWrapFactoryBean implements InitializingBean {
+
+    @Autowired
+    private RequestMappingHandlerAdapter adapter;
+
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        List<HandlerMethodReturnValueHandler> returnValueHandlers = adapter.getReturnValueHandlers();
+        List<HandlerMethodReturnValueHandler> handlers = new ArrayList<HandlerMethodReturnValueHandler>(returnValueHandlers);
+        decorateHandlers(handlers);
+        adapter.setReturnValueHandlers(handlers);
+    }
+
+    private void decorateHandlers(List<HandlerMethodReturnValueHandler> handlers) {
+        for (HandlerMethodReturnValueHandler handler : handlers) {
+            if (handler instanceof RequestResponseBodyMethodProcessor) {
+                ResponseBodyWrapHandler decorator = new ResponseBodyWrapHandler(handler);
+                int index = handlers.indexOf(handler);
+                handlers.set(index, decorator);
+                break;
+            }
+        }
+    }
+}
+```
+
+```java
+public class ResponseBodyWrapHandler implements HandlerMethodReturnValueHandler {
+
+    private final HandlerMethodReturnValueHandler delegate;
+
+    public ResponseBodyWrapHandler(HandlerMethodReturnValueHandler delegate) {
+        this.delegate = delegate;
+    }
+
+    @Override
+    public boolean supportsReturnType(MethodParameter returnType) {
+        return delegate.supportsReturnType(returnType);
+    }
+
+    @Override
+    public void handleReturnValue(Object returnValue,
+                                  MethodParameter returnType,
+                                  ModelAndViewContainer mavContainer,
+                                  NativeWebRequest webRequest) throws Exception {
+        if (returnValue instanceof Result) {
+            delegate.handleReturnValue(returnValue, returnType, mavContainer, webRequest);
+        } else {
+            //统一信息封装
+            Result result = new Result(returnValue);
+            delegate.handleReturnValue(result, returnType, mavContainer, webRequest);
+        }
+    }
+}
+```
 
 ## 静态资源映射
 
@@ -1199,7 +1222,7 @@ public Map<String, Object> getErrorAttributes(RequestAttributes requestAttribute
 }
 ```
 
-### 返回定制的json
+### 全局异常处理
 
 全局异常处理
 
@@ -2952,3 +2975,111 @@ public void update(@Validated(UpdateUserValid.class) @RequestBody User user) {
     System.out.println("update -> "+ user.toString());
 }
 ```
+
+# MAVEN打包
+
+## 普通打包
+
+在pom中配置,表示打包成一个可执行的spring boot 的jar包
+
+```xml
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-maven-plugin</artifactId>
+        </plugin>
+    </plugins>
+</build>
+```
+
+- 如果是dependencies方式引用，则需要指定运行类
+
+```xml
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-maven-plugin</artifactId>
+            <executions>
+                <execution>
+                    <id>repackage</id>
+                    <goals>
+                        <goal>repackage</goal>
+                    </goals>
+                </execution>
+            </executions>
+            <configuration>
+                <mainClass>com.xiao.JdMainApplication</mainClass>
+            </configuration>
+        </plugin>
+    </plugins>
+</build>
+```
+
+- 注意点
+  - App启动类需要在其扫描的包同级或者同级之上
+
+## 瘦身打包
+
+- 编译打包后，不带相应的jar包
+  - include:jar包中包含的jar包
+- copy：将jar包拷贝到某个目录，方便服务器上使用
+
+```xml
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-maven-plugin</artifactId>
+            <configuration>
+                <mainClass>com.xiao.JdMainApplication</mainClass>
+                <layout>ZIP</layout>
+                <includes>
+                    <include>
+                        <groupId>nothing</groupId>
+                        <artifactId>nothing</artifactId>
+                    </include>
+                    <include>
+                        <groupId>${project.groupId}</groupId>
+                        <artifactId>laoxiaio-xxx-api</artifactId>
+                    </include>
+                </includes>
+            </configuration>
+            <executions>
+                <execution>
+                    <goals>
+                        <goal>repackage</goal>
+                    </goals>
+                </execution>
+            </executions>
+        </plugin>
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-dependency-plugin</artifactId>
+            <executions>
+                <execution>
+                    <id>copy</id>
+                    <phase>package</phase>
+                    <goals>
+                        <goal>copy-dependencies</goal>
+                    </goals>
+                    <configuration>
+                        <outputDirectory>
+                            ${project.build.directory}/lib
+                        </outputDirectory>
+                    </configuration>
+                </execution>
+            </executions>
+        </plugin>
+    </plugins>
+```
+
+- 瘦身打包后启动命令
+  - APP_NAME: 包名
+  - APP_LIB：存放第三方包的全路径
+
+```shell
+nohup java -jar -Dloader.path=$APP_LIB  $APP_NAME --spring.profiles.active=prod --server.port=6589 >> catalina.out 2>&1 &
+```
+

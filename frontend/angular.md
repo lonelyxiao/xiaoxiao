@@ -987,3 +987,29 @@ const routes: Routes = [
 
 ```
 
+# 编译
+
+## 常见问题
+
+- 内存泄漏问题
+
+1. 更改package.json文件
+
+```js
+ "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "build": "ng build",
+    "test": "ng test",
+    "lint": "ng lint",
+    "e2e": "ng e2e",
+    "build-prod": "node --max_old_space_size=5048 ./node_modules/@angular/cli/bin/ng build --prod"
+  },
+```
+
+2. 执行命令
+
+```shell
+npm run build-prod
+```
+
