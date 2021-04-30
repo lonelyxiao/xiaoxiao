@@ -647,26 +647,7 @@ logback.xml：直接就被日志框架识别了；
 
 
 
-# @RestController详解
 
-```
-表示这个类的方法类默认返回转为json，不再需要@ResponseBody
-```
-
-### 代码
-
-```java
-@RestController //表示这个类的方法类默认返回转为json，不再需要@ResponseBody
-public class FileController {
-
-    @RequestMapping("/fileupload")
-    public Map fileUpload(MultipartFile filename){
-        Map map = new HashMap<>();
-        map.put("name", filename.getOriginalFilename());
-        return map;
-    }
-}
-```
 
 # 文件上传设置
 ```yml
@@ -710,6 +691,87 @@ registerBeanDefinitionParser("component-scan", new ComponentScanBeanDefinitionPa
 ```
 
 # WEB开发
+
+## @RestController详解
+
+```
+表示这个类的方法类默认返回转为json，不再需要@ResponseBody
+```
+
+### 代码示例
+
+```java
+@RestController //表示这个类的方法类默认返回转为json，不再需要@ResponseBody
+public class FileController {
+
+    @RequestMapping("/fileupload")
+    public Map fileUpload(MultipartFile filename){
+        Map map = new HashMap<>();
+        map.put("name", filename.getOriginalFilename());
+        return map;
+    }
+}
+```
+
+## 统一json处理
+
+```java
+@Component
+public class ResponseBodyWrapFactoryBean implements InitializingBean {
+
+    @Autowired
+    private RequestMappingHandlerAdapter adapter;
+
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        List<HandlerMethodReturnValueHandler> returnValueHandlers = adapter.getReturnValueHandlers();
+        List<HandlerMethodReturnValueHandler> handlers = new ArrayList<HandlerMethodReturnValueHandler>(returnValueHandlers);
+        decorateHandlers(handlers);
+        adapter.setReturnValueHandlers(handlers);
+    }
+
+    private void decorateHandlers(List<HandlerMethodReturnValueHandler> handlers) {
+        for (HandlerMethodReturnValueHandler handler : handlers) {
+            if (handler instanceof RequestResponseBodyMethodProcessor) {
+                ResponseBodyWrapHandler decorator = new ResponseBodyWrapHandler(handler);
+                int index = handlers.indexOf(handler);
+                handlers.set(index, decorator);
+                break;
+            }
+        }
+    }
+}
+```
+
+```java
+public class ResponseBodyWrapHandler implements HandlerMethodReturnValueHandler {
+
+    private final HandlerMethodReturnValueHandler delegate;
+
+    public ResponseBodyWrapHandler(HandlerMethodReturnValueHandler delegate) {
+        this.delegate = delegate;
+    }
+
+    @Override
+    public boolean supportsReturnType(MethodParameter returnType) {
+        return delegate.supportsReturnType(returnType);
+    }
+
+    @Override
+    public void handleReturnValue(Object returnValue,
+                                  MethodParameter returnType,
+                                  ModelAndViewContainer mavContainer,
+                                  NativeWebRequest webRequest) throws Exception {
+        if (returnValue instanceof Result) {
+            delegate.handleReturnValue(returnValue, returnType, mavContainer, webRequest);
+        } else {
+            //统一信息封装
+            Result result = new Result(returnValue);
+            delegate.handleReturnValue(result, returnType, mavContainer, webRequest);
+        }
+    }
+}
+```
 
 ## 静态资源映射
 
@@ -1160,7 +1222,7 @@ public Map<String, Object> getErrorAttributes(RequestAttributes requestAttribute
 }
 ```
 
-### 返回定制的json
+### 全局异常处理
 
 全局异常处理
 

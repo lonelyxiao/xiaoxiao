@@ -903,7 +903,7 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 
 ```
 
-### 认证服务器配置
+## 认证服务器配置
 
 ### 基于内存
 
@@ -944,6 +944,10 @@ public class AuthorizationServerConfig extends AuthorizationServerConfigurerAdap
 - 也可以如此传输
 
 ![](..\image\java\security\20210119232149.png)
+
+### 基于数据库
+
+
 
 ### Token存储redis
 
@@ -987,6 +991,31 @@ public class ResourceConfig extends ResourceServerConfigurerAdapter {
            http.authorizeRequests().anyRequest().authenticated()
                    .and().requestMatchers().antMatchers("/user/**");
        }
+
+}
+```
+
+## 认证服务源码分析
+
+- AuthorizationServerConfigurerAdapter 
+
+```java
+public class AuthorizationServerConfigurerAdapter implements AuthorizationServerConfigurer {
+
+   @Override
+   public void configure(AuthorizationServerSecurityConfigurer security) throws Exception {
+       //配置AuthorizationServer安全认证的相关信息，创建ClientCredentialsTokenEndpointFilter核心过滤器
+   }
+
+   @Override
+   public void configure(ClientDetailsServiceConfigurer clients) throws Exception {
+       //配置OAuth2的客户端相关信息
+   }
+
+   @Override
+   public void configure(AuthorizationServerEndpointsConfigurer endpoints) throws Exception {
+       //配置AuthorizationServerEndpointsConfigurer众多相关类，包括配置身份认证器，配置认证方式，TokenStore，TokenGranter，OAuth2RequestFactory
+   }
 
 }
 ```
