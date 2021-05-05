@@ -1,4 +1,5 @@
 - 先给idea装jclasslib ByteCode Viewer插件
+- **本笔记观看尚硅谷JVM所书**
 
 # jRE JDK关系
 
@@ -120,25 +121,35 @@ private static int num = 4;
 ```
 
 - 虚拟机保证每个类的clinit在多线程下都是同步加锁的（只会有一个线程加载一个类的clinit方法）
-  - **如果加载过程中出现这个问题，会造成线程加载阻塞 **
+  - **如果加载过程中 出现这个问题，会造成线程加载阻塞 **
 - 如果存在父类，会先执行父类的clinit
 
-## 类加载类
+## 类加载器
 
-- 系统类加载器
+### 类加载器分类
+
+- 引导类加载器和自定义加载器
+- 所有派生于抽象类ClassLoader的类加载器都划分为自定义加载器
+
+### 代码获取类加载器
 
 ```java
 //获取系统类加载器
 ClassLoader systemClassLoader = ClassLoader.getSystemClassLoader();
+//sun.misc.Launcher$AppClassLoader@18b4aac2
 System.out.println(systemClassLoader);
 //获取自定义类加载器（可以发现他默认使用的是系统类加载器）
-ClassLoader classLoader = ClassLoaderTest1.class.getClassLoader();
+ClassLoader classLoader = TestClassLoader.class.getClassLoader();
+//sun.misc.Launcher$AppClassLoader@18b4aac2
 System.out.println(classLoader);
 ```
 
-- 引导类加载器（启动类加载器）
-  - 它用来加载java的核心库
-  - 没有父类加载器
+### 引导类加载器
+
+- 启动类加载器， 自定义类加载器没办法获取到引导类加载器
+
+- 它用来加载java的核心库(例如：String 类型)
+- 它没有父类加载器
 
 ```java
 //String 类使用引导类加载器
@@ -148,12 +159,20 @@ ClassLoader str = String.class.getClassLoader();
 System.out.println(str);
 ```
 
+### 自定义类加载器
+
 - ·什么时候需要自定义类加载器
+
   - 隔离加载器
   - 修改类的加载方式
   - 扩展加载源
   - 防止源码泄露
-- 获取类加载器的方式
+
+- 自定义类加载器方式
+
+  继承URLClassLoader即可
+
+### 获取类加载器的方式
 
 1. Clasz.getClassLoader()
 
@@ -173,6 +192,15 @@ Thread.currentThread().getContextClassLoader()
 ClassLoader.getSystemClassLoader()
 ```
 
+- 获取类加载器能够加载的jar包
+
+```java
+URL[] urLs = Launcher.getBootstrapClassPath().getURLs();
+Stream.of(urLs).forEach(url -> System.out.println(url.toExternalForm()));
+```
+
+
+
 ## 双亲委派机制
 
 ### 原理
@@ -184,9 +212,12 @@ ClassLoader.getSystemClassLoader()
 
 例1：
 
-如果new一个java.lang.String类，则一开始就会是引导类加载器加载
+如果new一个java.lang.String类，则是引导类加载器加载
 
-如果new一个其他的类，首先引导类加载器加载，它发现它不能加载这个类，则会丢给子类加载器去加载
+### 优势
+
+- 避免类的重复加载
+- 保护程序加载，避免核心API恶意篡改
 
 ### 判断同一个类条件
 
@@ -197,29 +228,37 @@ ClassLoader.getSystemClassLoader()
 
 # 运行时数据区
 
----
+```text
+通过类加载子系统初始化加载后
+运行时的类数据保存到方法区
+```
 
-# 栈
+
+
+## 详细图
 
 ![](../image/java/jvm/20200621210144.png)
 
-Runtime
+- 程序计数器、栈、本地栈是线程私有的
+- JIT编译缓存在非堆空间
 
-每个jvm，只有一个Runtime
+## JVM线程（了解）
 
-## jvm线程
+- JVM允许一个应用多个线程**并行**执行
+- JVM线程分类
+  - 虚拟机线程
+  - 周期任务线程
+  - GC线程（后台线程/守护线程）
 
-- 虚拟机线程
-- 周期任务线程
-- GC线程（后台线程/守护线程）
+## 程序计数器
 
-## 程序计数器（PC Registery）
+- （PC Registery）/PC 寄存器
 
-- 用来存储指向下一条指令的地址
+- 用来存储指向下一条指令的地址（代码的指令存放在栈帧当中）
 - 一个很小的内存空间
 - 线程私有的
 
-### 举例
+### 举例说明
 
 ```java
 public static void main(String[] args) {
@@ -229,11 +268,13 @@ public static void main(String[] args) {
 }
 ```
 
-反编译class,最左边的数字就是偏移地址，中间的是操作指令
+反编译class
 
-当执行到5时（**程序计数器记录的是左边的序号**）
+最左边的数字就是偏移地址（指令地址），中间的是操作指令
 
-执行引擎读取操作指令，操作栈结构，局部变量表，实现存取计算等
+加入执行到5时，PC寄存器将5存入（**程序计数器记录的是左边的序号**）
+
+执行引擎通过PC寄存器记录的地址读取对应的操作指令，然后操作栈结构，局部变量表，实现存取计算等
 
 将字节码指令翻译成机器指令，到cpu做计算
 
@@ -260,9 +301,19 @@ cpu需要不停的切换线程，这个时候切换回来，知道它执行到�
 
 ## 虚拟机栈
 
-- 一个栈针对应着一个方法
+### 概述
+
+- 一个栈帧对应着一个方法
 - 生命周期和线程一致
-- 主要用于保存方法的局部变量和部分结果和返回
+- 主要用于保存方法的局部变量（8种基本数据类型/引用类型地址）和部分结果和返回
+- 正常的函数返回（使用return指令）或者抛出异常，都会导致栈帧被弹出
+
+### 图解
+
+- 当我们每执行一个方法的时候，当前执行方法的局部变量等相当于一个栈帧，执行入栈操作
+- 栈帧1、2、3 相当于method1、2、3
+
+![](../image/java/jvm/202154160117.jpg)
 
 ### 栈常见异常
 
@@ -274,11 +325,13 @@ cpu需要不停的切换线程，这个时候切换回来，知道它执行到�
 
 ### 设置栈大小
 
+#### 查看文档
+
 https://docs.oracle.com/en/java/javase/11/tools/tools-and-command-reference.html
 
--main tools -java 
+![](../image/java/jvm/20210504172343.png)
 
-找到xss
+#### 具体命令
 
 ```shell
 -Xss size
@@ -289,7 +342,7 @@ https://docs.oracle.com/en/java/javase/11/tools/tools-and-command-reference.html
 
 ```
 
-## 栈的存储单位
+### 栈的存储单位
 
 - 栈的数据是以栈帧的格式存在的
 - 每个方法对应一个栈针
@@ -299,7 +352,7 @@ https://docs.oracle.com/en/java/javase/11/tools/tools-and-command-reference.html
 - 局部变量表
 - 操作数栈
 - 动态链接
-  - 指向运行时常量吃的方法引用
+  - 指向运行时常量池的方法引用
 - 方法返回地址
 - 一些附加信息
 
@@ -308,26 +361,35 @@ https://docs.oracle.com/en/java/javase/11/tools/tools-and-command-reference.html
 ### 局部变量表
 
 - 也称局部变量数组
-- 一个数字数组（存放**基本数据类型、对象引用地址**）
+- 一个数字数组（存放**8种基本数据类型、对象引用地址**）
+- 在编译的时候，就确定了局部变量表的长度
 
-### 从jclasslib看
+#### 从jclasslib看
 
 看class
+
+![](../image/java/jvm/20210505000254.png)
 
 - linenumbertable
   - 编译后的字节码对应的编号（start pc）与java代码的对应行号关系
 
+
+![](../image/java/jvm/20210505000752.png)
+
 - localvaribletable
   - 局部变量相关信息
   - start pc 变量起始的位置
-  - index，slot存储坐标
+  - 长度（长度的每个index对应着字节码编号），slot存储坐标
 
-### slot
+#### 基本单位
 
 - 局部变量表最基本存储单元slot（槽）
-- 32位类型占一个slot，64位占两个槽
+- 32位类型占一个slot，64位占两个槽（一个字节8位）
 - 局部变量安装声明顺序存储
 - 如果是非static方法，this存放到0的位置（**为什么static不能使用this，因为static 的局部变量表中不存在this**）
+
+![](../image/java/jvm/20210505101919.png)
+
 - **局部变量表中的变量是重要的垃圾回收根节点，只要被局部变量表中直接或者间接引用的对象，就不会被回收**
 
 ```java
@@ -339,7 +401,7 @@ LocalVariableTable:
 
 ```
 
-###  slot重复利用问题
+####  slot重复利用问题
 
 定义一个代码
 
@@ -367,7 +429,11 @@ public void test1(){
 
 ```
 
-### 操作数栈操作演示
+### 操作数栈
+
+- 又称表达式栈
+- 主要用于保存计算过程的中间结果或者计算过程中的变量的临时存储空间
+- 当一个方法刚开始执行的时候，新的栈帧随之被创建，这个方法的操作数栈是空的
 
 ```java
 public void test2() {
@@ -377,6 +443,9 @@ public void test2() {
     int j = i+b;
 }
 ```
+
+- stack：栈深度
+- locals：局部变量表的深度
 
 ```shell
   stack=2, locals=4, args_size=1
@@ -398,40 +467,58 @@ public void test2() {
 
 ![](../image/java/jvm/20200625223504.png)
 
-### i++ ++i 区别
-
-
-
 ## 动态链接
 
-栈帧中的一个引用
+- 栈帧中,当前使用了常量池的变量的引用
 
-在字节码文件中，有个constant pool（常量池，当运行时，就会将其存储到方法区），编译后，所有的变量和方法引用都作为符号引用（#开头的数字），保存到class文件的常量池中
+- 在字节码文件中，有个constant pool（常量池，当运行时，就会将其存储到方法区）
 
-当方法调用另一个方法时，就用常量池的指向方法的符号引用表示
+- 编译后，所有的变量和方法引用都作为符号引用（#开头的数字），保存到class文件的常量池中
 
-**作用就是将符号引用转化为直接引用**
+- 当方法调用另一个方法时，就用常量池的指向方法的符号引用表示
+
+- **作用就是将符号引用转化为直接引用**
+
+![](../image/java/jvm/20210505123637.png)
+
+![](../image/java/jvm/20210505123726.png)
 
 ### 方法的调用
 
 - 静态链接
   - 如果被调用方法，在编译期间就可以确定符号引用，那么它就是静态链接
+
+```java
+public class TestBing extends TestLocalVariable {
+    public TestBing() {
+        //如这个super，已经确定调用父类的方法
+        super();
+    }
+}
+```
+
 - 动态链接
 
-### 虚方法与非虚方法
+#### 虚方法与非虚方法
 
-- ### 非虚方法
-
-  - 编译期就确定了调用的版本
+- 非虚方法
+  - 编译期就确定了调用的方法
   - 静态方法，私有方法、final方法，实例构造器，父类方法都是非虚方法
-
+  
 - 虚方法
 
   - 不确定调用的方法，如重写的方法
+  - java因为**重写**而有了虚方法的概念
 
-### invokedynamice
+#### 虚方法表
+
+- 因为虚方法会循环的寻找父类（如果没有重写）
+- 所以在类加载的链接阶段，建立了
 
 ### 动态语言与静态语言区别
+
+- 区别在于类型的检查是**编译期间还是运行期间**
+- java因为引入了Lambda表达式而引入了动态语言
 
 静态语言定义变量是根据类型来确定变量类型的
 
