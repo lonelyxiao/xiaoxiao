@@ -527,15 +527,30 @@ public class TestBing extends TestLocalVariable {
 ## 方法返回地址
 
 - 存放调用该方法的pc寄存器的值
+  - 如果是正常退出，则是调用该方法的下条指令值
+  - 异常退出，返回地址是要通过异常表来确定的
 - 本质上，方法的退出就是当前栈帧出栈的过程，此时需要恢复上层方法的局部变量表、操作数栈，将返回值压入调用者栈针的操作数栈，设置pc寄存器等（将返回值返回给调用的方法）
 
-## 本地方法
+## 本地方法栈
 
-native 方法，是一个java方法，但是是由非java语言实现的
+- 他是调用C相关的方法的存储
+- 管理**本地方法**的调用
 
-用native修饰的方法是本地方法
+- native 方法，是一个java方法，但是是由非java语言实现的
 
-本地方法栈
+### 本地方法
+
+- 用native修饰的方法是**本地方法**
+
+```java
+public static native void yield();
+public static native void sleep(long millis) throws InterruptedException;
+```
+
+## 相关面试题
+
+- 局部变量是线程安全的么？
+  - 如果方法里的多线程去共用局部变量，则不是安全的
 
 # 堆
 
