@@ -556,25 +556,64 @@ public static native void sleep(long millis) throws InterruptedException;
 
 ![](../image/java/jvm/20200630234840.jpg)
 
-## 堆的核心概述
+## 核心概述
 
 - 堆是线程共享的，但还是有划分私有的堆空间
+- 堆可以是物理上不连续，但逻辑上连续的内存空间
+- 并非所有的堆是线程共享的，小块的**TLAB空间**是线程私有的
+
+## 插件安装
+
+
 
 ## 内存细分
 
 - 7以前：新生代+老年代+永久区
   - 新生代：
-- 8以后：新生代+老年代+元空间
+- 8以后：新生代+老年代+元空间（本地内存）
+### 新生代老年代
+
+https://docs.oracle.com/javase/8/
+
+- 存储jvm中的java对象可以被划分为两类
+  - 一类是生命周期短
+  - 一类是生命周期长，甚至与jvm生命周期保持一致
+- 堆区细分的话，分为年轻代和老年代
+- 年轻代分为eden区/S0区，S1区（有时叫from和to区）
+  - 比例2：1
+  - 新生的对象在eden，没有被第一次GC，则进入S区
+
+![](../image/java/jvm/20200701215552.png)
+
+![](../image/ms1/2019713122911.png)
+
+### 设置新生代老年代比例
+
+https://docs.oracle.com/javase/8/docs/technotes/tools/unix/java.html#BGBCIEFC
+
+- 默认设置比例为2  新生代/老年代=1/ 2
+- 一般不调整，如果知道明细的很多对象周期长，则可以将老年代增大
+
+```shell
+-XX:NewRatio=2
+```
+
+- 默认的Eden:S0:S1在官方文档中是8:1:1,但是因为自适应问题，不会绝对的按照这个比例，如果需要按照比例分配,可以配置参数
+
+```shell
+-XX:SurvivorRatio=8
+```
+
+
 
 ## 设置堆空间大小
 
 **建议设置xms和xmx设置一样大**，避免GC之后造成堆内存减少，消耗性能
 
 - 设置的是年轻代+老年代
-- -X：jvm运行参数，ms是memory start
-
-- -Xms:堆区的起始内存，默认 物理/64
-- -Xmx:堆区最大的内存， 默认 物理/4
+- -Xms:堆区的起始内存，默认 **物理/64**
+  - -X：jvm运行参数，ms是缩写，既memory start
+- -Xmx:堆区最大的内存， 默认 **物理/4**
 
 ```java
 public static void main(String[] args) {
@@ -591,9 +630,11 @@ public static void main(String[] args) {
 }
 ```
 
-查看gc
+## 命令查看GC
 
 - 方式1
+  - S0和S1只会有一个同一时刻存储数据
+  - 代码中Runtime.getRuntime().totalMemory()只会计算一个S区的内存
 
 ```shell
 C:\Users\alonePc>jps
@@ -609,24 +650,13 @@ C:\Users\alonePc>jstat -gc 15192
 
 - 方式2
 
-设置启动参数
+  - 设置启动参数
+  - 他是程序执行之后打印的
 
 ```shell
 -XX:+PrintGCDetails
 ```
 
-### 年轻代老年代
-
-- 存储jvm中的java对象可以被划分为两类
-  - 一类是生命周期短
-  - 一类是生命周期长，甚至与jvm生命周期保持一致
-- 堆区细分的话，分为年轻代和老年代
-- 年轻代分为eden区/S0区，S1区（有时叫from和to区）
-  - 比例2：1
-
-![](../image/java/jvm/20200701215552.png)
-
-![](../image/ms1/2019713122911.png)
 
 ## 内存分配策略
 
@@ -637,27 +667,43 @@ C:\Users\alonePc>jstat -gc 15192
 - 长期存活的对象存入老年代（15岁）
 - s区相同年龄的对象大小大于s区的一半，则直接进入老年代
 
-## 为对象分配TLAB
+## TLAB内存区域
 
 - 为每个线程在Eden区分配了一部分（默认eden的1%）私有的内存区
 - 增加内存吞吐量
 - 避免线程安全问题
 - 不是所有对象都能在tlab区分配对象（他比较少）
 - 命令行 jinfo -flag UseTLAB 进程号  可以查看是否开启
+- 一旦对象分配TLAB区域失败，JVM就会尝试使用**加锁**的机制，确保数据的原子性
 
 ## GC过程
 
-- Eden区内存满时，这时候触发一次Minor GC，把Eden区的存活对象转移到From区，非存活对象进行清理，然后给新创建的对象分配空间，存入Eden区
+![](../image/java/jvm/2020052811241498.png)
 
+- Eden区内存满时，这时候触发一次**Minor GC**，把Eden区的存活对象转移到From区，非存活对象进行清理，然后给新创建的对象分配空间，存入Eden区
 - 随着分配对象的增多，Eden区的空间又不足了，这时候再触发一次Minor GC，清理掉Eden区和S1区的死亡对象，把存活对象转移到S2区，然后再给新对象分配内存
-
 - From区和To区是相对的关系，哪个区中有对象，哪个区就是From区，比如，再进行一次Minor GC，会把存活对象转移到S1区，再为转移之前，S2区是From区，S1区是To区，转移后，S2区中没有存活对象，变为To区，而S1区变为From区
-- 大对象直接进入老年代）假设新创建的对象很大，比如为5M(这个值可以通过PretenureSizeThreshold这个参数进行设置，默认3M)，那么即使Eden区有足够的空间来存放，也不会存放在Eden区，而是直接存入老年代
-
+- 如果S区无法存放，则进入Old区
+- 大对象直接进入老年代，假设新创建的对象很大，比如为5M(这个值可以通过PretenureSizeThreshold这个参数进行设置，默认3M)，那么即使Eden区有足够的空间来存放，**也不会存放在Eden区，而是直接存入老年代**
 - 长期存活的对象将进入老年代（15岁）
+
+```shell
+-XX:MaxTenuringThreshold=15
+```
+
+
+
 - 如果某个(些)对象(原来在内存中存活的对象或者新创建的对象)由于以上原因需要被移动到老年代中，而老年代中没有足够空间容纳这个(些)对象，那么会触发一次Full GC
 
-总结：**复制之后有交换，谁空谁是to.**(Eden采用复制算法)
+总结：**复制之后有交换，谁空谁是to.**(Eden采用复制算法/  Eden的存活对象少，所以需要复制的对象也少)
+
+## GC日志
+
+- OutOfMemeryError之前一定发生FullGC，因为FullGC之后，老年代内存不够才会报错误
+
+![](../image/java/jvm/20210509204844.png)
+
+
 
 ## GC算法
 
@@ -676,6 +722,7 @@ C:\Users\alonePc>jstat -gc 15192
 
 - 只是新生代的垃圾回收
 - 当年轻代**Eden区**空间不足，触发gc，回收eden和s0
+  - **Survivol区满了不会触发GC**
 - Minor GC时会引发STW，暂停其他用户线程
 
 ### Major GC
@@ -687,8 +734,8 @@ C:\Users\alonePc>jstat -gc 15192
 
 ### Full GC
 
-- 整堆的收集
-- 老年代空间不足，方法区空间不足，触发
+- 整堆和方法区的垃圾回收
+- 老年代空间不足，**方法区**空间不足，触发
 
 ## 算法优劣
 
@@ -702,6 +749,8 @@ C:\Users\alonePc>jstat -gc 15192
 
 ## 常用参数
 
+https://docs.oracle.com/javase/8/docs/technotes/tools/unix/java.html
+
 ```
 -Xms 设置堆的初始值(默认物理内存的1/64)
 -Xmx 设置堆的最大值（默认物理内存的1/4）
@@ -710,15 +759,67 @@ C:\Users\alonePc>jstat -gc 15192
 -XX:+PrintGCDetails 打印 垃圾回收 的细节
 ```
 
+- 查看默认值
+
+```shell
+
+## 查看某个参数的设置值
+$ jinfo -flag NewRatio 8884
+-XX:NewRatio=2
+```
+
+- 打印GC信息
+
+```shell
+## 打印详细信息
+-XX:+PrintGCDetails
+## 打印简要信息
+-XX:+PrintGC
+```
+
+- 虚拟机空间担保策略
+
+```tex
+在发生Minor GC之前，虚拟机会检查老年代最大可用的连续空间是否大于新生代所有对象的总空间，
+
+如果大于，则此次Minor GC是安全的
+
+如果小于，则虚拟机会查看HandlePromotionFailure设置值是否允许担保失败。
+如果HandlePromotionFailure=true，那么会继续检查老年代最大可用连续空间是否大于历次晋升到老年代的对象的平均大小，如果大于，则尝试进行一次Minor GC，但这次Minor GC依然是有风险的；如果小于或者HandlePromotionFailure=false，则改为进行一次Full GC。
+
+上面提到了Minor GC依然会有风险，是因为新生代采用复制收集算法，假如大量对象在Minor GC后仍然存活（最极端情况为内存回收后新生代中所有对象均存活），而Survivor空间是比较小的，这时就需要老年代进行分配担保，把Survivor无法容纳的对象放到老年代。老年代要进行空间分配担保，前提是老年代得有足够空间来容纳这些对象，但一共有多少对象在内存回收后存活下来是不可预知的，因此只好取之前每次垃圾回收后晋升到老年代的对象大小的平均值作为参考。使用这个平均值与老年代剩余空间进行比较，来决定是否进行Full GC来让老年代腾出更多空间。
+
+取平均值仍然是一种概率性的事件，如果某次Minor GC后存活对象陡增，远高于平均值的话，必然导致担保失败，如果出现了分配担保失败，就只能在失败后重新发起一次Full GC。虽然存在发生这种情况的概率，但大部分时候都是能够成功分配担保的，这样就避免了过于频繁执行Full GC。
+```
+
+
+
 ## 逃逸分析
 
-一个对象，如果没有发生逃逸，则他的内存可以在堆上分配
+- 堆不是分配对象存储的唯一选择（也可以**栈上分配**）
+- 一个对象，如果没有发生逃逸，则他的内存可以在堆上分配
+- 判断逃逸：如果一个方法里的对象，可能被其他方法调用，则new 的对象发生逃逸
+  （看new的对象是不是在外部表用）
 
-判断逃逸：如果一个方法里的对象，可能被其他方法调用，则new 的对象发生逃逸
+```java
+//这里A没有方法外部调用，没有发生逃逸
+public void method() {
+  A a =  new A();
+    ....
+  a = null;
+}
+```
 
-结论
+- 结论：能使用局部变量的，不要在方法外定义（堆上分配不需要GC）
 
-能使用局部变量的，不要在方法外定义（堆上分配不需要GC）
+```tex
+Java8 逃逸分析默认是打开的，也可通过开关控制
+
+-XX:+DoEscapeAnalysis开启逃逸分析
+-XX:-DoEscapeAnalysis 关闭逃逸分析
+```
+
+- 但是 Hotspot 并未开启栈上分配，但是开启了标量替换
 
 # 方法区
 
@@ -932,6 +1033,14 @@ code cache 在元空间
 ![](../image/java/jvm/20200724000316.png)
 
 # 常用调优工具
+
+## JDK命令行
+
+## VisualVM
+
+安装对应的插件 [Visual GC](https://visualvm.github.io/archive/downloads/release136/com-sun-tools-visualvm-modules-visualgc_1.nbm)
+
+![](../image/java/jvm/20210509174804.png)
 
 ## jprofiler
 
