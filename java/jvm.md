@@ -835,6 +835,11 @@ https://docs.oracle.com/javase/specs/jvms/se8/html/index.html
 
 ## 方法区介绍
 
+- jdk7是 永久代 Per ,  JDK8是元空间 MetaspaceSize
+
+- 创建在线程启动的时候**类加载器**加载类到方法区
+- 过多的生成放射类可能导致方法区OOM
+
 - 线程共享的
 - 方法区（Metaspace）大小，决定系统可以保存多少个类
 
@@ -842,26 +847,33 @@ https://docs.oracle.com/javase/specs/jvms/se8/html/index.html
 
 https://docs.oracle.com/javase/8/docs/technotes/tools/unix/java.html#BGBCIEFC
 
-设置元空间最大值
-
+```tex
+##设置元空间最大值（默认-1，无限制）
 -XX:MaxMetaspaceSize=size
-
-设置初始大小
-
+##设置初始大小（默认21M）
 -XX:MetaspaceSize=size
+```
+
+- -XX:Metaspacesize:设置初始的元空间大小。对于一个64位的服务器端JVM来说其默认的-XX:MetaspaceSize值为21MB。这就是初始的高水位线，一旦触及这个水位线，Full Gc将会被触发并卸载没用的类（即这些类对应的类加载器不再存活)然后这个高水位线将会重置。新的高水位线的值取决于Gc后释放了多少元空间。如果释放的空间不足，那么在不超过MaxMetaspacesize时，适当提高该值。如果释放空间过多，则适当降低该值。
+- 如果初始化的高水位线设置过低，上述高水位线调整情况会发生很多次。通过垃圾回收器的日志可以观察到Full GC多次调用。为了避免频繁地GC ，建议将-XX:Metaspacesize设置为一个相对较高的值。
 
 ## 方法区的溢出
 
 方法区存的是类的定义
 
-可以通过ClassWriter来动态生成类
+可以通过ClassWriter来动态生成类/CGlib生成动态代理类来模拟溢出
 
-## 方法去存储内容
+## 内部结构
+
+### 存储内容
 
 - 类型信息
   - 类class，接口。枚举，注解
+  - 域（Field）信息：名称，类型，修饰符（public,private,static,final等）
+  - 方法信息
 - 常量
 - 静态变量
+- 及时编译的代码缓存
 
 ## 方法区演进过程
 
@@ -870,7 +882,7 @@ https://docs.oracle.com/javase/8/docs/technotes/tools/unix/java.html#BGBCIEFC
 - 1.7 去永久代，运行时常量池的字符串常量，静态变量(引用名)移除，保存在堆中
 - 1.8 无永久代， 类型信息，字段，方法，常量保存在本地内存的元空间中，但字符串常量池，静态变量保存在堆中
 
-## 为什么要用元空间替代永久代
+### 为什么要用元空间替代永久代
 
 - 永久代设置的空间大小难以确定
 - 永久代调优比较困难
@@ -879,16 +891,18 @@ https://docs.oracle.com/javase/8/docs/technotes/tools/unix/java.html#BGBCIEFC
 
 永久代GC频率低，导致String table回收效率不高，导致永久代不足
 
-## static final 常量
+## 全局常量
+
+- 既**static final **修饰的常量
 
 ```java
 static int a=1;
 static final int b=2;
 ```
 
-这种常量在编译阶段就已经赋值了
+- 这种常量在**编译阶段**就已经赋值了
 
-其他static 变量在init阶段赋值
+- 其他static 变量在init阶段赋值
 
 ## 运行时常量池
 
