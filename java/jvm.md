@@ -796,7 +796,7 @@ $ jinfo -flag NewRatio 8884
 
 ## 逃逸分析
 
-- 堆不是分配对象存储的唯一选择（也可以**栈上分配**）
+- 堆不是分配对象存储的唯一选择（也可以**栈上分配**/标量替换/同步消除）
 - 一个对象，如果没有发生逃逸，则他的内存可以在堆上分配
 - 判断逃逸：如果一个方法里的对象，可能被其他方法调用，则new 的对象发生逃逸
   （看new的对象是不是在外部表用）
@@ -1075,17 +1075,161 @@ public class CustomerTest {
 - 高级语言
   - 翻译成汇编（编译过程）->机器指令（汇编过程）->cpu
 
-## JIT编译器和解释器
+## 解释器
 
-JIT及时翻译成机器指令，翻译后速度快
+- 解释器，程序启动，翻译成机器指令，**节省运行时编译时间**，响应快
 
-- 解释器，程序启动，翻译成机器指令，节省运行时编译时间，响应快
+## JIT编译器
 
-执行频率高的代码（热点代码），使用JIT编译器 
+- 执行频率高的代码（热点代码），使用JIT编译器 
+- JIT及时翻译成机器指令，翻译后速度快
+- 速度快
+- code cache 在元空间
 
-code cache 在元空间
+### 编译器分类
 
-![](../image/java/jvm/20200724000316.png)
+- 前端编译器
+  - 将.java文件编译成class字节码
+- 后端运行器编译器
+  - 将字节码编译成机器码指令
+
+### 热点代码
+
+- 一个被多次调用的方法，或者方法体内部循环多次的循环体都称之为热点代码
+- Hotspot 基于计数器的热点探测
+  - 方法调用计数器
+  - 回边计数器：统计循环体的计数
+
+![](../image/java/jvm/20210515144322.png)
+
+## 设置程序执行模式
+
+- 默认是混合模式，可以通过参数的方式设置
+
+```tex
+## 完全解释器
+-Xint
+
+## 完全编译器
+-Xcomp
+
+## 混合模式
+-Xmixed
+```
+
+## Graal编译器
+
+- JDK10开始，加入hotspot
+- 还在试验阶段
+
+# String Table
+
+## String 基本特性
+
+- jdk8 char数组存储， jdk9 byte数组存储
+  - 因为大部分的String存储的是拉丁文，占一个字节
+- 字符串常量池不会存储相同的字符串
+  - String pool底层是一个固定大小的StringTable
+  - 更改StringTable的大小：-XX:StringTableSize
+- String:代表不可变的字符串序列（不可变性）
+
+```java
+/**
+  * 字面量定义的字符串常量
+  *  当堆区的字符串常量修改时，会复制一份出来进行修改
+ */
+@Test
+public void test1() {
+    String a = "abc";
+    String b = "abc";
+    //true
+    System.out.println(a==b);
+    a = "dfe";
+    // false
+    System.out.println(a==b);
+}
+
+/**
+ * 使用replace时，也是复制一份再进行修改
+*/
+@Test
+public void test2() {
+    String a = "abc";
+    String b = "abc";
+    b = a.replace('a', 'd');
+    //abc
+    System.out.println(a);
+    //dbc
+    System.out.println(b);
+}
+```
+
+## 字符串拼接
+
+- 常量与常量的拼接结果在常量池，原理是编译器优化
+- 只要其中一个是变量，结果就在堆中（相当于new），原理是StringBuilder.append().toString()
+
+```java
+//所以拼接字符串的方式会效率很低
+//toString ==> new String()
+new StringBuilder().append("a").append("b").toString();
+```
+
+- 如果拼接的结果调用intern()方法，则主动将常量池还没有字符串的对象放入池中，并返回地址
+
+```java
+String a = "a"+"b";
+String b = "ab";
+//true
+System.out.println(a==b);
+String c = "a";
+String d = c+"b";
+//false
+System.out.println(b==d);
+String f = d.intern();
+//true
+System.out.println(b==f);
+```
+
+- 使用final修饰的常量是编译期优化
+
+  所以，在代码中，建议 能使用final修饰的使用final修饰
+
+```java
+final String a = "a";
+final String b = "b";
+String c = "ab";
+String d = a+b;
+//true
+System.out.println(c == d);
+```
+
+## String对象
+
+- new String("ab") 会造几个对象
+  - 查看字节码，我们发现是两个
+
+```shell
+## 先new一个String对象
+0 new #2 <java/lang/String>
+3 dup
+## 从常量池获取 ab （第二次）
+4 ldc #3 <ab>
+## 调用String的构造方法
+6 invokespecial #4 <java/lang/String.<init>>
+```
+
+## intern()方法
+
+```java
+//StringBuilder的toString不会在常量池产生“ab"
+String str = new String("a") + new String("b");
+//常量池没有，在常量池创建一个引用，指向堆区的“ab"
+str.intern();
+String b = "ab";
+//true
+System.out.println(str == b);
+```
 
 # 常用调优工具
 
