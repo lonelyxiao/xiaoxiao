@@ -1255,6 +1255,53 @@ System.out.println(str == b);
 
 ## 可达性分析
 
+- java c#的垃圾回收选择
+- 通过一系列称为GC Roots的对象作为起点，然后向下搜索，搜索所走过的路径称为引用链/Reference Chain，当一个对象到GC Roots没有任何引用链相连时，即该对象不可达，也就说明此对象是不可用的
+
+![](../image/java/jvm/202518212252.png)
+
+### GC Roots
+
+- GC Roots可以理解为由堆外指向堆内的引用， 一般而言，GC Roots包括（但不限于）以下几种：
+
+1. Java 方法栈桢中的局部变量；
+2. 已加载类的静态变量；
+3. JNI handles；
+4. 已启动且未停止的 Java 线程。
+
+- 比如说：
+
+```tex
+虚拟机栈中引用的对象（参数，局部变量等）
+方法区中类静态变量
+方法区中常量引用的对象
+本地方法栈中引用的对象
+被同步锁（synchronized）持有的对象
+```
+
+## finalization机制
+
+- GC之前自动的调用 java.lang.Object#finalize方法
+- finalize调用是逃离死亡的最后机会
+- finalize只会被调用一次
+
+## 清除算法
+
+### 标记-清除
+
+#### 描述
+
+当堆中的有效内存空间(available memory）被耗尽的时候，就会停止整个程序（也被称为stop the world， 简称**STW**)，然后进行两项工作，第一项则是标记，第二项则是清除。
+
+- 标记：从引用根节点遍历，标记所有被引用对象（**既不可回收对象**），将标记结果记录在对象的header中
+- 清除：将所有对象线性遍历，如果发现没有被标记，则回收
+
+#### 缺点
+
+- 效率不算高
+- GC时需要停止整个应用
+- 清理内存时不连续的，容易产生内存碎片
+
 # 常用调优工具
 
 ## JDK命令行
@@ -1271,9 +1318,21 @@ System.out.println(str == b);
 - 再在idea上装jprofiler插件
 - 在启动项目旁边有个jprofiler启动工具
 
+### 查看OOM
 
+- 在命令行加入命令：
 
+```shell
+-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=${目录}
+```
 
+- 当出现OOM时会生成dump文件
+
+![](../image/java/jvm/20210518233116.png)
+
+- 查看超大对象
+
+![](../image/java/jvm/20210518233641.png)
 
 # JVM常用线上工具
 
