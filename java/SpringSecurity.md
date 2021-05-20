@@ -939,11 +939,31 @@ public class AuthorizationServerConfig extends AuthorizationServerConfigurerAdap
 - 页面调整到百度页面（上面配置的）https://www.baidu.com/?code=awaudB
 - 拿到code，在postman使用
 
+### PostMan使用
+
+#### 获取token
+
+- http://192.168.10.36:81/oauth/token
+- Basic Auth 相当于 在head中，传入   Authorization   Basic base64(username:password)
+
+- body
+
+```
+code:ElsgHm
+grant_type:authorization_code
+```
+
+
+
 ![](..\image\java\security\20210119231621.png)
 
 - 也可以如此传输
 
 ![](..\image\java\security\20210119232149.png)
+
+#### 获取资源
+
+![](../image/java/security/20210508120401.png)
 
 ### 基于数据库
 
