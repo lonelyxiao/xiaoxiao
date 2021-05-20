@@ -1435,6 +1435,90 @@ public  void gc2() {
 数据库连接（dataSourse.getConnection( ))，网络连接(socket)和IO连接必须手动close，否则是不能被回收的。
 ```
 
+## Stop the Word
+
+- 可达性分析算法中枚举根节点(GC Roots）会导致所有Java执行线程停顿
+- 被STW中断的应用程序线程会在完成GC之后恢复
+
+## 垃圾回收的并行与并发
+
+- 众所周知，cpu的并发及一个CPU在执行多个线程的工作时，只能有个线程在同一时刻执行，并行即多核cpu在同一时刻执行多个线程
+- 垃圾回收并行并发
+
+```tex
+并行(Parallel):指多条垃圾收集线程并行工作，但此时用户线程仍处于等待状态。
+
+串行(Serial)：相较于并行的概念，单线程执行。
+
+并发：指用户线程与垃圾收集线程同时执行
+```
+
+## 安全点
+
+程序执行时并非在所有地方都能停顿下来开始GC，只有在**特定的位置**才能停顿下来开始Gc，这些位置称为“安全点（ safepoint) ”。
+
+- 如何在GC发生时，检查所有线程都跑到最近的安全点停顿下来呢?
+
+```tex
+抢先式中断:（目前没有虚拟机采用了)
+首先中断所有线程。如果还有线程不在安全点，就恢复线程，让线程跑到安全点。
+
+主动式中断:
+设置一个中断标志，各个线程运行到safe Point的时候主动轮询这个标志,如果中断标志为真，则将自己进行中断挂起。
+```
+
+## 安全区域
+
+- 一个程序，在某个执行区域内都是安全的，则在这个区域内可停下来执行GC
+
+## 四种引用
+
+### 强引用
+
+最传统的“引用”的定义，是指在程序代码之中普遍存在的引用赋值，即类似“object obj=new object()”这种引用关系。无论任何情况下，只要强引用关系还存在，垃圾收集器就永远不会回收掉被引用的对象。
+
+### 软引用
+
+- 内存不足既回收
+
+在系统将要发生内存溢出之前，将会把这些对象列入回收范围之中进行第二次回收。如果这次回收后还没有足够的内存，才会抛出内存溢出异常。
+
+```java
+Object o = new Object();
+SoftReference<Object> reference = new SoftReference<>(o);
+//销毁强引用
+o = null;
+//获取软引用对象
+Object o1 = reference.get();
+```
+
+### 弱引用
+
+- GC既回收
+
+弱引用(weakReferehce):被弱引用关联的对象只能生存到下一次垃圾收集之前。当垃圾收集器工作时，无论内存空间是否足够，都会回收掉被弱引用关联的对象。
+
+```java
+Object o = new Object();
+WeakReference<Object> weakReference = new WeakReference<>(o);
+o = null;
+Object o1 = weakReference.get();
+```
+
+- 相关类：WeakHashMap
+
+### 虚引用
+
+虚引用(PhantomReference) :一个对象是否有虚引用的存在，完全不会对其生存时间构成影响，也无法通过虚引用来获得一个对象的实例。**为一个对象设置虚引用关联的唯一目的就是能在这个对象被收集器回收时收到一个系统通知。**（用来对象回收跟踪）
+
+```java
+Object o = new Object();
+ReferenceQueue<Object> referenceQueue = new ReferenceQueue<>();
+PhantomReference<Object> reference = new PhantomReference<>(o, referenceQueue);
+//一旦将Object对象回收，就会将虚引用存放到ReferenceQueue队列
+o = null;
+```
+
 
 
 # 常用调优工具
