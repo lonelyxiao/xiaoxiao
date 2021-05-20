@@ -8,7 +8,7 @@
 * 服务器：Linux、docker...
 * 后端：JAVA、NODEJS、Mysql....
 
-[码云](https://gitee.com/lonelyxiao)
+
 [Get Started](/README)
 
 ![color](#F0FFFF)
