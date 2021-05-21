@@ -112,6 +112,76 @@ public class Sets {
 
 
 
+# 文件
+
+## Path
+
+- Paths#get(java.lang.String, java.lang.String...)
+
+- 绝对路径转为相对路径
+
+```java
+//toAbsolutePath：获取项目上两层的目录
+//normalize：将相对路径转为绝对路径
+System.out.println(Paths.get("..", "..").toAbsolutePath().normalize());
+```
+
+- 移除path的根路径
+
+```java
+//D:\git\gitee
+Path path = Paths.get("..", "..").toAbsolutePath().normalize();
+//D:\git\gitee\learning\stu-java-base\TestPath.java
+Path path1 = Paths.get("TestPath.java").toAbsolutePath();
+//learning\stu-java-base\TestPath.java
+System.out.println(path.relativize(path1));
+```
+
+- 拼接地址, 将原有的地址拼接other字符串，再返回一个新的地址
+
+```java
+Path resolve(String other);
+```
+
+- 判断起始路径
+
+```java
+System.out.println(testTmp.startsWith("D:\\"));
+```
+
+## 文件系统
+
+- 获取文件系统
+
+```java
+FileSystem fsys = FileSystems.getDefault();
+```
+
+- 获取操作系统的盘符：fsys.getFileStores()
+- 获取根目录集合：fsys.getRootDirectories()
+- 获取系统文件目录分隔符：fsys.getSeparator()
+
+### 路径监听
+
+```java
+//监听这个文件夹下的文件
+Path resolve = testTmp.resolve("test");
+WatchService watcher = FileSystems.getDefault().newWatchService();
+resolve.register(watcher, ENTRY_DELETE);
+//watcher.take() 将等待并阻塞在这里。当目标事件发生时，会返回一个包含 WatchEvent 的 Watchkey 对象
+WatchKey key = watcher.take();
+for(WatchEvent evt : key.pollEvents()) {
+    System.out.println("evt.context(): " + evt.context() +
+            "\nevt.count(): " + evt.count() +
+            "\nevt.kind(): " + evt.kind());
+    System.exit(0);
+}
+```
+
+## 文件读写
+
+
+
 # 注解
 
 Java 语言中的类、方法、变量、参数和包等都可以被标注
