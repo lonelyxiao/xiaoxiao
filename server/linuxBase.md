@@ -516,6 +516,17 @@ u=rwx,g=rx,o=rx
 
 ```
 
+### 创建不登录用户
+
+```shell
+useradd -M -s /sbin/nologin user
+
+-M：不创建家目录
+-s：指定用户登陆时使用的shell，nologin就是登陆不了
+```
+
+
+
 ## 查看当前登录用户
 
 ```shell
