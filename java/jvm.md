@@ -1758,6 +1758,58 @@ o = null;
 
 ![](../image/java/jvm/20210523234558.png)
 
+# GC日志分析
+
+## 常用参数
+
+```shell
+## 输出GC日志
+-XX:+PrintGC
+## 输出GC详细信息
+-XX:+PrintGCDetails
+## 输出GC时间蹉
+-XX:+PrintGCTimeStamps
+## 输出GC时间（以日期为基准）
+-XX:+PrintGCDateStamps
+## -在GC前后打印堆的信息
+-XX：+PrintHeapAtGC
+## 日志文件输出
+-Xloggc:../logs/gc.log
+```
+
+- -XX:+PrintGC
+  - GC/Full GC: GC的类型
+  - Allocation Failure：GC原因
+  - 3708K->3844K：GC前后大小
+  - (5632K)：堆大小
+
+```tex
+[GC (Allocation Failure)  3708K->3844K(5632K), 0.0007932 secs]
+[Full GC (Ergonomics)  3844K->3305K(5632K), 0.0071881 secs]
+```
+
+- -XX:+PrintGCDetails
+  - PSYoungGen:对应新生代垃圾回收（Parallel）
+  - PSYoungGen: 1512K->488K(1536K)：新生代内容
+  - Times: user=0.06 sys=0.00, real=0.01 secs: 执行时间，系统时间，垃圾实际时间
+
+```tex
+[GC (Allocation Failure) [PSYoungGen: 1512K->488K(1536K)] 3764K->3900K(5632K), 0.0011602 secs] [Times: user=0.00 sys=0.00, real=0.00 secs] 
+[Full GC (Ergonomics) [PSYoungGen: 488K->0K(1536K)] [ParOldGen: 3412K->3407K(4096K)] 3900K->3407K(5632K), [Metaspace: 3330K->3330K(1056768K)], 0.0087257 secs] [Times: user=0.06 sys=0.00, real=0.01 secs] 
+
+```
+
+## GC工具分析日志
+
+1. -Xloggc:gc.log进行GC日志输出
+2. 使用工具上传文件（gcviewer/https://gceasy.io/）
+
+# 新时代的GC
+
+![](../image/java/jvm/20210524230903.png)
+
+- ZGC（JDK14）:主打低延迟
+
 # 常用调优工具
 
 ## JDK命令行
