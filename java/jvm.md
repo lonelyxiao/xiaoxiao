@@ -1844,3 +1844,137 @@ o = null;
 
 # JVM常用线上工具
 
+
+
+# JAVA虚拟机规范
+
+https://docs.oracle.com/javase/specs/index.html
+
+# 字节码文件
+
+## 几个常见面试题
+
+- Integer比较
+
+```java
+Integer i1 = 5;
+Integer i2= 5;
+System.out.println(i1 == i2);
+```
+
+解析：
+
+1. 从字节码指令解析
+
+```shell
+ ## 将5放入操作数栈
+ 0 iconst_5 
+ ## 调用 valueOf方法
+ 1 invokestatic #2 <java/lang/Integer.valueOf>
+```
+
+2. 从valueOf可以看出，如果超过了某个长度（[-128, 127] ），则会直接new一个，否则从缓存（**内部数组初始化的值**）中取一个书，也就是说，这个范围内的数的地址都是相等的
+
+```java
+public static Integer valueOf(int i) {
+    if (i >= IntegerCache.low && i <= IntegerCache.high)
+        return IntegerCache.cache[i + (-IntegerCache.low)];
+    return new Integer(i);
+}
+```
+
+- 插箱比较
+
+```java
+Integer i3 = 128;
+int i4 = 128;
+System.out.println(i3 == i4);
+```
+
+1. 因为i3会调用Integer.intValue自动拆箱，所以不在Integer缓存范围也会相等
+
+```shell
+invokevirtual #5 <java/lang/Integer.intValue>
+```
+
+## 成员变量赋值过程
+
+1. 默认初始化
+2. 显示初始化/代码块中初始化
+3. 构造器中初始化
+4. 对象中赋值
+
+### 直接父类的方式赋值
+
+```java
+class Father {
+    int i= 10;
+    Father() {
+        this.print();
+        i = 20;
+    }
+    public void print() {
+        System.out.println(i);
+    }
+}
+//输出结果 10
+```
+
+- 字节码指令
+
+```shell
+ ## 加载this指针
+ 0 aload_0
+ #默认调用父类初始化方法
+ 1 invokespecial #1 <java/lang/Object.<init>>
+ 4 aload_0
+ ##将10push到操作数栈
+ 5 bipush 10
+ ## 赋值
+ 7 putfield #2 <com/xiao/classLoader/Father.i>
+10 aload_0
+11 invokevirtual #3 <com/xiao/classLoader/Father.print>
+14 aload_0
+15 bipush 20
+17 putfield #2 <com/xiao/classLoader/Father.i>
+20 return
+
+```
+
+### 子类的方式赋值
+
+```java
+class Son extends Father {
+    int i = 30;
+    Son() {
+        this.print();
+        i = 40;
+    }
+    public void print() {
+        System.out.println(i);
+    }
+}
+//输出： 0   30
+```
+
+- 构造方法初始化
+
+```shell
+ 0 aload_0
+ ## 调用父类的初始化，此时i还没有初始化，所以i=0
+ 1 invokespecial #1 <com/xiao/classLoader/Father.<init>>
+ 4 aload_0
+ 5 bipush 30
+ 7 putfield #2 <com/xiao/classLoader/Son.i>
+10 aload_0
+11 invokevirtual #3 <com/xiao/classLoader/Son.print>
+14 aload_0
+15 bipush 40
+17 putfield #2 <com/xiao/classLoader/Son.i>
+20 return
+```
+
+
+
+## 字节码文件结构
+
