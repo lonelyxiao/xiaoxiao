@@ -178,7 +178,36 @@ for(WatchEvent evt : key.pollEvents()) {
 }
 ```
 
+## 文件匹配
+
+```java
+//按照glob匹配，也可以regex匹配
+PathMatcher pathMatcher = FileSystems.getDefault().getPathMatcher("glob:*.java");
+Files.walk(test).filter(pathMatcher::matches).forEach(System.out::println);
+```
+
 ## 文件读写
+
+### 小文件读取
+
+采用`Files.readAllLines()` 一次读取整个文件
+
+```java
+PathMatcher pathMatcher = FileSystems
+                .getDefault()
+                .getPathMatcher("glob:**/TestPath.java");
+Files.readAllLines(Files.walk(test)
+                .filter(pathMatcher::matches)
+                .findFirst().orElse(null))
+                .stream()
+                .forEach(System.out::println);
+```
+
+### 大文件读取
+
+`Files.lines()`
+
+# IO
 
 
 
@@ -219,8 +248,6 @@ public static void main(String[] args) {
     System.out.println(k());
 }
 ```
-
-
 
 ## 预定义注解
 

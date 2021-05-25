@@ -2,7 +2,17 @@
 
 # 概述
 
+## 特点
+
+- 完全支持JMS1.1和J2EE 1.4规范(持久化，XA消息,事务)支持多种传送协议:in-VM, TCP,SSL, NIO,UDP,JGroups,JXTA
+- 多种语言和协议编写客户端。语言:Java,C, C++, C#, Ruby, Perl, Python, PHP从设计上保证了高性能的集群，客户端-服务器，点对点
+- 可以很容易的和Spring结合使用
+- 支持通过JDBC和journal提供高速的消息持久化
+- 支持与Axis的整合
+
 ## 安装
+
+- 服务器安装
 
 ```shell
 #1、解压
@@ -33,45 +43,49 @@
 
 密码admin/admin
 
-# JAVA API（PTOP）
+- 控制台说明
 
-- 目的地destination
-	主要包括主题和队列
-- point-to-point(点对点)
-	sender->queue->porential receiver
-- publish-and-subscribe(订阅-发布)
-  publish->topic->subscribe(多个)
+![](../image/message/20215241930.png)
 
-## 生产者
+# 两种模式
+
+## 点对点
+
+- sender->queue->porential receiver
+- **如启动了多个消费者，则他们的消费方式为平均分配**
+
+### 生产者
 
 ```java
 public static void main(String[] args) throws JMSException {
-        ActiveMQConnectionFactory factory = new ActiveMQConnectionFactory("tcp://192.168.94.129:61616");
-        Connection connection = factory.createConnection();
-        connection.start();
-        //创建session， 事务，是否签收
-        Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
-        //创建目的地
-        Queue queue = session.createQueue("queue1");
-        //创建消息的生产者
-        MessageProducer producer = session.createProducer(queue);
-        //生产三条消息
-        for(int i=0; i<3; i++){
-            //消息发送mq
-            producer.send(session.createTextMessage("msg+"+i));
-        }
-        //关闭资源
-        producer.close();
-        session.close();
-        connection.close();
+    ActiveMQConnectionFactory factory = new ActiveMQConnectionFactory("tcp://192.168.94.129:61616");
+    Connection connection = factory.createConnection();
+    connection.start();
+    //创建session， 事务，是否签收
+    Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+    //创建目的地
+    Queue queue = session.createQueue("queue1");
+    //创建消息的生产者
+    MessageProducer producer = session.createProducer(queue);
+    //生产三条消息
+    for(int i=0; i<3; i++){
+        //消息发送mq
+        producer.send(session.createTextMessage("msg+"+i));
     }
+    //关闭资源
+    producer.close();
+    session.close();
+    connection.close();
+}
 ```
 
-执行完成之后，可以在操作界面看到对应的队列（queue1）已经创建咯三条消息
+- 执行完成之后，可以在操作界面看到对应的队列（queue1）已经创建了三条消息
 
-## 消费者
+### 消费者
 
-有两种方式：1、同步阻塞 receive 2、异步非阻塞 监听
+- 有两种方式：1、同步阻塞 receive 2、异步非阻塞 监听
+
+#### 同步阻塞
 
 ```java
 public static void main(String[] args) throws Exception {
@@ -99,7 +113,7 @@ public static void main(String[] args) throws Exception {
 }
 ```
 
-## 监听的方式消费数据
+#### 监听的方式消费数据
 
 ```java
 consumer.setMessageListener((message)->{
@@ -116,11 +130,13 @@ consumer.setMessageListener((message)->{
 System.in.read();
 ```
 
-## 点对点方式多个消费者
+- 目的地destination
+	主要包括主题和队列
+	
+- publish-and-subscribe(订阅-发布)
+  publish->topic->subscribe(多个)
 
-如启动了多个消费者，则他们的消费方式为平均分配
-
-# 发布订阅
+## 发布订阅
 
 1、生产者将消息发送到topic上，每个消息可以有多个消费者，属于1:n的关系
 
@@ -128,7 +144,7 @@ System.in.read();
 
 3、topic不保存消息，如无人消费，则是一条无用消息
 
-- 生产者
+### 生产者
 
 ```java
 public static void main(String[] args) throws JMSException {
@@ -153,7 +169,7 @@ public static void main(String[] args) throws JMSException {
 }
 ```
 
-- 消费者
+### 消费者
 
 ```java
 public static void main(String[] args) throws Exception {
@@ -185,7 +201,7 @@ public static void main(String[] args) throws Exception {
 }
 ```
 
-# topic模式与queue模式对比
+## topic模式与queue模式对比
 
 | ****                 | Topic                                                        | Queue                                                        |
 | -------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
@@ -195,15 +211,28 @@ public static void main(String[] args) throws Exception {
 | **消息是否会丢失**   | 一般来说publisher发布消息到某一个topic时，只有正在监听该topic地址的sub能够接收到消息；如果没有sub在监听，该topic就丢失了。 | Sender发送消息到目标Queue，receiver可以异步接收这个Queue上的消息。Queue上的消息如果暂时没有receiver来取，也不会丢失。 |
 | **消息发布接收策略** | 一对多的消息发布接收策略，监听同一个topic地址的多个sub都能收到publisher发送的消息。Sub接收完通知mq服务器 | 一对一的消息发布接收策略，一个sender发送的消息，只能有一个receiver接收。receiver接收完后，通知mq服务器已接收，mq服务器对queue里的消息采取删除或其他操作。 |
 
-# jms
+# JMS
 
-## messge消息头
+## 概念
 
-- JMSDestination
+- JMS是什么
+  - JMS Java Message Service，Java消息服务，是JavaEE中的一个技术
+- JMS规范
+  - JMS定义了Java中访问消息中间件的接口，并没有给予实现，实现JMS接口的消息中间件称为JMS Provider，例如ActiveMQ
+- JMS Message
+  - 消息头:每个消息头字段都有相应的getter和setter方法
+  - 消息属性:如果需要除消息头字段以外的值，那么可以使用消息属性
+  - 消息体:封装具体的消息数据
+
+## JMS Message
+
+### Messge消息头
+
+1. JMSDestination
 
 消息发送的目的地，主要是指queue和topic
 
-- DeliveryMode
+2. DeliveryMode
 
 持久模式/非持久模式
 
@@ -211,42 +240,120 @@ public static void main(String[] args) throws Exception {
 
 非持久模式：最多会传送一次，JMS出现故障，消息会丢失
 
-- JMSPriority
+3. JMSPriority
 
 优先级，一共0-9， 0-4是普通消息， 5-9是加急消息，JMS要求，加急消息一定要优先于普通消息，其他可以随意
 
-- JMSMessageID
+4. JMSMessageID
 
 唯一识别的消息标识
 
-## message消息体
+### Message消息体
 
-- 封装具体的消息数据
-- 五种消息体格式
+1. 封装具体的消息数据
 
+2. 五种消息体格式
+
+```tex
 TextMessage
-
 MapMessage
-
 ObjectMessage
-
 BytesMessage
-
 StreamMessagg
+```
 
 - 发送和接受的消息体类型必须一致到位
 
-## 消息属性
+### 消息属性
 
 如果需要去除消息头字段以外的值，那么可以使用消息属性
 
-识别/去重/重点标注等操作非常有用的方法
+**识别/去重/重点标注**等操作非常有用的方法
 
-## jms可靠性
+- 自定义属性
+
+```java
+//消息属性设置（provider）
+TextMessage textMessage = session.createTextMessage("msg+" + i);
+textMessage.setStringProperty("testP1", "111234");
+producer.send(textMessage);
+```
+
+- JMS定义属性
+  - 使用“JMSX”作为属性名的前缀
+
+```java
+Enumeration jmsxPropertyNames = connection.getMetaData().getJMSXPropertyNames();
+while (jmsxPropertyNames.hasMoreElements()) {
+    System.out.println(jmsxPropertyNames.nextElement());;
+}
+```
+
+## JMS可靠性机制
 
 主要从多节点、持久性、事务、签收这几个方面来保证JMS的可靠性
 
+### 消息接收确认
+
+- JMS消息只有在被确认之后，才认为已经被成功地消费了。消息的成功消费通常包含三个阶段:客户接收消息、客户处理消息和消息被确认。
+
+#### 事务（偏生产者）
+
+- 生产者事务
+
+```java
+//创建session， 事务，是否签收
+Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+//如果是false，send就会直接进入队列
+producer.send(session.createTextMessage("msg+"+i));
+//如果是true，则必须commit，才会提交队列
+session.commit();
+```
+
+- 消费者事务
+  - 如果消费者开启事务，没有commit，则会同一条消息一直重复消费
+  - 这里重复消费，指的是没启动一个消费端消费一次
+
+```java
+Session session = connection.createSession(true, Session.AUTO_ACKNOWLEDGE);
+//提交事务（放在消费的监听里）
+session.commit();
+```
+
+#### 签收（偏消费者）
+
+- 签收类型
+
+```java
+public interface Session extends Runnable {
+    //自动签收
+    int AUTO_ACKNOWLEDGE = 1;
+    //手动签收
+    int CLIENT_ACKNOWLEDGE = 2;
+    int DUPS_OK_ACKNOWLEDGE = 3;
+    int SESSION_TRANSACTED = 0;
+```
+
+- 无事务手动签收
+  - 签收针对的是客户端，每条消息如果没有ack，则这个消息还会被其他客户端消费
+
+```java
+Session session = connection.createSession(false, Session.CLIENT_ACKNOWLEDGE);
+//消费者需要调用ack进行签收，否则，会一直消费重复数据.
+System.out.println(textMessage.getText());
+textMessage.acknowledge();
+```
+
+- 有事务的签收
+
+如果按照事务来消费，就认为是自动签收了，没有acknowledge也一样不会有重复消费问题（**只要有commit**），如果没有commit，无论是否acknowledge，都会有重复消费问题
+
+结论：**事务>签收**
+
+### 消息持久化
+
 - PERSISTENT:持久性（队列默认是持久）
+- 生产者设置订阅消息持久化
 
 ```java
 //设置非持久（服务器宕机，消息不存在）
@@ -255,11 +362,17 @@ producer.setDeliveryMode(DeliveryMode.NON_PERSISTENT);
 producer.setDeliveryMode(DeliveryMode.PERSISTENT);
 ```
 
-**topic**的持久化(持久化订阅)
+#### Topic的持久化(持久化订阅)
 
 （当注册过，如果它离线了，再登录，消费者能收到消息）
 
-生产者
+```tex
+非持久订阅只有当客户端处于激活状态，也就是和JMS Provider保持连接状态才能收到发送到某个主题的消息，而当客户端处于离线状态，这个时间段发到主题的消息将会丢失，永远不会收到。
+
+持久订阅时，客户端向JMS注册一个识别自己身份的ID，当这个客户端处于离线时，JMS Provider会为这个ID保存所有发送到主题的消息，当客户再次连接到JMSProvider时，会根据自己的ID得到所有当自己处于离线时发送到主题的消息。
+```
+
+- 生产者
 
 ```java
 //创建session， 事务，是否签收
@@ -274,7 +387,8 @@ producer.setDeliveryMode(DeliveryMode.PERSISTENT);
 connection.start();
 ```
 
-消费者
+- 消费者
+  - 订阅者需要往JMS注册一个clientId
 
 ```java
 ActiveMQConnectionFactory factory = new ActiveMQConnectionFactory("tcp://192.168.94.129:61616");
@@ -297,61 +411,6 @@ while(receive!=null){
 }
 ```
 
-- 事务（偏生产者）
-
-生产者事务
-
-```java
-//创建session， 事务，是否签收
-Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
-//如果是false，send就会直接进入队列
- producer.send(session.createTextMessage("msg+"+i));
-//如果是true，则必须commit，才会提交队列
- session.commit();
-```
-
-消费者事务
-
-```java
-Session session = connection.createSession(true, Session.AUTO_ACKNOWLEDGE);
-//如果消费者开启事务，没有commit，则会同一条消息一直重复消费
-session.commit();
-```
-
-
-
-- ACKnowledge:签收（偏消费者）
-
-```java
-public interface Session extends Runnable {
-    //自动签收
-    int AUTO_ACKNOWLEDGE = 1;
-    //手动签收
-    int CLIENT_ACKNOWLEDGE = 2;
-    int DUPS_OK_ACKNOWLEDGE = 3;
-    int SESSION_TRANSACTED = 0;
-```
-
-无事务手动签收
-
-```java
-Session session = connection.createSession(false, Session.CLIENT_ACKNOWLEDGE);
-
-//消费者需要调用ack进行签收，否则，会一直消费重复数据.
-System.out.println(textMessage.getText());
-textMessage.acknowledge();
-```
-
-有事务的签收
-
-如果按照事务来消费，就认为是自动签收了，没有acknowledge也一样不会有重复消费问题（**只要有commit**），如果没有commit，无论是否acknowledge，都会有重复消费问题
-
-
-
-**事务>签收**
-
-
-
 # ActiveMq Broker
 
 它其实就是用代码形式的启动mq嵌入到了java代码中，也就是说java代码可以启动mq
@@ -367,6 +426,8 @@ java    9788 root  132u  IPv6  46536      0t0  TCP *:61616 (LISTEN)
 ```
 
  
+
+## 嵌入式启动
 
 在java中建立一个迷你activemq，
 
@@ -386,38 +447,20 @@ public class Broker {
 }
 ```
 
-# spring整合ActiveMQ
+# 整合Spring
 
-引入pom
+## 引入pom
 
 ```xml
 <dependency>
-    <groupId>org.apache.activemq</groupId>
-    <artifactId>activemq-all</artifactId>
-    <version>5.15.9</version>
-</dependency>
-<dependency>
-    <groupId>org.apache.xbean</groupId>
-    <artifactId>xbean-spring</artifactId>
-    <version>3.16</version>
-</dependency>
-<dependency>
-    <groupId>junit</groupId>
-    <artifactId>junit</artifactId>
-    <version>4.12</version>
-    <scope>test</scope>
-</dependency>
-
-<!--整合spring-->
-<dependency>
     <groupId>org.springframework</groupId>
     <artifactId>spring-jms</artifactId>
-    <version>4.3.25.RELEASE</version>
+    <version>5.2.6.RELEASE</version>
 </dependency>
 <dependency>
     <groupId>org.apache.activemq</groupId>
     <artifactId>activemq-pool</artifactId>
-    <version>5.15.9</version>
+    <version>5.15.15</version>
 </dependency>
 ```
 
@@ -455,14 +498,14 @@ public ActiveMQQueue destinationQueue() {
 
 @Bean
 public JmsTemplate jmsTemplateQueue(PooledConnectionFactory jmsFactory, ActiveMQQueue destinationQueue) {
-        JmsTemplate jmsTemplate = new JmsTemplate();
-        //设置jms的配置
-        jmsTemplate.setConnectionFactory(jmsFactory);
-        //设置目的地
-        jmsTemplate.setDefaultDestination(destinationQueue);
-        jmsTemplate.setMessageConverter(new SimpleMessageConverter());
-        return jmsTemplate;
-    }
+    JmsTemplate jmsTemplate = new JmsTemplate();
+    //设置jms的配置
+    jmsTemplate.setConnectionFactory(jmsFactory);
+    //设置目的地
+    jmsTemplate.setDefaultDestination(destinationQueue);
+    jmsTemplate.setMessageConverter(new SimpleMessageConverter());
+    return jmsTemplate;
+}
 ```
 
 ### 生产者
@@ -519,7 +562,7 @@ public JmsTemplate jmsTemplateTopic(PooledConnectionFactory jmsFactory, ActiveMQ
 }
 ```
 
-## 配置监听器
+## 监听模式
 
 这种方式，就不需要启动消费者，直接用监听器去消费数据
 
