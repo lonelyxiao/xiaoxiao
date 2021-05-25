@@ -1519,7 +1519,296 @@ PhantomReference<Object> reference = new PhantomReference<>(o, referenceQueue);
 o = null;
 ```
 
+# 垃圾回收器
 
+## GC分类
+
+- 按线程数分
+  - 串型垃圾回收
+  - 并行垃圾回收
+
+![](../image/java/jvm/20210521232221.png)
+
+- 按工作模式分
+  - 独占式
+  - 并发式：工作线程和GC线程能同时进行
+
+- 碎片处理方式
+  - 压缩式
+  - 非压缩式
+
+## 评估GC的性能指标
+
+- 吞吐量
+  - 运行用户代码的时间占总运行时间的比例
+  - 总运行时间:程序的运行时间＋内存回收的时间
+- 暂停时间
+  - 执行垃圾收集时，程序的工作线程被暂停的时间。
+- 内存占用 
+  - Java 堆区所占的内存大小
+
+![](../image/java/jvm/20210522145142.png)
+
+## 七种经典回收器
+
+1. 新生代收集器：Serial（复制算法）、ParNew、Parallel Scavenge；
+
+2. 老年代收集器：Serial Old（标记-整理）、Parallel Old、CMS（标记-清除）；
+
+3. 整堆收集器：G1（标记-整理）；
+
+- 搭配关系图
+  - 红色虚线：jdk8移除
+  - 绿色虚线：jdk14移除
+  - 青色虚线：jdk14移除（删除CMS垃圾回收）
+
+![](../image/java/jvm/20210522154532.png)
+
+## 查看垃圾回收器
+
+- 添加参数：-XX:+PrintCommandLineFlags
+  - 可以看到UseParallelGC垃圾回去
+
+```tex
+-XX:InitialHeapSize=6291456 -XX:MaxHeapSize=6291456 -XX:+PrintCommandLineFlags -XX:+PrintGCDetails -XX:+UseCompressedClassPointers -XX:+UseCompressedOops -XX:-UseLargePagesIndividualAllocation -XX:+UseParallelGC 
+```
+
+- jinfo -flag UseParallelGC 进程号
+
+## Serial回收器
+
+- Serial收集器采用复制算法、串行回收和"Stop-the-World"机制的方式执行内存回收。
+- 除了年轻代之外，Serial收集器还提供用于执行老年代垃圾收集的serial old收集器。serial old收集器同样也采用了串行回收(标记-压缩算法)
+  - Serial old是运行在client模式下默认的老年代的垃圾回收器
+  - Serial old在Server模式下主要有两个用途:①与新生代的Parallelscavenge配合使用作为老年代CMS收集器的后备垃圾收集方案
+
+![](../image/java/jvm/20210522174245.png)
+
+## ParNew 回收器
+
+- 采用并行回收的方式执行内存回收
+- 年轻代采用复制算法
+- JDK14凉了
+
+![](../image/java/jvm/20210523095845.png)
+
+## Parallel Scavenge回收器
+
+- **吞吐量优先**
+- JDK8默认垃圾回收
+- 适合在后台运算而不需要太多交互的任务的业务场景（例如：那些执行批量处理、订单处理、工资支付、科学计算的应用程序。）
+- Parallel 收集器在JDK1.6时提供了用于执行老年代垃圾收集的Parallel old收集器，用来代替老年代的Serial old收集器。
+- Parallel old收集器采用了**标记-压缩算法**，但同样也是基于**并行回收**
+
+![](../image/java/jvm/20210523103645.png)
+
+## CMS 回收器
+
+- **低延迟**
+
+- 第一款真正意义上的并发收集器（用户线程和GC线程并发执行）
+- 采用标记-清除算法
+
+![](../image/java/jvm/20210523110220.png)
+
+- GC阶段
+  - 初始标记：标记出GC Roots能直接关联到的对象
+  - 并发标记(Concurrent-Mark)阶段:从GC Roots的直接关联对象开始遍历整个对象图的过程
+  - 重新标记
+  - 并发清除
+
+```tex
+有人会觉得既然Mark Sweep会造成内存碎片,那么为什么不把算法换成Mark Compact呢?
+
+因为在清除阶段，用户线程还在使用
+```
+
+## G1垃圾回收器
+
+```tex
+官方给G1设定的目标是在延迟可控的情况下获得尽可能高的吞吐量，所以才担当起“全功能收集器”的重任与期望。
+```
+
+- G1是一个并行回收器，它把堆内存分割为很多不相关的区域(Region),使用不同的Region来表示Eden、幸存者0区，幸存者1区，老年代等
+- 后台维护一个优先列表，每次根据允许的收集时间，优先回收价值最大的Region(比如有些region，回收过后依旧还占很大内存，那么这个回收价值不大)
+- JDK9默认垃圾回收
+
+### 特点
+
+- 并行与并发
+  - 并行性:G1在回收期间，可以有多个GC线程同时工作，有效利用多核计算能力。此时用户线程STW
+  - 并发性:G1拥有与应用程序交替执行的能力，部分工作可以和应用程序同时执行，因此，一般来说，不会在整个回收阶段发生完全阻塞应用程序的情况
+- 分代收集
+  - 从分代上看，G1依然属于分代型垃圾回收器，它会区分年轻代和老年代，年轻代依然有Eden区和survivor区。但从堆的结构上看，它不要求整个Eden区、年轻代或者老年代都是连续的，也不再坚持固定大小和固定数量。
+  - 将堆空间分为若干个区域(Region)，这些区域中包含了逻辑上的年轻代和老年代
+  - 堆内存一旦占满，就进行fullGC
+
+- 空间整合
+  - Region之间是复制算法
+- 可预见的时间模型
+
+### 缺点
+
+- 额外内存占用比较大（小内存应用上CMS表现要好点，6-8Gb）
+
+### 参数设置
+
+-XX:+UseG1GC：手动指定G1垃圾回收
+
+-XX:G1HeapRegionsize设置每个Region的大小值是2的幂，范围是1MB到32MB之间，目标是根据最小的Java堆大小划分出约2048个区域。默认是堆内存的1/2000。
+
+-XX:MaxGCPauseMillis:设置期望达到的最大GC停顿时间指标(JVM会尽力,实现，但不保证达到)。默认值是200ms
+
+### G1常见调优
+
+第一步:开启G1垃圾收集器
+
+第二步:设置堆的最大内存
+
+第三步:设置最大的停顿时间
+
+### 适用场景
+
+- 面向服务端应用，针对具有大内存、多处理器的机器。(在普通大小的堆里表现并惊喜)
+
+- 最主要的应用是需要低GC延迟，并具有大堆的应用程序提供解决方案;
+
+### Region
+
+![](../image/java/jvm/2021523182527.png)
+
+- Humoungous:大对象存储区域
+- 设置H的原因
+
+```tex
+对于堆中的大对象,默认直接会被分配到老年代，但是如果它是一个短期存在的大对象就会对垃圾收集器造成负面影响。为了解决这个问题，G1划分了一个Humongous区,它用来专门存放大对象。如果一个H区装不下一个大对象，那么G1会寻找连续的H区来存储。为了能找到连续的H区，有时候不得不启动Full GC。G1的大多数行为都把H区作为老年代的一部分来看待。
+```
+
+### 垃圾回收过程
+
+- 年轻代GC
+
+```tex
+应用程序分配内存，当年轻代的Eden区用尽时开始年轻代回收过程;G1的年轻代收集阶段是一个并行的独占式收集器。在年轻代回收期，61 GC暂停所有应用程序线程，启动多线程执行年轻代回收。然后从年轻代区间移动存活对象到survivor区间或者老年区间，也有可能是两个区间都会涉及。
+```
+
+- 老年代并发标记过程
+
+```tex
+当堆内存使用达到一定值（默认45%）时，开始老年代并发标记过程。
+```
+
+- 混合回收
+
+```tex
+标记完成马上开始混合回收过程。对于一个混合回收期，G1 GC从老年区间移动存活对象到空闲区间，这些空闲区间也就成为了老年代的一部分。和年轻代不同，老年代的G1回收器和其他GC不同，G1的老年代回收器不需要整个老年代被回收，一次只需要扫描/回收一小部分老年代的Region就可以了。同时，这个老年代Region是和年轻代一起被回收的。
+```
+
+- (如果需要，单线程、独占式、高强度的Full GC还是继续存在的。它针对Gc的评估失败提供了一种失败保护机制，即强力回收。)
+
+![](../image/java/jvm/20210523215903.png)
+
+#### 年轻代回收过程
+
+- Remembered Set
+
+---
+
+问题：
+
+- 一个对象可能被不同区域的对象引用引用
+- 回收新生代不得不扫描老年代（可能老年代的引用指向新生代）
+
+---
+
+解决办法：
+
+- 无论G1还是其他分代收集器，JVM都是使用Remembered set来避免全局扫描
+- 每个Region都有一个对应的Remembered set;
+
+- 当我们需要回收某个region时，只需要搜索set，去扫描对应的有指向本region的其他region
+
+![](../image/java/jvm/20210523230508.png)
+
+---
+
+#### 并发标记
+
+1. 初始化标记阶段
+2. 根区域扫描
+3. 并发标记：（如果发现区域内都是垃圾，则直接全部回收）
+4. 再次标记
+5. 独占清理
+   1. 计算各个区域的存活对象和GC回收比例，并进行排序识别可以混合回收的区域。为下阶段做铺垫。是STW的。
+6. 并发清理
+
+#### 混合GC
+
+1. 当越来越多的对象晋升到老年代oldregion时，为了避免堆内存被耗尽，虚拟机会触发一个混合的垃圾收集器,即Mixed GC
+2. 一部分老年代，而不是全部老年代回收（除了回收整个young region，还会回收一部分的old region）
+
+#### FULL GC
+
+- 导致Full GC的原因
+
+1.  Evacuation的时候没有足够的to-space来存放晋升的对象;
+2. 并发处理过程完成之前空间耗尽。（堆空间太小）
+
+## 总结
+
+![](../image/java/jvm/20210523234558.png)
+
+# GC日志分析
+
+## 常用参数
+
+```shell
+## 输出GC日志
+-XX:+PrintGC
+## 输出GC详细信息
+-XX:+PrintGCDetails
+## 输出GC时间蹉
+-XX:+PrintGCTimeStamps
+## 输出GC时间（以日期为基准）
+-XX:+PrintGCDateStamps
+## -在GC前后打印堆的信息
+-XX：+PrintHeapAtGC
+## 日志文件输出
+-Xloggc:../logs/gc.log
+```
+
+- -XX:+PrintGC
+  - GC/Full GC: GC的类型
+  - Allocation Failure：GC原因
+  - 3708K->3844K：GC前后大小
+  - (5632K)：堆大小
+
+```tex
+[GC (Allocation Failure)  3708K->3844K(5632K), 0.0007932 secs]
+[Full GC (Ergonomics)  3844K->3305K(5632K), 0.0071881 secs]
+```
+
+- -XX:+PrintGCDetails
+  - PSYoungGen:对应新生代垃圾回收（Parallel）
+  - PSYoungGen: 1512K->488K(1536K)：新生代内容
+  - Times: user=0.06 sys=0.00, real=0.01 secs: 执行时间，系统时间，垃圾实际时间
+
+```tex
+[GC (Allocation Failure) [PSYoungGen: 1512K->488K(1536K)] 3764K->3900K(5632K), 0.0011602 secs] [Times: user=0.00 sys=0.00, real=0.00 secs] 
+[Full GC (Ergonomics) [PSYoungGen: 488K->0K(1536K)] [ParOldGen: 3412K->3407K(4096K)] 3900K->3407K(5632K), [Metaspace: 3330K->3330K(1056768K)], 0.0087257 secs] [Times: user=0.06 sys=0.00, real=0.01 secs] 
+
+```
+
+## GC工具分析日志
+
+1. -Xloggc:gc.log进行GC日志输出
+2. 使用工具上传文件（gcviewer/https://gceasy.io/）
+
+# 新时代的GC
+
+![](../image/java/jvm/20210524230903.png)
+
+- ZGC（JDK14）:主打低延迟
 
 # 常用调优工具
 
