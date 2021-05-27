@@ -1994,33 +1994,93 @@ class Son extends Father {
 
 ## 字节码文件结构
 
-| 字节长度 | 名称（英文）                          | 名称（中文） | 描述                          |
-| -------- | ------------------------------------- | ------------ | ----------------------------- |
-| u4       | magic                                 | 魔数         | 用于区分是否是class字节码文件 |
-| u2       | minor_version                         | 主版本       |                               |
-| u2       | major_version                         | 副版本       |                               |
-| u2       | constant_pool_count                   | 常量池计数器 | 记录常量池有多少项            |
-| cp_info  | constant_pool[constant_pool_count-1]; | 常量池       |                               |
+```shell
+ClassFile {
+    u4             magic;
+    u2             minor_version;
+    u2             major_version;
+    u2             constant_pool_count;
+    cp_info        constant_pool[constant_pool_count-1];
+    u2             access_flags;
+    u2             this_class;
+    u2             super_class;
+    u2             interfaces_count;
+    u2             interfaces[interfaces_count];
+    u2             fields_count;
+    field_info     fields[fields_count];
+    u2             methods_count;
+    method_info    methods[methods_count];
+    u2             attributes_count;
+    attribute_info attributes[attributes_count];
+}
+```
+
+| 字节长度 | 名称（英文）        | 名称（中文）                   | 描述                          |
+| -------- | ------------------- | ------------------------------ | ----------------------------- |
+| u4       | magic               | 魔数                           | 用于区分是否是class字节码文件 |
+| u2       | minor_version       | 主版本                         |                               |
+| u2       | major_version       | 副版本                         |                               |
+| u2       | constant_pool_count | 常量池计数器                   | 记录常量池有多少项            |
+| cp_info  | constant_pool       | 常量池                         |                               |
+| u2       | access_flags        | 访问标识                       |                               |
+|          |                     | 类索引，父类索引，接口索引集合 |                               |
 
 ```shell
 ca fe ba be ## 魔数  
 00 00 00 34 ## JDK主版本.副版本
 ```
 
+### 常量池
+
 - 常量池是不固定的，所以需要有一个常量池计数器记录常量池有多少项
-- 常量池表项中，存放编译产生的字面量和符号引用，部分内容加载后进入方法区的**运行时常量池**中
+- 常量池表项中，存放编译产 生的字面量和符号引用，部分内容加载后进入方法区的**运行时常量池**中
 
 ```shell
 ## 常量池计数器，表示有21个常量池（16转换为10进制=22）
 00 16
 ```
 
+#### 常量池数据
 
+- 字面量
+  1. 文本字符串（string str = "xxx"）
+  2. 声明为final的常量值（final int num = 1）
+- 符号引用
+  1. 类和接口的全限定名（com/xiao/classLoader/Demo）
+  2. 字段和方法的名称
+  3. 字段的和方法的描述符（字段的数据类型，方法的参数和放回值）
 
-- Class文件版本
-- 常量池
-- 访问标志
-- 类索引，父类索引，接口索引集合
+#### 常量池结构
+
+- 常量池11种数据类型
+
+![](../image/java/jvm/2021527215522.png)
+
+- 0a对应10，则太代表表中的CONSTANT_Mehtodref_info，后面两个index，个占两个字节，如此对应21个（对应常量池计数器）
+- 注意如果是01字符串，则他的bytes长度是有前两个字节的length决定的
+
+```shell
+0a 00 04 00 12 
+```
+
+### 访问标志
+
+在常量池后，紧跟着访问标记。该标记使用两个字节表示，用于识别一些类或者接口层次的访问信息，包括:这个Class是类还是接口;是否定义为public类型;是否定义为 abstract类型，如果是类的话，是否被声明为 final等。各种访问标记如下所示:
+
+![](../image/java/jvm/20210527233705.png)
+
+- 表示ACC_PUBLIC+ACC_SUPER(表明这个类是public的)
+
+```shell
+00 21
+```
+
+### 类索引，父类索引，接口索引集合
+
+- 表示当前这个类是什么名字，父类有哪些，接口有哪些
+
+![](../image/java/jvm/20210527234809.png)
+
 - 字段表集合
 - 方法表集合
 - 属性表集合
