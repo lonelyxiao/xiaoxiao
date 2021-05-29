@@ -2026,6 +2026,9 @@ ClassFile {
 |          |                     | 类索引，父类索引，接口索引集合 |                               |
 | u2       |                     | 字段计数器                     |                               |
 |          |                     | 字段                           |                               |
+|          |                     | 方法计数器                     |                               |
+|          |                     | 方法表                         |                               |
+|          |                     | 属性表信息                     |                               |
 
 ```shell
 ca fe ba be ## 魔数  
@@ -2097,5 +2100,96 @@ ca fe ba be ## 魔数
 
 - 属性
   - 一个字段还可能拥有一些属性，用于存储更多的额外信息。比如初始化值（常量的初始化值）、一些注释信息等。属性个数存放在attribute_count中，属性具体内容存放在attributes数组中。
-- 方法表集合
-- 属性表集合
+  
+  
+### 方法表集合
+
+指向常量池索引集合，它完整描述了每个方法的签名。
+
+- 方法计数器
+- 方法表
+
+![](../image/java/jvm/20210529112351.png)
+
+#### code结构
+
+- code存储的是字节码指令
+- 里面有若干属性集合
+
+##### LineNumberTable
+
+- code中的属性的名字
+- 描述的是字节码指令和实际代码的对应关系
+
+结构：
+
+```java
+LineNumberTable_attribute {
+    u2 attribute_name_index;
+    u4 attribute_length;
+    u2 line_number_table_length;
+    {   u2 start_pc;
+        u2 line_number;	
+    } line_number_table[line_number_table_length];
+}
+```
+
+##### LocalVariableTable
+
+- 描述变量作用的长度
+
+```shell
+LocalVariableTable_attribute {
+    u2 attribute_name_index;
+    u4 attribute_length;
+    u2 local_variable_table_length;
+    {   u2 start_pc;
+        u2 length;
+        u2 name_index;
+        u2 descriptor_index;
+        u2 index;
+    } local_variable_table[local_variable_table_length];
+}
+```
+
+
+### 属性表集合
+
+- 方法表集合之后的属性表集合，指的是class文件所携带的辅助信息，比如该 class文件的**源文件的名称**。以及任何带有RetentionPolicy.CLASS或者RetentionPolicy.RUNTINE的注解。这类信息通常被用于Java虚拟机的验证和运行，以及Java程序的调试，一般无须深入了解。
+- 字段表、方法表都可以有自己的属性表。用于描述某些场景专有的信息 
+
+![](../image/java/jvm/20210529162529.png)
+
+(比较复杂，后续再回过头补充 p230)
+
+- 属性表结构
+
+![](../image/java/jvm/20210529165254.png)
+
+# 常用命令
+
+## JAVAC命令
+
+- 直接javac xx.java，就不会在生成对应的局部变量表等信息，如果你使用javac -g xx.java就可以生成所有相关信息了。
+
+- 如果你使用的eclipse或IDEA，则默认情况下，eclipse、IDEA在编译时会帮你生成局部变量表、指令和代码行偏移量映射表等信息的。
+
+## JAVAP命令
+
+```shell
+javap <options> <classes>
+```
+
+- options
+
+```tex
+ -version         当前javap所在的jdk的version版本
+  -v  -verbose    输出附加信息（行号，本地变量表，反汇编等详细信息，不包括私有的方法）
+```
+
+- 包括私有的方法
+
+```shell
+javap -v -p classes
+```
+
