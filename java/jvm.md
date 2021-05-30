@@ -364,6 +364,12 @@ https://docs.oracle.com/en/java/javase/11/tools/tools-and-command-reference.html
 - 一个数字数组（存放**8种基本数据类型、对象引用地址**）
 - 在编译的时候，就确定了局部变量表的长度
 
+```tex
+在栈帧中，与性能调优关系最为密切的部分就是局部变量表。局部变量表中的变量也是重要的垃圾回收根节点，只要被局部变量表中直接或间接引用的对象都不会被回收。
+```
+
+- 一个方法开始，局部变量表会存储几个数据（**this**、形参）
+
 #### 从jclasslib看
 
 看class
@@ -2193,3 +2199,263 @@ javap <options> <classes>
 javap -v -p classes
 ```
 
+- 解析的文件解读
+
+```tex
+//字节码文件地址
+Classfile /D:/git/gitee/stu-jvm/out/production/stu-jvm/com/xiao/stack/TestBing.class
+//最后修改时间， 文件大小
+  Last modified 2021-5-15; size 299 bytes
+//MD5散列值
+  MD5 checksum 8fd1a35f261c9f5a2f18ed40907f5c6f
+  //源文件名称
+  Compiled from "TestBing.java"
+  //全类名
+public class com.xiao.stack.TestBing extends com.xiao.stack.TestLocalVariable
+//对应的主版本和副版本编号
+  minor version: 0
+  major version: 52
+  
+  flags: ACC_PUBLIC, ACC_SUPER
+Constant pool:
+   #1 = Methodref          #3.#13         // com/xiao/stack/TestLocalVariable."<init>":()V
+   #2 = Class              #14            // com/xiao/stack/TestBing
+   #3 = Class              #15            // com/xiao/stack/TestLocalVariable
+   #4 = Utf8               <init>
+   #5 = Utf8               ()V
+   #6 = Utf8               Code
+   #7 = Utf8               LineNumberTable
+   #8 = Utf8               LocalVariableTable
+   #9 = Utf8               this
+  #10 = Utf8               Lcom/xiao/stack/TestBing;
+  #11 = Utf8               SourceFile
+  #12 = Utf8               TestBing.java
+  #13 = NameAndType        #4:#5          // "<init>":()V
+  #14 = Utf8               com/xiao/stack/TestBing
+  #15 = Utf8               com/xiao/stack/TestLocalVariable
+{
+  public com.xiao.stack.TestBing();
+    descriptor: ()V //方法描述符（形参，返回类型）
+    //访问标识
+    flags: ACC_PUBLIC
+    Code:
+    //操作数栈最大深度， 局部变量表长度， 方法接受参数的个数（包括this）
+      stack=1, locals=1, args_size=1
+      //编译量：操作码 操作数  #执行常量池索引
+         0: aload_0
+         1: invokespecial #1                  // Method com/xiao/stack/TestLocalVariable."<init>":()V
+         4: return
+      //行号表
+      LineNumberTable:
+        line 11: 0
+        line 12: 4
+      //局部变量表
+      LocalVariableTable:
+      	//局部变量的开始位置， 长度， 占用槽
+        Start  Length  Slot  Name   Signature
+            0       5     0  this   Lcom/xiao/stack/TestBing;
+}
+SourceFile: "TestBing.java"
+
+```
+
+# 字节码指令
+
+## 执行模型
+
+- 字节码大概执行的流程
+
+```java
+do{
+    自动计算PC寄存器的值加1;
+    根据PC寄存器的指示位置，从字节码流中取出操作码;
+    if(字节码存在操作数)
+        从字节码流中取出操作数;
+    执行操作码所定义的操作;
+}while(字节码长度小O):
+```
+
+## 字节码与数据类型
+
+- 强相关的类型
+  - 对于 bytem boolean 都是使用i标识
+
+```shell
+i代表对int类型的数据操作，
+l代表long
+s代表short
+c代表char
+f代表float
+d代表double
+```
+
+- 隐含的数据类型
+
+```tex
+也有一些指令的助记符中没有明确地指明操作类型的字母，
+如arraylength指令，它没有代表数据类型的特殊字符，但操作数永远只能是一个数组类型的对象.
+```
+
+- 无任何关系的
+
+```tex
+还有另外一些指令，如无条件跳转指令goto则是与数据类型无关的。
+```
+
+## 加载与存储指令
+
+作用：加载和存储指令用于将数据从栈帧的局部变量表和操作数栈之间来回传递。
+
+```tex
+如果看到 load push  ldc const 相关的指令，那么他就是将局部变量表/常量池的数据压入操作数栈中
+如果看到store相关的，那么他就是将数据存入局部变量表中
+```
+
+- 特殊的操作数
+  - 有些操作数（一般0-3是和操作码一起的）
+  - 如：iload_0 , 表示将局部变量表索引0的**数据**加载到操作数栈中
+
+### 局部变量压栈指令
+
+- 局部变量压栈指令将给定的局部变量表中的数据压入操作数栈
+- xload_n / xload
+- x: i(integer类型)、l、f、d、a（引用类型）
+- n: 0-3
+
+### 常量入栈指令
+
+常量入栈指令的功能是将常数压入操作数栈，根据数据类型和入栈内容的不同，又可以分为const系列、push系列和ldc指令。
+
+- 指令const系列:用于对特定的常量入栈，入栈的常量隐含在指令本身里
+
+```tex
+iconst_m1将-1压入操作数栈;
+iconst_x (x为0到5）将x压入栈:
+fconst_0、fconst_1、fconst_2分别将浮点数0、1、2压入栈;
+dconst_0和dconst_1分别将double型0和1压入栈。
+aconst_null将null压入操作数栈;
+```
+
+- 指令push系列:主要包括bipush和sipush。它们的区别在于接收数据类型的不同，bipush接收8位整数作为参数，sipush接收16位整数，它们都将参数压入栈。
+- 指令ldc系列:如果以上指令都不能满足需求，那么可以使用万能的ldc指令，它可以接收一个8位的参数，该参数指向常量池中的int、 float或者string的索引，将指定的内容压入堆栈。
+
+---
+
+int的复制举例
+
+```java
+public void pushConstLdc() {
+    int i = -1;
+    int a = 5;
+    int b = 6;
+    int c = 127;
+    int d = 128;
+    int e = 32767;
+    int f = 32768;
+}
+```
+
+```shell
+## -1 m1
+0 iconst_m1
+ 1 istore_1
+ ##const的范围0-5
+ 2 iconst_5
+ 3 istore_2
+ # const无法使用，尝试使用bipush
+ 4 bipush 6
+ 6 istore_3
+ ## bipush最大127(8位)
+ 7 bipush 127
+ 9 istore 4
+ ## 超过8为sipush
+11 sipush 128
+14 istore 5
+## 最大16位
+16 sipush 32767
+19 istore 6
+## 超过使用常量池中的引用
+21 ldc #2 <32768>
+23 istore 7
+25 return
+```
+
+---
+
+### 装入局部变量表
+
+出栈装入局部变量表指令用于将操作数栈中栈顶元素弹出后，装入局部变量表的指定位置，用于给局部变量赋值。
+
+- 这类指令主要以store的形式存在，比如xstore (x为i、1、f、d、a)、 xstore_n (x为 i、1、f、d、a，n为至3）。
+- 当store到局部变量表时，操作数栈做的是出栈操作
+
+- 当有代码块时，需要考虑**槽位复用问题**
+
+## 算数运算符
+
+- 算术指令用于对两个操作数栈上的值进行某种特定运算，并把结果重新压入操作数栈。
+- 大体上算术指令可以分为两种:对**整型数据**进行运算的指令与对**浮点类型数据**进行运算的指令。
+
+### NaN值使用
+
+当一个操作产生溢出时，将会使用有符号的无穷大表示，如果某个操作结果没有明确的数学定义的话，将会使用NaN值来表示。而且所有使用NaN值作为操作数的算术操作，结果都会返回 NaN;
+
+```java
+int i = 10;
+double j = i / 0.0;
+//Infinity
+System.out.println(j);
+//NaN
+System.out.println(0.0/0.0);
+```
+
+### 所有运算符
+
+![](../image/java/jvm/20210530200318.png)
+
+### ++运算符
+
+- ++i 和 i++在没有赋值的时候，是一样的
+-  i++是先赋值，++i是先计算
+
+```shell
+ 0 bipush 10
+ 2 istore_1
+ 3 iload_1
+ 4 iinc 1 by 1
+ ## i++，先赋值后自增 （此时store的是1的10）
+ 7 istore_2
+ 8 bipush 20
+10 istore_3
+11 iinc 3 by 1
+14 iload_3
+## ++j, 此时store的是操作数栈刚添加的自增的21
+15 istore 4
+17 return
+```
+
+- 
+
+```java
+int i=10;
+i=i++;
+//10
+System.out.println(i);
+```
+
+## 比较指令
+
+- 比较指令的作用是比较栈顶两个元素的大小，并将比较结果入栈
+
+## 类型转换指令
+
+- 类型转换指令可以将两种不同的数值米型进行相互转换。
+- 这些转换操作一般用于实现用户代码中的显式类型转换操作,
+
+### 宽化类型转换
+
+- 小范围类型向大范围类型的安全转换
+  - 从int类型到long、float或者double类型。对应的指令为: i21、i2f、i2d
+  - 从long类型到float、double类型。对应的指令为:l2f、l2d
+  - 从float类型到double类型。对应的指令为:f2d
+  - 简化为: int --> long --> float --> double
