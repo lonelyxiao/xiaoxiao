@@ -2459,3 +2459,62 @@ System.out.println(i);
   - 从long类型到float、double类型。对应的指令为:l2f、l2d
   - 从float类型到double类型。对应的指令为:f2d
   - 简化为: int --> long --> float --> double
+
+### 窄化类型
+
+## 对象指令
+
+### 创建指令
+
+- 虽然类实例和数组都是对象，但]ava虚拟机对类实例和数组的创建与操作使用了不同的字节码指令:
+- 创建类实例指令：new
+  - 它接收一个操作数，为指向常量池的索引，表示要创建的类型，执行完成后，将对象的引用压入栈。
+
+- 创建数组： newarray（基本类型数组）、 anewarray（引用数据类型）、multianewarray（多维数组）。
+
+### 字段访问指令
+
+对象创建后，就可以通过对象访问指令获取对象实例或数组实例中的字段或者数组元素。
+
+- 访问类字段(static字段，或者称为类变量）的指令: getstatic、putstatic
+- 访问类实例字段（非static字段，或者称为实例变量）的指令: getfield、putfield
+
+举例代码：
+
+```java
+public void method4() {
+    System.out.println("hello");
+}
+```
+
+```shell
+##将out的引用放入操作数栈
+0 getstatic #2 <java/lang/System.out>
+## 将常量池中的hello压入栈
+3 ldc #8 <hello>
+5 invokevirtual #9 <java/io/PrintStream.println>
+8 return
+```
+
+### 数组操作指令
+
+数组操作指令主要有:xastore和xaload指令。具体为:
+
+- 把一个数组元素加载到操作数栈的指令: baload、caload、saload、iaload、laload、faload、daload、aaload
+- 将一个操作数栈的值存储到数组元素中的指令: bastore、 castore、sastore、iastore、lastore,fastore、dastore、aastore
+
+说明：
+
+```tex
+xaload在执行时，要求操作数中栈顶元素为数组索引i,栈顶顺位第2个元素为数组引用a,该指令会弹出栈顶这两个元素，并将a[i]重新压入栈。
+```
+
+```tex
+xastore则专门针对数组操作，以iastore为例，它用于给一个int数组的给定索引赋值。在iastore执行前，操作数栈顶需要以此准备3个元素:值、索引、数组引用，iastore会弹出这3个值，并将值赋给数组中指定索引的位置。
+```
+
+### 类型检查指令
+
+检查类实例或数组类型的指令:instanceof、checkcast。
+
+- 指令checkcast用于检查类型强制转换是否可以进行。如果可以进行，那么checkcast指令不会改变操作数栈，否则它会抛出ClassCastException异常。
