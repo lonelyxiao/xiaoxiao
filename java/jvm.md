@@ -2707,3 +2707,83 @@ Class<?> clazz = Class.forName("java.lang.String");
 - 字节码检查
   - 字节码执行过程是否跳转了了不存在指令
 - 符号引用验证
+
+### 准备
+
+- 为类的静工变量分配内存，并将其初始化为默认值。
+
+- **这里不包含基本数据类型的字段用static final修饰的情况，因为final在编译的时候就会分配了，准备阶段会显式赋值。**
+- 如果使用字面量方式给String的常量赋值，也是在准备阶段**显示赋值**的
+
+### 解析
+
+将类、接口f字段和方法的符号引用转为直接引用。
+
+## 初始化阶段
+
+为类的静态变量赋予正确的初始值。
+
+- 初始化阶段的重要工作是执行类的初始化方法:<clinit>()方法。
+
+由代码可见，初始化阶段会执行clinit方法,有静态代码块，或者静态变量，就会有clinit（静态常量不会产生）
+
+```java
+public static int i = 1;
+public static int j;
+static {
+    j = 2;
+    System.out.println(j);
+}
+```
+
+```shell
+ 0 iconst_1
+ 1 putstatic #2 <com/xiao/classLoader/TestStatic.i>
+ 4 iconst_2
+ 5 putstatic #3 <com/xiao/classLoader/TestStatic.j>
+ 8 getstatic #4 <java/lang/System.out>
+11 getstatic #3 <com/xiao/classLoader/TestStatic.j>
+14 invokevirtual #5 <java/io/PrintStream.println>
+17 return
+```
+
+注意：
+
+```tex
+在加载一个类之前，虚拟机总是会试图加载该类的父类，因此父类的<clinit>总是在子类<clinit>之前被调用。也就是说，父类的static块优先级高于子类。
+口诀:由父及子，静态先行。
+```
+
+- 引用类型的不管是final还是不是，是static就是在clinit中赋值
+- 没有clinit场景
+
+```java
+//非静态变量
+public int i;
+//静态变量未赋值
+public static int j;
+//常量
+public static final int k = 1;
+```
+
+**clinit虚拟机加锁了，是线程安全的**
+
+### 主动使用
+
+- 只有主动使用的类才能执行clinit
+
+主动使用场景：
+
+1. 当创建一个类的实例时，比如使用new关键字，或者通过反射、克隆、反序列化,序列化。
+2. 调用类的静态方法
+
+
+
+### 被动使用
+
+- 被动使用不会调用cliinit
+
+场景：
+
+1. 调用常量的基础字段
+
