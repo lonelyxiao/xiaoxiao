@@ -2677,7 +2677,7 @@ java虚拟机支持两种同步结构:方法级的同步和方法内部一段指
   - 从jar，zip等中读取
   - 网络读取
 
-- 解析类的二进制数据流为方法区内的数据结构（Java类模型)
+- 解析类的二进制数据流为方法区内的数据结构（**Java类模型**)
 - 创建java.lang.Class类的实例，表示该类型。作为方法区这个类的各种数据的访问入口
 
 ### 类模板
@@ -2776,8 +2776,10 @@ public static final int k = 1;
 
 1. 当创建一个类的实例时，比如使用new关键字，或者通过反射、克隆、反序列化,序列化。
 2. 调用类的静态方法
-
-
+3. 当使用java.Lang.reflect包中的方法反射类的方法时。比如:Class.forName( "com.atguigu.java.Test")
+4. 当初始化子类时，如果发现其父类还没有进行过初始化，则需要先触发其父类的初始化。（由父及子）
+5. 如果一个接口定义了default方法，那么直接实现或者间接实现该接口的类的初始化，该接口要在其之前被初始化。（**如果没有default，父接口就不会初始化**）
+6. 当虚拟机启动时，用户需要指定一个要执行的主类（包含main()方法的那个类），虚拟机会先初始化这个主类。
 
 ### 被动使用
 
@@ -2787,3 +2789,58 @@ public static final int k = 1;
 
 1. 调用常量的基础字段
 
+```java
+    @Test
+    public void test() {
+        System.out.println(Order.num);
+    }
+}
+class Order {
+    static {
+        System.out.println("输出...");
+    }
+    public static final int num = 1;
+}
+```
+
+2. 从子类调用父类的静态变量，子类不会初始化
+3. 数组类引用，不会初始化
+4. ClassLoader加载不会触发
+
+```java
+ClassLoader.getSystemClassLoader().loadClass("com.xiao.classLoader.Order");
+```
+
+## 使用
+
+## 卸载
+
+- 启动类加载器加载的类型在整个运行期间是不可能被卸载的
+
+# 类加载分类
+
+- 显示加载
+  - 显式加载指的是在代码中通过调用classLoader加载class对象，如直接使用class.forName(name)或this.getclass().getclassLoader().loadClass()加载class对象。
+- 隐式加载
+
+# 命名空间
+
+- 比较两个类是否相等，只有在这两个类是由同一个类加载器加载的前提下才有意义。
+- 即同一个Class文件，被不同加载器加载，则他们的类必定是不相同的
+
+```tex
+在同一命名空间中，不会出现类的完整名字（包括类的包名）相同的两个类
+在不同的命名空间中，有可能会出现类的完整名字（包括类的包名）相同的两个类
+```
+
+# 类加载器
+
+## 结构
+
+类加载器都继承ClassLoader
+
+- 他们的父子结构是特殊的，通过属性来确定的
+
+```java
+private final ClassLoader parent;
+```
