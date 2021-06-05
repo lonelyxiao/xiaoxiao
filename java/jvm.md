@@ -2839,8 +2839,173 @@ ClassLoader.getSystemClassLoader().loadClass("com.xiao.classLoader.Order");
 
 类加载器都继承ClassLoader
 
-- 他们的父子结构是特殊的，通过属性来确定的
+- 他们的父子结构是特殊的，通过属性来确定的，而不是通过继承的关系来实现的
+- 这个属性，定义在顶级的ClassLoader中
 
 ```java
-private final ClassLoader parent;
+public ClassLoader {
+    //通过这个属性来记录父的加载器，
+    private final ClassLoader parent;
+}
+
 ```
+
+## 引导类加载器
+
+- Bootstrap ClassLoader
+
+- 使用C/C++实现的，嵌套JVM内部
+- 用来加载java的核心库（JAVA_HOME/jre/lib/rt.jar或sun.boot.class.path路径下的内容）
+- 加载扩展和应用类加载器
+
+获取引导类加载器可以加载的jar包
+
+```java
+URL[] urLs = Launcher.getBootstrapClassPath().getURLs();
+Stream.of(urLs).forEach(url -> System.out.println(url.toExternalForm()));
+```
+
+## 扩展类加载器
+
+- Extension ClassLoader
+
+- Java语言编写，由sun.misc.Launcher$ExtClassLoader实现。
+
+![](../image/java/jvm/20210605115647.png)
+
+获取扩展类加载器目录
+
+```java
+String property = System.getProperty("java.ext.dirs");
+Arrays.stream(property.split(";")).forEach(System.out::println);
+```
+
+输出：
+
+```tex
+C:\Program Files\Java\jdk1.8.0_131\jre\lib\ext
+C:\Windows\Sun\Java\lib\ext
+```
+
+## 系统类加载器
+
+- App ClassLoader
+
+## 获取类加载器途径
+
+```java
+//获取系统类加载器的类型
+ClassLoader.getSystemClassLoader();
+//获取当前类的加载器类型
+TestClassLoader.class.getClassLoader();
+//获取线程上下文的类加载器（一般为系统类加载器）
+Thread.currentThread().getContextClassLoader();
+```
+
+- String类型由于是引导类加载器加载的，所以获取classLoader是null
+
+```java
+Class.forName("java.lang.String").getClassLoader()
+```
+
+## ClassLoader分析
+
+### 常用方法
+
+- 加载全限定名为name的类
+
+```java
+public Class<?> loadClass(String name)
+```
+
+```java
+//校验当前类是否已经加载
+Class<?> c = findLoadedClass(name);
+if (c == null) {
+    long t0 = System.nanoTime();
+    try {
+        if (parent != null) {
+            //传递给父类加载器进行加载
+            c = parent.loadClass(name, false);
+        } else {
+            //尝试给bootstrap类加载器进行加载
+            c = findBootstrapClassOrNull(name);
+        }
+    } catch (ClassNotFoundException e) {
+    }
+
+    if (c == null) {
+        //父类加载器/bootstrap加载器无法加载
+        //当前类进行加载
+        long t1 = System.nanoTime();
+        c = findClass(name);
+        }
+}
+if (resolve) {
+    resolveClass(c);
+}
+return c;
+```
+
+- 根据网络地址或者全限定名获取class的二进制，获取class的实例
+
+```java
+protected Class<?> findClass(final String name)
+```
+
+- 使用byte字节解析成Class对象，一般由findClass调用
+
+```java
+protected final Class<?> defineClass(byte[] b, int off, int len)
+```
+
+- Class.forName()与ClassLoader. loadClass()的区别
+  - Class.forName()方法在将 Class 文件加载到内存的同时,会执行类的初始化。
+  - ClassLoader. loadClass()并不会执行类的初始化,直到这个类第一次使用时才进行初始化。
+
+## 双亲委派机制
+
+如果一个类加载器在接到加载类的请求时，它首先不会自己尝试去加载这个类，而是把这个请求任务委托给父类加载器去完成，依次递归，如果父类加载器可以完成类加载任务，就成功返回。只有父类加载器无法完成此加载任务时，才自己去加载。
+
+- 如果重写loadClass，可以破坏双亲委派机制，但是，自定义的ClassLoader无法加载核心类，因为jvm有保护机制
+
+- 优势
+  - 避免类的重复加载，确保一个类的全局唯一性（如：String类型只能被Bootstrap加载，不能被其他类加载器加载）
+
+## 破坏双亲委派
+
+- 重写loadClass方法
+- 线程上下文类加载器
+  - java涉及了SPI的加载就是采用这种方式
+  - 由父加载器去执行线程上下文加载器
+- 双亲委派模型的第三次“被破坏”是由于用户对程序动态性的追求而导致的。如:代码热替换(Hot Swap〉、模块热部署（Hot Deployment）等
+  - 热替换：修改程序文件立即生效（如：js）
+  - 热部署
+
+## 沙箱安全机制
+
+- 保护程序安全
+- 保护java原生的代码
+
+### 各个版本的策略
+
+- 1.0
+
+![](../image/java/jvm/20210605184052.png)
+
+
+
+## 自定义类加载器
+
+实现的两种方式：
+
+- 重写loadClass
+- 重写findClass
+
+# 调优与监控
+
+## 为什么调优
+
+- 防止出现OOM
+- 解决OOM
+- 减少full GC出现
