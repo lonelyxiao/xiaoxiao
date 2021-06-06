@@ -1826,6 +1826,10 @@ o = null;
 
 ![](../image/java/jvm/20210509174804.png)
 
+- 插件中心
+
+https://visualvm.github.io/pluginscenters.html
+
 ## jprofiler
 
 - 先装jprofiler
@@ -1848,9 +1852,47 @@ o = null;
 
 ![](../image/java/jvm/20210518233641.png)
 
-# JVM常用线上工具
+## Eclipse MAT
 
+- 主要用于查看dump文件
 
+- 下载地址：http://www.eclipse.org/downloads/download.php
+
+所能看到的信息
+
+- 所有的对象信息，包括对象实例、成员变量、存储于栈中的基本类型值和存储于堆中的其他对象的引用值。
+- 所有的类信息，包括classloader、类名称、父类、静态变量等GCRoot到所有的这些对象的引用路径
+- 线程信息，包括线程的调用栈及此线程的线程局部变量（TLS)
+
+打开文件后图示
+
+![](../image/java/jvm/20210606190415.png)
+
+### Histogram
+
+### thread overview
+
+- 出引用：从该对象出去的引用
+- 入引用：
+
+- 浅堆：对象本身的大小
+- 深堆：对象以及对象能访问的浅堆之和，即对象真实释放空间
+
+如图：A的深堆即：A+B,C因为还被B引用，所以不是A的深堆 
+
+![](../image/java/jvm/20210606224345.png)
+
+### 支配树
+
+Dominator Tree
+
+```tex
+MAT提供了一个称为支配树（Dominator Tree）的对象图。支配树体现了对象实例间的支配关系。在对象引用图中，所有指向对象B的路径都经过对象A，则认为对象A支配对象B。如果对象A是离对象B最近的一个支配对象，则认为对象A为对象B的直接支配者。支配树是基于对象间的引用图所建立的
+```
+
+如图，我们说E的支配者是C，因为想访问E，必须通过C
+
+![](../image/java/jvm/20210606232251.png)
 
 # JAVA虚拟机规范
 
@@ -3009,3 +3051,291 @@ protected final Class<?> defineClass(byte[] b, int off, int len)
 - 防止出现OOM
 - 解决OOM
 - 减少full GC出现
+
+## 性能调优步骤
+
+1. 性能监控
+
+- GC频繁
+
+2. 性能分析（开发环境）
+3. 性能调优
+
+- 适当增加内存
+- 优化代码，控制内存的使用
+
+## 性能指标
+
+1. 停顿时间
+
+![](../image/java/jvm/20210606105000.png)
+
+2. 吞吐量
+
+- 单位时间内，完成的工作量
+
+- GC中，运行用户代码的时间占总运行时间的比例
+
+3.  并发数：同一时刻，服务器实际交互的请求数
+4. 内存占用
+
+## 命令行
+
+### jps
+
+- 查看正在运行的java进程
+  - -q：只看进程id
+  - -m: 获取对应的启动的形参信息
+  - -v : 获取启动时jvm的参数，如：-Xms等
+
+```shell
+$ jps -help
+usage: jps [-help]
+       jps [-q] [-mlvV] [<hostid>]
+
+Definitions:
+    <hostid>:      <hostname>[:<port>]
+
+```
+
+```shell
+## 对应全限定名
+$ jps -l
+10616 sun.tools.jps.Jps
+4956
+9036 org.jetbrains.jps.cmdline.Launcher
+
+```
+
+### jstat
+
+常用于查看内存泄漏和垃圾回收问题
+
+```shell
+## -t ：输出时间
+## -h : -h3表示每隔3条数据打印一个表头
+jstat -<option> [-t] [-h<lines>] <vmid> [<interval> [<count>]]
+```
+
+#### option说明
+
+- class相关的
+
+```shell
+# 加载类的个数 字节数 卸载类个数 字节数 话费时间
+$ jstat -class 4956
+Loaded  Bytes  Unloaded  Bytes     Time
+ 51499 105773.3       60    56.5     349.93
+
+```
+
+- 与JIT及时编译相关的参数
+
+```shell
+## 编译的数量 失败数 
+$ jstat -compiler 4956
+Compiled Failed Invalid   Time   FailedType FailedMethod
+   34830      0       0    85.18          0
+# 打印被JIT编译的方法
+$ jstat -printcompilation 4956
+Compiled  Size  Type Method
+   35289     22    1 com/jediterm/terminal/ProcessTtyConnector read
+
+```
+
+- 垃圾回收相关的
+
+1. -gc的 GCT列如果配合 -t来使用，就能计算出 gc时间占使用时间的比例
+
+如果该比例超过20%，则说明目前堆的压力较大;如果该比例超过9o%，奥说明堆里几乎没有可用空间，随时都可能抛出OOM异常。
+
+2. -gc如果OU列一直在涨，那么可能会爆发oom的危险
+
+```shell
+# 打印内存的使用相关信息，包括s区 eden区 older区
+$ jstat -gc 4956
+## 内存空间的占比情况
+$ jstat -gcutil 4956
+## 关注gc产生的原因
+$ jstat -gccause 4956
+
+```
+
+
+
+#### interval
+
+数字，用于循环打印，每隔多少毫秒打印一次
+
+#### count
+
+用于查询的总次数
+
+```shell
+### 没隔1秒输出，输出3次
+$ jstat -class 4956 1000 3
+Loaded  Bytes  Unloaded  Bytes     Time
+ 51506 105792.0       60    56.5     349.95
+ 51506 105792.0       60    56.5     349.95
+ 51506 105792.0       60    56.5     349.95
+
+```
+
+### jinfo
+
+查看虚拟机配置参数信息，也可用于调整虚拟机的配置参数。
+
+- 如果是修改，只有  manageable类型的才能被修改
+
+```shell
+jinfo [option] <pid>
+
+where <option> is one of:
+    -flag <name>        是否使用了当前name的配置
+    -flag [+|-]<name>   使某个参数生效或者失效（boolean类型）
+    -flag <name>=<value> 设置数值类型的参数
+    -flags               显示设置过得参数
+    -sysprops            显示当前系统的属性信息
+    <no option>          to print both of the above
+    -h | -help           to print this help message
+
+```
+
+- 一些拓展参数
+
+```shell
+## 查看jvm的初始值
+java -XX:+PrintFlagsInitial 4956
+## 最终值， :=表示修改过
+java -XX:+PrintFlagsFinal 4956
+```
+
+### jmap
+
+到处内存映像文件/内存的使用情况
+
+jmap命令是在**安全点**才能执行的
+
+- -dump
+
+1. 生成java堆的快照：dump文件
+
+2. -dump:live 保存堆中存活的对象
+
+- -heap
+
+输出整个堆空间的详细信息，包括GC的使用、堆配置信息，以及内存的使用信息
+
+- -histo
+
+输出堆中对象的统计信息，包括类、实例数量和合计容量
+
+#### 导出对象的快照文件
+
+由于生成dump文件比较耗时，因此大家需要耐心等待，尤其是大内存镜像生成dump文件则需要耗费更长的时间来完成。
+
+- 手动的方式
+
+```shell
+##
+jmap -dump:format=b,file=d:\1.hprof 3676
+Dumping heap to D:\1.hprof ...
+Heap dump file created
+## 打印存活的堆空间对象
+jmap -dump:live,format=b,file=d:\2.hprof 3676
+Dumping heap to D:\2.hprof ...
+Heap dump file created
+```
+
+- 自动的方式
+
+程序在报OOM的时候，导出dump文件
+
+```shell
+-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=${目录}
+```
+
+#### 查看堆占用
+
+```shell
+### 显示那一刻堆的使用
+jmap -heap 3676
+```
+
+```shell
+## 对象占用内存的情况
+jmap -histo 3676
+```
+
+### jhat
+
+jdk自带的堆分析文件
+
+- 它一般和jmap搭配使用
+
+- 使用了jhat命令，就启动了一个http服务，端口是7000，即http://localhost:7oea就可以在浏览器里分析。
+- jdk9已经删除
+
+### jstack
+
+打印线程的快照
+
+- 线程快照就是当前虚拟机内指定进程的每一条线程正在执行的方法堆栈的集合
+
+作用：
+
+- 可用于定位线程出现长时间停顿的原因，如线程间死锁、死循环、请求外部资源导致的长时间等待等问题。这些都是导致线程长时间停顿的常见原因。当线程出现停顿时,就可以用jstack显示各个线程调用的堆栈情况。
+
+```shell
+### 故意造两个死锁线程，由此可见，Thread-1 -0 处于 blocked状态
+$ jstack 8740
+2021-06-06 16:58:24
+Full thread dump Java HotSpot(TM) 64-Bit Server VM (25.131-b11 mixed mode):
+
+"DestroyJavaVM" #16 prio=5 os_prio=0 tid=0x0000000002eae800 nid=0x2410 waiting on condition [0x0000000000000000]
+   java.lang.Thread.State: RUNNABLE
+
+"Thread-1" #15 prio=5 os_prio=0 tid=0x000000001fb84000 nid=0x3b08 waiting for monitor entry [0x000000002046f000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+"Thread-0" #14 prio=5 os_prio=0 tid=0x000000001fb7f000 nid=0x1e30 waiting for monitor entry [0x000000002036f000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+
+```
+
+- 参数信息
+  - -l : 显示锁的附加信息
+
+### jcmd
+
+它是一个多功能的工具，可以用来实现前面除了jstat之外所有命令的功能。比如:用它来导出堆、内存使用、查看Java进程、导出线程信息、执行Gc、JVM运行时间等。
+
+- jcmd -l
+  - 查看所有jvm进程
+
+- 列出 pid支持的命令
+
+```shell
+$ jcmd 2872 help
+```
+
+- jcmd pid 具体命令
+  - 根据help查出来的命令执行，获取结果
+
+### jstatd
+
+远程主机信息收集
+
+## 图形化界面
+
+- JDK自带
+
+1. jconsole:JDK自带的可视化监控工具。查看Java应用程序的运行概况、监控堆信息、永久区(或元空间）使用情况、类加载情况等
+2. Visual VM:Visual VM是一个工具，它提供了一个可视界面，用于查看Java虚拟机上运行的基于Java技术的应用程序的详细信息。
+3. JMC: Java Mission Control，内置Java Flight Recorder。能够以极低的性能开销收集]ava虚拟机的性能数据。
+
+- 第三方
+
+1. MAT: MAT(Memory Analyzer Tool)是基于Eclipse的内存分析工具，是一个快速、功能丰富的Java heap分析工具，它可以帮助我们查找内存泄漏和减少内存消耗
+2. JProfiler:商业软件，需要付费。功能强大。
+3. Arthas:libaba开源的Java诊断工具。深受开发者喜爱。
+4. Btrace:Java运行时追踪工具。可以在不停机的情况下，跟踪指定的方法调用、构造函数调用和系统内存等信息。
