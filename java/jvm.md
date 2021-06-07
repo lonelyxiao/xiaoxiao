@@ -1836,6 +1836,21 @@ https://visualvm.github.io/pluginscenters.html
 - 再在idea上装jprofiler插件
 - 在启动项目旁边有个jprofiler启动工具
 
+## 集成idea
+
+![](../image/java/jvm/20210607230120.png)
+
+![](../image/java/jvm/20210607230440.png)
+
+## 两种模式
+
+![](../image/java/jvm/20210607232903.png)
+
+- Instrumentation
+  - 对正在运行的jvm有影响
+- Sampling
+  - 类似于样本统计,每隔一定时间（5ms)将每个线程栈中方法栈中的信息统计出来
+
 ### 查看OOM
 
 - 在命令行加入命令：
@@ -1867,6 +1882,10 @@ https://visualvm.github.io/pluginscenters.html
 打开文件后图示
 
 ![](../image/java/jvm/20210606190415.png)
+
+
+
+![](../image/java/jvm/20210607201902.png)
 
 ### Histogram
 
@@ -3339,3 +3358,33 @@ $ jcmd 2872 help
 2. JProfiler:商业软件，需要付费。功能强大。
 3. Arthas:libaba开源的Java诊断工具。深受开发者喜爱。
 4. Btrace:Java运行时追踪工具。可以在不停机的情况下，跟踪指定的方法调用、构造函数调用和系统内存等信息。
+
+# 内存泄漏
+
+- 内存泄漏
+  - 程序不使用了，但是GC又不能回收它
+- 内存溢出
+
+## 内存泄漏的情况
+
+- 静态集合类
+
+```java
+static List list = new ArrayList();
+
+public void add() {
+    list.add(new Object());
+}
+```
+
+- 单例模式
+- 内部类持有外部类
+  - 如：一个对象持有一个内部类对象，那么，他的外部类则一直不能回收
+- 各种连接，如数据库、IO流等
+  - 没有关闭资源，GC是无法回收的
+- 变量不合理的作用域
+- 改变hash值
+  - 如我们往set中插入值，如果中途修改了hash值，则我们没办法再删除set中的对应这个元素了 ，则导致这个元素一直没被回收
+- 缓存泄漏
+  - 内存泄漏的另一个常见来源是缓存，一旦你把对象引用放入到缓存中，他就很容易遗忘。比如:之前项目在一次上线的时候，应用启动奇慢直到夯死，就是因为代码中会加载一个表中的数据到缓存（内存)中，测试环境只有几百条数据，但是生产环境有几百万的数据。
+- 监听器和回调
