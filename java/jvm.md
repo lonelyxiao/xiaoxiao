@@ -1836,13 +1836,13 @@ https://visualvm.github.io/pluginscenters.html
 - 再在idea上装jprofiler插件
 - 在启动项目旁边有个jprofiler启动工具
 
-## 集成idea
+### 集成idea
 
 ![](../image/java/jvm/20210607230120.png)
 
 ![](../image/java/jvm/20210607230440.png)
 
-## 两种模式
+### 两种模式
 
 ![](../image/java/jvm/20210607232903.png)
 
@@ -1866,6 +1866,24 @@ https://visualvm.github.io/pluginscenters.html
 - 查看超大对象
 
 ![](../image/java/jvm/20210518233641.png)
+
+## 内存查看
+
+- 当点击MarkCurrent之后，会将当前内存暂停，后续产生的内存变成红色
+
+![](../image/java/jvm/20210608202710.png)
+
+1.如果我们看到的count比较多，size比较大，则可能产生了死循环无限创建对象
+
+- 内存泄漏分析
+
+![](../image/java/jvm/20210608203336.png)
+
+1. 当我们点击run gc之后发现内存还未被回收，则这个对象有内存泄漏风险
+
+- 对对应的对象分析出引用和入引用
+
+![](../image/java/jvm/20210608203717.png)
 
 ## Eclipse MAT
 
@@ -1912,6 +1930,67 @@ MAT提供了一个称为支配树（Dominator Tree）的对象图。支配树体
 如图，我们说E的支配者是C，因为想访问E，必须通过C
 
 ![](../image/java/jvm/20210606232251.png)
+
+# Arthas
+
+### 安装
+
+- 下载：https://arthas.aliyun.com/arthas-boot.jar
+- 启动
+
+```shell
+$ java -jar arthas-boot.jar
+[INFO] arthas-boot version: 3.5.1
+[INFO] Found existing java process, please choose one and input the serial number of the process, eg : 1. Then hit ENTER.
+* [1]: 5924 C:\Program
+  [2]: 1288
+  [3]: 5736 org.jetbrains.jps.cmdline.Launcher
+  [4]: 3388 com.xiao.heap.TestHeap01
+##选择对应的进程选项后进入对应的操作界面
+pid        3388
+time       2021-06-08 21:26:49
+
+[arthas@3388]$
+
+```
+
+- 也可以对应进程号直接进入
+
+```shell
+$ java -jar arthas-boot.jar 11052
+[INFO] arthas-boot version: 3.5.1
+```
+
+- 查看帮助文档
+
+```shell
+$ java -jar arthas-boot.jar -h
+```
+
+### 基础命令
+
+```shell
+## 查看帮助文档
+[arthas@11052]$ help
+## 间隔500ms打印一次
+[arthas@11052]$ dashboard -i 500
+## 打印两次
+[arthas@11052]$ dashboard -n 2
+
+```
+
+### 查看源码
+
+```shell
+## 查看某个类的反编译源码
+[arthas@11052]$ jad com.xiao.heap.TestHeap01
+## 查看某个方法
+[arthas@11052]$ jad com.xiao.heap.TestHeap01 main
+```
+
+### 火焰图
+
+在追求极致性能的场景下，了解你的程序运行过程中cpu在干什么很重要，火焰图就是一种非常直观的展示cpu在程序整个生命周期过程中时间分配的工具。
 
 # JAVA虚拟机规范
 
@@ -3388,3 +3467,5 @@ public void add() {
 - 缓存泄漏
   - 内存泄漏的另一个常见来源是缓存，一旦你把对象引用放入到缓存中，他就很容易遗忘。比如:之前项目在一次上线的时候，应用启动奇慢直到夯死，就是因为代码中会加载一个表中的数据到缓存（内存)中，测试环境只有几百条数据，但是生产环境有几百万的数据。
 - 监听器和回调
+
+# JVM运行时参数
