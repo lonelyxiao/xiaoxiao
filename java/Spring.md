@@ -100,7 +100,11 @@ spring-expression:spring表达式语言
   - 依赖查找：如通过名称去查找
   - 依赖注入
 
-## java beans
+## Java Beans
+
+```tex
+JavaBean是一种特殊的类，主要用于传递数据信息，这种类中的方法主要用于访问私有的字段，且方法名符合某种命名规则。如果在两个模块之间传递信息，可以将信息封装进JavaBean中，这种对象称为“值对象”(Value Object)，或“VO”。方法比较少。这些信息储存在类的私有变量中，通过set()、get()获得。
+```
 
 ### 特性
 
@@ -111,7 +115,7 @@ spring-expression:spring表达式语言
 - 资源管理
 - 持久化
 
-## BeanInfo示例
+### JDK内省类库
 
 - 定义一个pojo类
 
@@ -125,6 +129,8 @@ public class Person {
 }
 ```
 
+#### Introspector类
+
 - 编写BeanInfo的示例
   - 可以看到打印的，多出了一个
   - name=class; propertyType=class java.lang.Class readMethod=public
@@ -133,11 +139,17 @@ public class Person {
 ```java
 public static void main(String[] args) throws IntrospectionException {
         BeanInfo beanInfo = Introspector.getBeanInfo(Person.class);
+    	//getPropertyDescriptors()，获得属性的描述，
+    	//可以采用遍历BeanInfo的方法，来查找、设置类的属性
         Arrays.stream(beanInfo.getPropertyDescriptors()).forEach(propertyDescriptor -> {
            System.out.println(propertyDescriptor.toString());
         });
     }
 ```
+
+- 打印出Person的属性信息,和**父类object信息**
+
+![](../image/java/spring/20210609175925.png)
 
 - 我们可以加上stopClass的参数，避免他向上寻找父类
 

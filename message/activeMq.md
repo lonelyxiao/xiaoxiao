@@ -2,6 +2,14 @@
 
 # 概述
 
+## 消息中间件作用
+
+- 解耦
+- 拓展性：
+- 削峰
+- 缓冲
+- 异步通信
+
 ## 特点
 
 - 完全支持JMS1.1和J2EE 1.4规范(持久化，XA消息,事务)支持多种传送协议:in-VM, TCP,SSL, NIO,UDP,JGroups,JXTA
@@ -600,7 +608,7 @@ public DefaultMessageListenerContainer jmsListener(PooledConnectionFactory jmsFa
 }
 ```
 
-# SpringBoot 整合
+# 整合SpringBoot 
 
 ## 配置
 

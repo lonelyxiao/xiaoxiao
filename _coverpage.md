@@ -1,8 +1,8 @@
-﻿![logo](https://portrait.gitee.com/uploads/avatars/user/563/1689489_aloneDr_1587613068.png!avatar200)
+﻿![logo](https://wx.qlogo.cn/mmopen/vi_32/Q0j4TwGTfTIyNIia6IFvSwtacP7OMdWaMNj430XXib1Yg0XfwWiaTMYH8PZGJh8IfdbJathqJfkOVVrUPjmgMic9BQ/132)
 
 # 小肖的笔记
 
-> 全栈学习笔记.😘😘😘😘
+> 全栈学习笔记
 
 * 前端框架：vue、angular...
 * 服务器：Linux、docker...
