@@ -2,6 +2,7 @@
 * java
 	* [java8](/java/java8.md)
 	* [java基础](/java/javaBase.md)
+	* [JVM](/java/jvm.md)
 	* [通用](/java/common.md)
 	* [mybatis](/java/mybatis.md)
 	* [MybatisPlus](/java/MybatisPlus.md)

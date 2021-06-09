@@ -1583,6 +1583,7 @@ o = null;
 
 ## Serial回收器
 
+- 高延迟
 - Serial收集器采用复制算法、串行回收和"Stop-the-World"机制的方式执行内存回收。
 - 除了年轻代之外，Serial收集器还提供用于执行老年代垃圾收集的serial old收集器。serial old收集器同样也采用了串行回收(标记-压缩算法)
   - Serial old是运行在client模式下默认的老年代的垃圾回收器
@@ -1795,8 +1796,9 @@ o = null;
 ```
 
 - -XX:+PrintGCDetails
+  - (Allocation Failure) :GC的原因
   - PSYoungGen:对应新生代垃圾回收（Parallel）
-  - PSYoungGen: 1512K->488K(1536K)：新生代内容
+  -  [PSYoungGen: 1512K->488K(1536K)] ：新生代内容，GC前后大小（新生代大小）
   - Times: user=0.06 sys=0.00, real=0.01 secs: 执行时间，系统时间，垃圾实际时间
 
 ```tex
@@ -1805,10 +1807,37 @@ o = null;
 
 ```
 
+- 由于多核的原因，一般的Gc事件中，real time是小于sys + user time的，因为一般是多个线程并发的去做Gc，所以real time是要小于sys+user time的。如果real>sys+user的话，则你的应用可能存在下列问题:IO负载非常重或者是CPU不够用。
+
 ## GC工具分析日志
+
+### gceasy
 
 1. -Xloggc:gc.log进行GC日志输出
 2. 使用工具上传文件（gcviewer/https://gceasy.io/）
+
+### gcviewer
+
+
+
+# GC的分类
+
+- 新生代收集（Minor GC / Young GC）:只是新生代（Eden\S0,s1）的垃圾收集
+- 老年代收集（Major GC / 0ld GC）:只是老年代的垃圾收集。
+  - 目前，只有CMS GC会有单独收集老年代的行为。
+- 混合收集（Mixed GC):收集整个新生代以及部分老年代的垃圾收集。
+  - 目前，只有G1 GC会有这种行为
+- 整堆收集（Full GC):收集整个java堆和方法区的垃圾收集。
+
+```tex
+什么时候触发Full GC
+
+老年代空间不足
+方法区空间不足
+大对象直接进入老年代，而老年代的可用空间不足
+```
+
+
 
 # 新时代的GC
 
@@ -3469,3 +3498,117 @@ public void add() {
 - 监听器和回调
 
 # JVM运行时参数
+
+## jvm参数类型
+
+1. 标准参数选项
+
+```shell
+## 以-开头，比较稳定，java -help可以看到对应标准
+```
+
+2. -X参数选项
+   1. 设置编译模式（禁用JIT等操作）
+   2. 设置初始堆内存等
+
+```shell
+## 使用 -X查看
+D:\git\gitee\xiaoxiao>java -X
+    -Xmixed           混合模式执行 (默认)
+    -Xint             仅解释模式执行
+    -Xbootclasspath:<用 ; 分隔的目录和 zip/jar 文件>
+```
+
+```shell
+-Xms<size>        设置初始 Java 堆大小
+-Xmx<size>        设置最大 Java 堆大小
+-Xss<size>        设置 Java 线程堆栈大小
+```
+
+3. -XX参数类型
+   1. 用户开发和调试jvm
+
+- Boolean类型格式
+
+```shell
+-XX:+option 表示启动option属性
+-XX:-option 表示启动option属性
+```
+
+- 非Boolean类型
+
+```shell
+-XX:option=param 设置option为param
+```
+
+- -XX:+PrintFlagsFinal : 输出所有参数的名称和默认值
+
+- 在程序运行中，可以用jinfo命令查看和相关的flag
+
+## 常用的参数选项
+
+- 栈
+
+```shell
+## 设置线程的栈的大小
+-Xss128k
+## 等价于
+-XX:ThreadStackSize=128k
+```
+
+- 堆内存
+
+```shell
+-Xms1024m
+-Xmx1024m
+## 设置年轻代大小，官方推荐为整个堆大小的3/8
+## 它设置的是初始值和最大大小
+-Xmn2g
+## 自动选择各个区大小比例
+## 默认是打开的，所以eden区和s区不是我们想象的8:1：1
+## 如果想要eden:s区生效，则必须关闭这个
+## 而且还需要显示的打开配置
+## -XX:SurvivorRatio=8
+-XX:+UseAdaptiveSizePolicy
+
+## 设置老年代于新生代比例，默认是2
+-XX:NewRatio=4
+```
+
+- 方法区
+
+```shell
+```
+
+- OutofMemory相关
+
+```shell
+## 出现outofMemory的时候生成dump文件
+-XX:+HeapDumpOnOutOfMemoryError
+## 发生fullGC之前生成dump文件
+-XX:+HeapDumpBeforeFullGC
+##指定生成的dump文件路径
+-XX :HeapDumpPath=d:\xxx.hprof
+## 发生oom的时候执行一个脚本
+-XX:OnOutOfMemoryError
+```
+
+## GC日志参数
+
+- -verbose:gc或-XX:+PrintGC
+  - 输出简单的日志回收日志
+- -XX:+PrintGCDetails
+  - 详细的GC日志输出
+- -XX:+PrintGCTimeStamps
+  - 输出GC发生的时间戳，必须配合Print相关参数配置
+- -XX: +PrintGCDateStamps
+  - 输出以日期为准的参数
+- -XX:+PrintHeapAtGC
+  - 打印垃圾回收之前和之后的信息
+- -Xloggc:<file>
+  - gc日志输出到文件中
+
+## 其他参数
+
+- XX:+DisableExplicitGC
+  - 禁止hotspot执行System.gc()，默认禁用
