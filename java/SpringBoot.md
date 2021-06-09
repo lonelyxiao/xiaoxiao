@@ -1419,7 +1419,7 @@ public class ListnerRegistBeanConfig {
 }
 ```
 
-## filter
+## 过滤器
 
 ```java
 @Bean
@@ -1430,6 +1430,10 @@ public FilterRegistrationBean myFilter(){
     return registrationBean;
 }
 ```
+
+## HandlerInterceptor方式
+
+
 
 # spring boot 与 dubbo
 
@@ -1769,7 +1773,7 @@ static class Generic {
 }
 ```
 
-### jdbc的自动建表
+## jdbc的自动建表
 
 原理：DataSourceInitializer回去初始化建表语句
 

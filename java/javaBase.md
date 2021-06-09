@@ -1,4 +1,4 @@
-# 泛型
+﻿# 泛型
 
 ## 元组
 
@@ -23,6 +23,8 @@ public class Tuple2<A, B> {
 
 ## 泛型擦除
 
+### 擦除概念
+
 - Java的泛型是使用擦除实现的 ，这是因为Java在编译期间，所有的泛型信息都会被擦掉
 - 因此， List<String> 和 List<Integer> 在运行时实际上是相同的类型。它们都被擦除成原生类型 List 
 - 无论两个T无论是啥类型，他们的class都是相同的
@@ -37,6 +39,8 @@ public static void main(String[] args) {
 ```
 
 ### 泛型边界
+
+- 泛型类型参数会擦除到它的第一个边界
 
 - 如下，编译器是无法通过编译的，因为 obj.f(); obj是不知道什么类型的，只有改成Manipulator2<T extends HasF>，才能通过编译，因为泛型会擦除到边界（HasF），T 擦除到了 HasF 
 
@@ -60,20 +64,25 @@ public class Manipulation {
 }
 ```
 
-- 如下，则显示false
-  - 因为编译的时候，泛型擦除到第一个边界 Integer/String
+- 字节码指令在set值的时候，编译阶段会进行校验，他的描述符是String
 
 ```java
-static class Border1<T extends Integer> {
-}
-static class Border2<T extends String> {
-}
-public static void main(String[] args) {
-    Border1<Integer> border1 = new Border1<>();
-    Border2<String> border2 = new Border2<>();
-    System.out.println(border1.getClass().equals(border2.getClass()));
+class Border2<T extends String> {
+    T t;
+    public T setT(T t){
+        this.t = t;
+        return this.t;
+    }
 }
 ```
+
+方法的描述符：
+
+```tex
+<(Ljava/lang/String;)Ljava/lang/String;>
+```
+
+
 
 # 集合
 
