@@ -541,3 +541,137 @@ public class JacksonConfig {
 
 ```
 
+# ASM
+
+ASM是一种通用Java字节码操作和分析框架。它可以用于修改现有的class文件或动态生成class文件。
+官网地址：https://asm.ow2.io/
+
+## ASM作用
+
+1. ASM 可以直接产生二进制 class 文件，也可以在类被加载入 Java 虚拟机之前动态改变类行为
+2. ASM从类文件中读入信息后，能够改变类行为，分析类信息，甚至能够根据用户要求生成新类
+
+## ASM核心类
+
+主要在:org.objectweb.asm包下
+
+1. ClassReader：解析编译过的class字节码文件
+2. ClassWriter：重新构建编译后的类，比如说修改类名、属性以及方法，甚至可以生成新的类的字节码文件
+3. ClassAdapter：该类也实现了ClassVisitor接口，它将对它的方法调用委托给另一个ClassVisitor对象
+
+## ClassVisitor方法
+
+- visit:访问类的头部
+
+```java
+public void visit(
+    final int version,
+    final int access,
+    final String name,
+    final String signature,
+    final String superName,
+    final String[] interfaces)
+    
+其中version指的是类的版本；
+acess指的是类的修饰符；
+name类的名称；
+signature类的签名，如果类不是泛型或者没有继承泛型类，那么signature为空；
+superName类的父类名称；
+```
+
+## 解析Class
+
+- 想要解析一个类，先试下ClassVisitor类
+- 这里采用了访问者模式，当访问到字节码的一般信息是，调用visit方法
+- 如果访问到字段，调用field方法
+
+```java
+public class ClassPrinter extends ClassVisitor {
+    public ClassPrinter() {
+        super(Opcodes.ASM4);
+    }
+
+    @Override
+    public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
+        System.out.println("版本:"+version);
+        System.out.println("名字："+name);
+    }
+
+    @Override
+    public FieldVisitor visitField(int access, String name, String desc, String signature, Object value) {
+        System.out.println("读取到字段："+name);
+        return super.visitField(access, name, desc, signature, value);
+    }
+
+    public static void main(String[] args) throws Exception {
+        ClassPrinter printer = new ClassPrinter();
+        ClassReader reader = new ClassReader("java.lang.String");
+        reader.accept(printer, 0);
+    }
+}
+```
+
+- 输出
+
+```tex
+版本:52
+名字：java/lang/String
+读取到字段：value
+读取到字段：hash
+读取到字段：serialVersionUID
+读取到字段：serialPersistentFields
+读取到字段：CASE_INSENSITIVE_ORDER
+```
+
+## 生成类
+
+- 通过visit方法，生成一个class的byte
+- 再通过自定义的类加载器进行加载，就可以正常的调用了
+
+```java
+ClassWriter writer = new ClassWriter(0);
+//类基本信息
+writer.visit(V1_5, ACC_PUBLIC + ACC_ABSTRACT + ACC_INTERFACE,
+        "pkg/Comparable", null, "java/lang/Object",
+        null);
+//添加字段
+writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, "LESS", "I",
+        null, new Integer(-1)).visitEnd();
+writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, "EQUAL", "I",
+        null, new Integer(0)).visitEnd();
+writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, "GREATER", "I",
+        null, new Integer(1)).visitEnd();
+//添加方法
+writer.visitMethod(ACC_PUBLIC + ACC_ABSTRACT, "compareTo",
+        "(Ljava/lang/Object;)I", null, null).visitEnd();
+writer.visitEnd();
+byte[] b = writer.toByteArray();
+//使用自定义类加载器加载
+MyClassLoader loader = new MyClassLoader();
+Class newClass = loader.defineClass("pkg.Comparable", b);
+System.out.println(newClass.getMethods()[0].getName());
+```
+
+## 给Class添加字段
+
+- 反编译ClassPrinter_0可以发现多了一个String类型的Str字段
+
+```java
+byte[] bytes = FileUtil.readBytes(ClassLoader.getSystemClassLoader()
+        .getResource("")
+        .getPath() + "/com/xiao/asm/ClassPrinter.class");
+
+ClassWriter writer = new ClassWriter(0);
+ClassVisitor visitor = new ClassVisitor(Opcodes.ASM4, writer) {
+    @Override
+    public void visitEnd() {
+        //添加一个字段
+       FieldVisitor field = cv.visitField(Opcodes.ACC_PUBLIC, "str", "Ljava/lang/String;", null, null);
+                field.visitEnd();
+    }
+};
+ClassReader reader = new ClassReader(bytes);
+reader.accept(visitor, 0);
+byte[] byteArray = writer.toByteArray();
+FileUtil.writeBytes(byteArray, "ClassPrinter_0.class");
+```

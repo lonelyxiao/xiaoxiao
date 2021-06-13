@@ -3,7 +3,8 @@
 
 netty是一个基于异步的，基于事件的网络应用框架
 
-- 基于一个事件，这个事件可能是连接，或者断开
+- 基于一个事件，这个事件可能是连接，或者断开,然后寻找对应的方法做对应的事情
+- 异步：在服务器操作一些事情的时候，客户端不等待。等服务器有响应的时候进行回调
 
 
 # IO模型
@@ -13,14 +14,15 @@ netty是一个基于异步的，基于事件的网络应用框架
 - 阻塞型io
 - 一个线程对应一个连接,并发量上来了，线程开销就大了
 
-![](../image/java/Netty/20200729222717.jpg)
+![](../../image/java/netty/20200729222717.jpg)
 
 代码解析
+
+- 来一个连接启动一个线程
 
 ```java
 @Slf4j
 public class TestBio {
-
     public void createCocket() throws Exception {
         //创建一个线程池，维护连接进来的通讯
         ExecutorService executorService = Executors.newCachedThreadPool();
@@ -71,7 +73,8 @@ public class TestBio {
 }
 ```
 
-telnet 127.0.0.1 8000
+- 测试BIO的端口
+  - telnet 127.0.0.1 8000
 
 ```shell
 Escape 字符为 'CTRL+]'
@@ -89,22 +92,24 @@ Microsoft Telnet>
 ## NIO
 
 - 同步非阻塞
-
 - server端启动一个线程，线程维护一个selector
 - selector一直轮询，查询通道有没有连接事件
+- 一个selector负责拖个channel
 - 也可以有多个线程维护selector
 - 适合连接数多且连接比较短，如聊天服务器，弹幕系统，
 
-![](../image/java/Netty/20200729223449.png)
+![](../../image/java/netty/20200729223449.png)
 
 ### 介绍
 
 - NIO有三个核心部分channel(通道)， buffer(缓冲区), selector(选择器)
 - 每一个channel对应一个buffer，channel可以通过buffer进行读写，程序只与buffer进行交互
 
-![](../image/java/Netty/20200731085919.png)
+![](../../image/java/netty/20200731085919.png)
 
 ### Buffer
+
+- 当向buffer写入数据时，buffer会记录下写了多少数据。一旦要读取数据，需要通过flip()方法将Buffer从写模式切换到读模式。在读模式下，可以读取之前写入到buffer的所有数据
 
 以intbuffer为例
 
@@ -143,12 +148,23 @@ private int limit;
 private int capacity;
 ```
 
+#### MappedByteBuffer
+
+能够直接在内存中进行修改，操作系统不需要再拷贝一次
+
+#### Buffer 分散聚合
+
+- scattering : 将数据写入buffer时，采用buffer数组依次写入
+  - channel.read(buffers[])
+- gathering： 从buffer读数据，采用buffer数组，依次读
+  - channel.write(buffers[])
+
 ### Channel
 
-- 可以同时读写
-- 可以一步读写数据
+- 既可以从通道中读取数据，又可以写数据到通道。但流的读写通常是单向的
+- 通道中的数据总是要先读到一个Buffer，或者总是要从一个Buffer中写入
 
-![](../image/java/Netty/20200803231057.jpg)
+![](../../image/java/netty/20200803231057.jpg)
 
 - FileChannel  用来对本地文件进行IO操作
 
@@ -178,20 +194,10 @@ public static void main(String[] args) throws Exception {
 }
 ```
 
-### MappedByteBuffer
-
-能够直接在内存中进行修改，操作系统不需要再拷贝一次
-
-### Buffer 分散聚合
-
-- scattering : 将数据写入buffer时，采用buffer数组依次写入
-  - channel.read(buffers[])
-- gathering： 从buffer读数据，采用buffer数组，依次读
-  - channel.write(buffers[])
-
 ### Selector
 
-- 一般称 为选择器 ，当然你也可以翻译为 多路复用器 。它是Java NIO核心组件中的一个，用于检查一个或多个NIO Channel（通道）的状态是否处于可读、可写。如此可以实现单线程管理多个channels,也就是可以管理多个网络链接
+- 一般称 为选择器 ,也可以翻译为 多路复用器 。
+- 它是用于检查一个或多个NIO Channel（通道）的状态是否处于可读、可写。如此可以实现单线程管理多个channels,也就是可以管理多个网络链接
 - 当有事件发生时，返回select Key 数组，通过selectKey可以获取对应channel
 
 对应方法
@@ -210,7 +216,7 @@ Set<SelectionKey> keys = selector.keys();
 
 ```
 
-### Selector Key
+#### Selector Key
 
 ```java
 //有新的网络连接
@@ -223,21 +229,22 @@ SelectionKey.OP_READ
 SelectionKey.OP_WRITE
 ```
 
-
-
 ### NIO网络编程原理
 
 - 客户端连接，通过serversocketChannel 得到 socketChannel
 
 - socketChannel注册到selector上
 
-![](../image/java/Netty/20200811213415.jpg)
+![](../../image/java/netty/20200811213415.jpg)
 
 - NIO server
 
 
 
-### NIO网络代码
+### NIO代码示例
+
+#### 服务器端
+
 ServerSocketChannel：负责监听客户端连接
 SocketChannel：负责读写操作
 
@@ -261,7 +268,8 @@ public static void main(String[] args) throws IOException {
         //获取发生的事件集合
         Iterator<SelectionKey> keys = selector.selectedKeys().iterator();
         while (keys.hasNext()) {
-            SelectionKey key = keys.next();
+            SelectionKey key = keys.next();            
+            keys.remove();
             //如果是连接事件，注册读事件,并关联一个buffer
             if(key.isAcceptable()){
                 //有新的客户端连接，注册一个生成一个socket，注册一个读事件
@@ -275,11 +283,12 @@ public static void main(String[] args) throws IOException {
                 channel.read(buffer);
                 System.out.println("客户端传来： "+ new String(buffer.array()));
             }
-            keys.remove();
         }
     }
 }
 ```
+
+#### 客户端
 
 ```java
 public static void main(String[] args) throws Exception {
@@ -287,10 +296,8 @@ public static void main(String[] args) throws Exception {
     Selector selector = Selector.open();
     //打开套字接通道
     SocketChannel channel = SocketChannel.open();
-
     //设置非阻塞
     channel.configureBlocking(false);
-    ;
     //注册通道，设置为链接就绪
     channel.register(selector, SelectionKey.OP_CONNECT);
     //绑定IP，端口
@@ -336,13 +343,13 @@ public static void main(String[] args) throws Exception {
 
 - 用户状---》 内核状
 
-![](../image/java/Netty/20200827085524.png)
+![](../../image/java/netty/20200827085524.png)
 
 ## sendFile优化
 
 零拷贝指没有cpu拷贝,NIO中使用transferTo操作
 
-![](../image/java/Netty/20200827090309.png)
+![](../../image/java/netty/20200827090309.png)
 
 1. DMA拷贝，将数据从硬盘拷贝到kernel buffer 
 2. DMA拷贝，将数据从kernel buffer拷贝到protocol engine
@@ -353,9 +360,11 @@ public static void main(String[] args) throws Exception {
 ## 线程模型
 
 - 传统阻塞IO模型
+  - 每个客户端都创建线程请求
+  - 当服务器端的数据没有可读时，处于阻塞状态
   - 当并发数越大，服务器端线程越多
 
-![](D:\git\gitee\xiaoxiao\image\java\Netty\20200831090701.png)
+![](../..\image\java\netty\20210613125141.jpg)
 
 - Reactor模式
 
@@ -363,7 +372,7 @@ Reactor模式是处理并发I/O常见的一种模式，用于同步I/O，其中�
 
 - 单reactor单线程
 
-![](../image/java/Netty/20200901084951.jpg)
+![](../../image/java/netty/20200901084951.jpg)
 
 - 单reactor多线程
   - reactor监控客户端请求
@@ -372,7 +381,7 @@ Reactor模式是处理并发I/O常见的一种模式，用于同步I/O，其中�
   - handler只负责响应，不做业务处理
   - worker线程池分配独立线程池完成真正的业务,并将结果返回handler
 
-![](../image/java/Netty/20200901090022.jpeg)
+![](../../image/java/Netty/20200901090022.jpeg)
 
 - 主从reactor多线程
   - 可以让reactor在多线程中运行
@@ -395,18 +404,18 @@ Reactor模式是处理并发I/O常见的一种模式，用于同步I/O，其中�
 
 - 当Worker线程监听到selector 中通道发生自己感兴趣的事件后，就进行处理(就由handler)， 注意handler 已经加入到通道。
 
-![](../image/java/Netty/20200902084032.png)
+![](../../image/java/netty/20200902084032.png)
 
 ### 详细版
 
 - 两组group，这两个group都属于NIOEventLoopGroup
   - boss  负责客户端连接
   - worker  负责网络读写 
-- NIOEventLoop表示不断循环的执行处理任务的 线程
+- NIOEventLoop表示不断循环的执行处理任务的 线程, 每个NIOEventLoopGroup都有一个Selector，同于监听其绑定的socket网络通道（channel）
 - NIOEventLoopGroup可以有多个NIOEventLoop（多个线程）
 - 处理业务时，会使用pipeline
 
-![](../image/java/Netty/20200902084801.jpg)
+![](../../image/java/netty/20200902084801.jpg)
 
 ## TCP代码
 
@@ -521,13 +530,19 @@ public class NettyClientHandler extends ChannelInboundHandlerAdapter {
 
 ## 源码分析
 
-### NioEventLoopGroup的工作线程
+### 工作线程
 
-- NioEventLoopGroup默认的线程数是：cpu核心数*2，new NioEventLoopGroup构造方法默认使用了NettyRuntime.availableProcessors() * 2
+- NioEventLoopGroup默认的子线程线程数是：cpu核心数*2，new NioEventLoopGroup构造方法默认使用了NettyRuntime.availableProcessors() * 2
 
   如果构造参数有值，则使用构造参数的线程数
 
-- LoppGroup使用EventExecutor来管理线程
+![](../../image/java/netty/20210613130404.png)
+
+- **不过我们一般bossGroup设置为1个**
+
+- workgroup里面的线程分配客户端是循环分配的过程，如果分配满了，又从头开始分配
+
+- LoopGroup使用EventExecutor来管理线程
 
 - group包含多个NioEventLoop
 
@@ -535,17 +550,24 @@ public class NettyClientHandler extends ChannelInboundHandlerAdapter {
   - 一个selector可以注册多个NioChannel
   - 每个NioChannel只会绑定他对应的selector上（N:1）
 
+![](../../image/java/netty/20210613160350.png)
+
   
 
-### Handler上下文分析
+### 上下文分析
 
-- pipeline本质是一个双向链表（包含head和tail）
+- 每个context包含一个pipeline和channel
+- channel中包含了pipeline
+
+![](../../image/java/netty/20210613162309.png)
+
+- pipeline本质是一个双向链表（包含head和tail）,也包含了channel
 
 ## 异步执行
 
 服务器端中，如果handler中的执行业务时间很久，就会与客户端阻塞
 
-- 解决方案1：使用eventloop中的taskqueue执行
+1. 解决方案1：使用eventloop中的taskqueue执行(用户程序自定义的普通任务)
 
 ```java
 @Override
@@ -561,13 +583,12 @@ public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception 
 }
 ```
 
-## 定时执行
+2. 解决方案2：用户定时任务（提交到scheduleTaskQueue中执行）
 
 - 新建 runnable 用于执行调度
-- 稍后执行
-- 五秒之后执行
 
 ```java
+//延时5秒执行
 ctx.channel().eventLoop().schedule(() -> {
     try {
         Thread.sleep(1*1000);
@@ -578,10 +599,20 @@ ctx.channel().eventLoop().schedule(() -> {
 }, 5, TimeUnit.SECONDS);
 ```
 
+3. 解决方案3：非当前Reactor线程调用Channel的各种方法
+
+
+
 ## netty异步模型
 
 - Netty的异步模型是建立在future上的
-- 例如：添加一个监听，判断是否绑定端口成功
+- 异步过程，调用者不能马上获取结果，等处理组件处理完后，通过状态、通知、回调来通知调用者
+
+- Netty中的I/O操作是异步的，包括Bind、Write、Connect等操作会简单的返回一个ChannelFuture.
+- Netty的异步模型是建立在future和 callback的之上的。
+- ChannelFuture是一个接口，我们可以在此添加监听器
+
+例如：添加一个监听，判断是否绑定端口成功
 
 ```java
 //绑定一个端口并且同步
@@ -593,7 +624,7 @@ sync.addListener((future) -> {
 });
 ```
 
-# http服务
+# 搭建Http服务
 
 ```java
 public static void main(String[] args) {
@@ -667,25 +698,93 @@ public class HttpServerHandler extends SimpleChannelInboundHandler<HttpObject> {
 
 ## 常用组件
 
-- ServerBootstrap，Bootstrap 
-  - 用于设置eventLoop
-  - channel:设置服务器端通道的实现
-  - optionL 给serverchannel添加配置
-  - childHandler: 用于添加workergroup对应的自定义的handler
-  - handler：添加bossgroup对应的handler
-- Channel
-  - channel类型与协议有关
-- Selector
-- ChannelHandler
-ChannelInboundHandler:负责出站
-ChannelOutboundHandler: 负责入站
-![](../image/java/Netty/20200920104532.png)
+### ServerBootstrap，Bootstrap 
 
-- PipeLine
+1. 意思是引导，一个Netty应用通常由一个Bootstrap开始，主要作用是配置整个Netty程序，串联各个组件，Netty中 Bootstrap类是客户端程序的启动引导类
+2. ServerBootstrap是服务端启动引导类
+
+- 用于设置EventLoopGroup
+
+```java
+EventLoopGroup bossGroup = new NioEventLoopGroup(1);
+EventLoopGroup workGroup = new NioEventLoopGroup();
+try {
+    ServerBootstrap bootstrap = new ServerBootstrap();
+    bootstrap.group(bossGroup, workGroup)
+```
+
+- channel:设置服务器端通道的实现
+
+```java
+.channel(NioServerSocketChannel.class)
+```
+
+- option 给serverchannel添加配置
+
+```java
+//设置线程队列得到的连接数
+                .option(ChannelOption.SO_BACKLOG, 128)
+```
+
+- childHandler: 用于添加workergroup对应的自定义的handler
+
+```java
+//设置一个处理事情的工作handler
+.childHandler(new ChannelInitializer<SocketChannel>() {
+    @Override
+    protected void initChannel(SocketChannel socketChannel) throws Exception {
+        socketChannel.pipeline().addLast(new NettyServerScheduleHandler()).addLast();
+    }
+});
+```
+
+- handler：添加bossgroup对应的handler
+
+### Channel
+
+- Netty 网络通信的组件，能够用于执行网络I/O操作
+- 通过Channel可获得当前网络连接的通道的状态
+- 通过Channel可获得网络连接的配置参数（例如接收缓冲区大小)
+- Channel提供异步的网络l/О操作(如建立连接，读写，绑定端口)
+
+- channel类型与协议有关
+
+### Selector
+
+- Netty基于Selector对象实现I/O多路复用，通过Selector一个线程可以监听多个连接的Channel事件。
+- 当向一个Selector中注册 Channel后，Selector内部的机制就可以自动不断地查询(Select)这些注册的Channel是否有已就绪的l/O事件（例如可读，可写，网络连接完成等)，这样程序就可以很简单地使用一个线程高效地管理多个Channel
+
+### ChannelHandler
+
+- ChannelHandler是一个接口，处理I/O事件或拦截I/О操作，并将其转发到其ChannelPipeline(业务处理链)中的下一个处理程序。
+
+ChannelInboundHandler:负责出站（客户端发送到服务器端）
+
+```tex
+//通道就绪事件
+ChannelInboundHandlerAdapter#channelActive
+//通道读取事件
+ChannelInboundHandlerAdapter#channelRead
+//读取完成
+ChannelInboundHandlerAdapter#channelReadComplete
+//通道发生异常
+ChannelInboundHandlerAdapter#exceptionCaught
+```
+
+
+
+ChannelOutboundHandler: 负责入站
+![](../../image/java/Netty/20200920104532.png)
+
+### PipeLine
+
+ChannelPipeline：
+
+- 也可以这样理解:ChannelPipeline是保存ChannelHandler的 List，用于处理或拦截Channel的入站事件和出站操作
 
 pipeline是一个包含头和尾的类似双向链表
 
-![](../image/java/Netty/20200920111503.jpg)
+![](../../image/java/Netty/20200920111503.jpg)
 
 # 心跳机制
 
@@ -713,7 +812,7 @@ try {
                     pipeline.addLast(new IdleStateServerHandler());
                 }
             });
-    log.debug("===>聊天服务器端启动");
+    log.debug("==>聊天服务器端启动");
     ChannelFuture sync = bootstrap.bind(this.port).sync();
     sync.channel().closeFuture().sync();
 } finally {
@@ -934,4 +1033,5 @@ NioEventLoopGroup对象可以理解为一个线程池，内部维护了一组线
 ## Google 的 ProtoBuf
 
 =======
+
 >>>>>>> origin/master
