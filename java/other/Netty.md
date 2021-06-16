@@ -815,95 +815,6 @@ ctx.channel().eventLoop().schedule(() -> {
 
 3. 解决方案3：非当前Reactor线程调用Channel的各种方法
 
-## netty异步模型
-
-- Netty的异步模型是建立在future上的
-- 异步过程，调用者不能马上获取结果，等处理组件处理完后，通过状态、通知、回调来通知调用者
-- Netty中的I/O操作是异步的，包括Bind、Write、Connect等操作会简单的返回一个ChannelFuture.
-- Netty的异步模型是建立在future和 callback的之上的。
-- ChannelFuture是一个接口，我们可以在此添加监听器
-
-例如：添加一个监听，判断是否绑定端口成功
-
-```java
-//绑定一个端口并且同步
-ChannelFuture sync = bootstrap.bind(6666).sync();
-sync.addListener((future) -> {
-    if(future.isSuccess()) {
-        System.out.println("绑定端口 6666 成功....");
-    }
-});
-```
-
-# 搭建Http服务
-
-```java
-public static void main(String[] args) {
-    EventLoopGroup bossGroup = new NioEventLoopGroup(1);
-    EventLoopGroup workGroup = new NioEventLoopGroup();
-    try {
-        ServerBootstrap bootstrap = new ServerBootstrap();
-        bootstrap.group(bossGroup, workGroup)
-                .channel(NioServerSocketChannel.class)
-                .childHandler(new HttpServerInitializer());
-        ChannelFuture channelFuture = bootstrap.bind(new InetSocketAddress(6666)).sync();
-        channelFuture.channel().closeFuture().sync();
-    } catch (Exception e) {
-
-    } finally {
-        bossGroup.shutdownGracefully();
-        bossGroup.shutdownGracefully();
-    }
-}
-```
-
-```
- * @Description 在某个Channel注册到EventLoop后，对这个Channel执行一些初始化操作
- * @createTime 2020年09月16日 09:23:00
- */
-public class HttpServerInitializer extends ChannelInitializer<SocketChannel> {
-    /**
-     * 向管道加入处理器
-     * @param socketChannel
-     * @throws Exception
-     */
-    @Override
-    protected void initChannel(SocketChannel socketChannel) throws Exception {
-        ChannelPipeline pipeline = socketChannel.pipeline();
-        pipeline.addLast("httpServerCodec", new HttpServerCodec());
-        pipeline.addLast("httpServerHandler", new HttpServerHandler());
-    }
-}
-```
-
-```java
-* @Description HttpObject:客户端与服务器端通讯的工具封装成：HttpObject
- * @createTime 2020年09月16日 09:38:00
- */
-@Slf4j
-public class HttpServerHandler extends SimpleChannelInboundHandler<HttpObject> {
-
-    /**
-     * 读取数据
-     * @param ch
-     * @param object
-     * @throws Exception
-     */
-    @Override
-    protected void channelRead0(ChannelHandlerContext ch, HttpObject object) throws Exception {
-        if(object instanceof HttpRequest) {
-            log.debug("msg: {} ", object.getClass());
-            log.debug("客户端地址: {} ", ch.channel().remoteAddress());
-            ByteBuf content = Unpooled.copiedBuffer("netty, 服务器", CharsetUtil.UTF_8);
-
-            DefaultFullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK, content);
-            response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/plain; charset=UTF-8");
-            response.headers().set(HttpHeaderNames.CONTENT_LENGTH, content.readableBytes());
-            ch.writeAndFlush(response);
-        }
-    }
-}
-```
 
 # Netty核心组件
 
@@ -1027,6 +938,81 @@ ChannelInboundHandlerAdapter#exceptionCaught
 ChannelOutboundHandler: 负责入站
 ![](../../image/java/Netty/20200920104532.png)
 
+- 出站入站的顺序
+
+1. 调用顺序：head -> i1 ->i2 -> o4 -> o3 -> tail
+
+```java
+ch.pipeline().addLast("I1",new ChannelInboundHandlerAdapter() {
+    @Override
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+        log.debug("I1");
+        super.channelRead(ctx,msg);
+    }
+});
+ch.pipeline().addLast("I2",new ChannelInboundHandlerAdapter() {
+    @Override
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+        log.debug("I2");
+        super.channelRead(ctx,msg);
+        ctx.channel().writeAndFlush(ctx.alloc().buffer().writeBytes("server...".getBytes()));
+    }
+});
+ch.pipeline().addLast("o3",new ChannelOutboundHandlerAdapter() {
+    @Override
+    public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
+        log.debug("o3");
+        super.write(ctx,msg,promise);
+    }
+});
+ch.pipeline().addLast("o4",new ChannelOutboundHandlerAdapter() {
+    @Override
+    public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
+        log.debug("o4");
+        super.write(ctx,msg,promise);
+    }
+});
+```
+
+- super.channelRead(ctx,msg);表示将数据处理好后，交给下一个入站处理器
+- out通道中，必须要有数据，才会触发
+
+- writeAndFlush的调用方式不同，则处理结果也不同，如：
+
+1. ctx调用，他是从当前节点往前找有没有出站handler
+   1. 假如代码顺序是： i1 -> o3 -> i2 ->o4，则此时，I2往前调用用，只发现了o3是out可以调用
+
+```java
+log.debug("I2");
+super.channelRead(ctx,msg);
+ctx.writeAndFlush(ctx.alloc().buffer().writeBytes("server...".getBytes()));
+```
+
+2. channel调用，则是tail节点往前推送，发现out则调用
+
+### 测试Handller
+
+- 在开发中，启动服务端很耗时，可以借助netty提供的工具来测试handler的出站和入站
+
+```java
+EmbeddedChannel embeddedChannel = new EmbeddedChannel(i1, i2, o3, o4);
+//测试入站操作
+embeddedChannel.writeInbound(ByteBufAllocator.DEFAULT.buffer().writeBytes("hello".getBytes()));
+//测试出站
+embeddedChannel.writeOutbound(ByteBufAllocator.DEFAULT.buffer().writeBytes("hello".getBytes()));
+```
+
+### 线程安全的Handller
+
+- netty在他内置的handler里标记了一个注解，表示这个handler是可以共享的
+
+如：
+
+```java
+@Sharable
+public class LoggingHandler
+```
+
 ### PipeLine
 
 ChannelPipeline：
@@ -1066,7 +1052,267 @@ ChannelOutboundInvoker#flush
 - 当客户端的一个channel和服务端的EventLoop建立绑定，那么，服务器处理这个channel的EventLoop则一直是同一个
 - boss EventLoop只会ServerSocketChannel绑定
 
-# Unpooled 
+### 额外的线程组处理业务
+
+- 有时候，一个handler执行的业务时间特别长，这时，肯定会影响同一个EventLoop的其他channel的工作，此时，我们需要将此业务放入一个非IO的EventLoop中，防止它影响其他channel的使用
+- 如下，我们造DefaultEventLoopGroup一个线程组，让handler2在其上执行，注意，需要调用ctx.fireChannelRead(msg);将消息传递这个里面
+
+```java
+//非IO的线程组
+EventLoopGroup defaultEventLoop = new DefaultEventLoopGroup();
+new ServerBootstrap()
+        .group(new NioEventLoopGroup(1), new NioEventLoopGroup())
+        .channel(NioServerSocketChannel.class)
+        .childHandler(new ChannelInitializer<NioSocketChannel>() {
+            @Override
+            protected void initChannel(NioSocketChannel ch) throws Exception {
+                ch.pipeline().addLast("handler1",new ChannelInboundHandlerAdapter() {
+                    @Override
+                    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+                        log.debug("handler1 进入 : {}", Thread.currentThread().getName());
+                        //将消息传递给下一个handler
+                        ctx.fireChannelRead(msg);
+                    }
+                });
+                ch.pipeline().addLast(defaultEventLoop, "handler2", new ChannelInboundHandlerAdapter() {
+                    @Override
+                    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+                        log.debug("handler2 是个很长的业务 {}", Thread.currentThread().getName());
+                    }
+                });
+            }
+        }).bind(80);
+```
+
+- 如图
+
+![](../../image/java/netty/0041.png)
+
+### handler切换源码
+
+- io.netty.channel.AbstractChannelHandlerContext#invokeChannelRead(io.netty.channel.AbstractChannelHandlerContext, java.lang.Object)
+
+```java
+//获取msg信息
+final Object m = next.pipeline.touch(ObjectUtil.checkNotNull(msg, "msg"), next);
+//获取下一个handler
+EventExecutor executor = next.executor();
+//判断是否是同一个执行eventloop
+if (executor.inEventLoop()) {
+    next.invokeChannelRead(m);
+} else {
+    //不是，调用的代码封装为一个任务对象，由下一个 handler 的线程来调用
+    executor.execute(new Runnable() {
+        @Override
+        public void run() {
+            next.invokeChannelRead(m);
+        }
+    });
+}
+```
+
+## 异步模型
+
+- Netty的异步模型是建立在future上的
+- 异步过程，调用者不能马上获取结果，等处理组件处理完后，通过状态、通知、回调来通知调用者
+- Netty中的I/O操作是异步的，包括Bind、Write、Connect等操作会简单的返回一个ChannelFuture.
+- Netty的异步模型是建立在future和 callback的之上的。
+- ChannelFuture是一个接口，我们可以在此添加监听器
+
+例如：添加一个监听，判断是否绑定端口成功
+
+```java
+//绑定一个端口并且同步
+ChannelFuture sync = bootstrap.bind(6666).sync();
+sync.addListener((future) -> {
+    if(future.isSuccess()) {
+        System.out.println("绑定端口 6666 成功....");
+    }
+});
+```
+
+### Connect说明
+
+- 这段代码是异步非阻塞的
+- main线程调用，真正去建立连接的是NIO相关的线程
+
+```java
+bootstrap.connect("127.0.0.1", 80)
+```
+
+- sync表示，mian线程等待nio线程建立连接后，返回结果
+
+```java
+bootstrap.connect("127.0.0.1", 80).sync()
+```
+
+- 如果不想使用sync的方式获取channel，亦可以采用监听的方式
+
+```java
+ChannelFuture future = bootstrap.connect("127.0.0.1", 80);
+future.addListener(new ChannelFutureListener() {
+    @Override
+    public void operationComplete(ChannelFuture future) throws Exception {
+        Channel channel = future.channel();
+        log.debug("channel：{}", channel);
+        channel.writeAndFlush("我是监听发过来的");
+    }
+});
+```
+
+### Channel关闭
+
+1. 通过监听的方式获取关闭事件
+
+```java
+Channel channel = future.sync().channel();
+new Thread(() -> {
+    Scanner scanner = new Scanner(System.in);
+    String next = scanner.next();
+    if("q".equals(next)) {
+        channel.close();
+    }
+}).start();
+ChannelFuture channelFuture = channel.closeFuture();
+channelFuture.addListener(closeFuture -> {
+    log.debug("channel 已关闭..");
+});
+```
+
+2. 通过 channelFuture.syn的方式
+
+### 优雅的停止EventLoop组
+
+```java
+loopGroup.shutdownGracefully();
+```
+
+### 异步的好处
+
+- 异步并没有缩短响应时间，反而有所增加
+- 合理进行任务拆分，也是利用异步的关键
+- 它提升的是单位时间内，处理的连接数的提升（吞吐量）
+
+## Future & Promise
+
+###   Jdk Future
+
+```java
+ExecutorService threadPool = Executors.newFixedThreadPool(2);
+Future<Integer> future = threadPool.submit(() -> {
+    log.debug("进入future中...");
+    Thread.sleep(1000);
+    return 10;
+});
+log.debug("准备获取结果...");
+Integer integer = future.get();
+log.debug("获取到结果...");
+```
+
+- future.get():异步阻塞的获取结果
+
+### Netty Future
+
+```java
+DefaultEventLoopGroup loopGroup = new DefaultEventLoopGroup();
+EventLoop eventLoop = loopGroup.next();
+Future<Integer> future = eventLoop.submit(() -> {
+    log.debug("进入future中...");
+    Thread.sleep(1000);
+    return 10;
+});
+log.debug("准备获取结果...");
+log.debug("获取到结果 {}...", log.getName());
+```
+
+- getNow:获取任务结果，非阻塞，还未产生结果时返回 null  
+- await:等待任务结束，如果任务失败，不会抛异常，而是通过 isSuccess 判断  
+- sync:等待任务结束，如果任务失败，抛出异常  
+- addLinstener: 添加回调，异步接收结果  
+
+### Promise
+
+- 它相当于一个容器，一个线程往这个里面设置数据，另一个线程从中取数据
+
+```java
+EventLoop eventLoop = new DefaultEventLoopGroup().next();
+Promise<Integer> promise = new DefaultPromise<>(eventLoop);
+new Thread(() -> {
+    log.debug("开始计算结果设置数据进入promise");
+    promise.setSuccess(100);
+}).start();
+log.debug("获取结果中....");
+log.debug("获取到结果：{} ...", promise.get());
+```
+
+- setFailure:设置失败结果
+
+# ByteBuf
+
+- 创建
+
+```java
+//创建初始容量为10
+ByteBuf buffer = ByteBufAllocator.DEFAULT.buffer(10);
+```
+
+- 直接内存 vs 堆内存
+
+```java
+ByteBuf buffer = ByteBufAllocator.DEFAULT.heapBuffer(10);
+//默认使用的直接内存
+ByteBuf buffer = ByteBufAllocator.DEFAULT.directBuffer(10);
+```
+
+## 池化功能
+
+- 池化的最大意义在于可以重用 ByteBuf（有点类似连接池的思想）
+
+- 池化功能是否开启，可以通过下面的系统环境变量来设置
+
+  ```java
+  -Dio.netty.allocator.type={unpooled|pooled}
+  ```
+
+- 4.1 以后，非 Android 平台默认启用池化实现，Android 平台启用非池化实现
+
+- 4.1 之前，池化功能还不成熟，默认是非池化实现
+
+## 结构
+
+- bytebuf由四个部分组成，它读写分为两个指针，这样就不用flip了
+- 最开始读写指针都在 0 位置
+
+![](../../image/java/netty/0010.png)
+
+## 扩容
+
+再写入一个 int 整数时，容量不够了（初始容量是 10），这时会引发扩容
+
+```java
+buffer.writeInt(6);
+log(buffer);
+```
+
+扩容规则是
+
+* 如何写入后数据大小未超过 512，则选择下一个 16 的整数倍，例如写入后大小为 12 ，则扩容后 capacity 是 16
+* 如果写入后数据大小超过 512，则选择下一个 2^n，例如写入后大小为 513，则扩容后 capacity 是 2^10=1024（2^9=512 已经不够了）
+* 扩容不能超过 max capacity 会报错
+
+## 内存回收
+
+- UnpooledHeapByteBuf 使用的是 JVM 内存，只需等 GC 回收内存即可
+- UnpooledDirectByteBuf 使用的就是直接内存了，需要特殊的方法来回收内存
+- PooledByteBuf 和它的子类使用了池化机制，需要更复杂的规则来回收内存
+
+Netty 这里采用了**引用计数法**来控制回收内存，每个 ByteBuf 都实现了 ReferenceCounted 接口
+
+- netty中，有head和tail对ByteBuf进行回收，如果中间有没传到这两个hanlder的bytebuf，则需要自己进行回收
+
+## Unpooled 
+
+- 提供了非池化的 ByteBuf 创建、组合、复制等操作
 
 - 通过两个指针，readerIndex与writerIndex分别指向已经读到的位置和写入的位置，比JDK提供的ByteBuffer 省了flip操作
 
@@ -1085,13 +1331,55 @@ for(int i=0; i<buffer.capacity(); i++) {
 - readerindex---writerIndex , 可读的区域
 - writerIndex -- capacity,可写的区域
 
-## Unpooled相关Api
+### Unpooled相关Api
 
 ```tex
 ## 创建一个buff
 Unpooled#copiedBuffer(byte[])
 ## 返回当前数组内容
 ByteBuf#array
+```
+
+## ByteBuf 优势
+
+* 池化 - 可以重用池中 ByteBuf 实例，更节约内存，减少内存溢出的可能
+* 读写指针分离，不需要像 ByteBuffer 一样切换读写模式
+* 可以自动扩容
+* 支持链式调用，使用更流畅
+* 很多地方体现零拷贝，例如 slice、duplicate、CompositeByteBuf
+
+# Netty中的零拷贝
+
+## slice
+
+对原始 ByteBuf 进行切片成多个 ByteBuf，切片后的 ByteBuf 并没有发生内存复制，还是使用原始 ByteBuf 的内存
+
+- 此时，buf1/buf2和buf是同一内存，所以，修改buf1的值会影响buf的值
+- 切片后的对象容量不允许再添加，也就是buf1/buf2不能扩容
+
+```java
+ByteBuf buf = ByteBufAllocator.DEFAULT.buffer(6);
+buf.writeBytes(new byte[] {'a', 'b', 'c', 'd', 'e', 'f'});
+//采用切片的方式
+ByteBuf buf1 = buf.slice(0, 3);
+ByteBuf buf2 = buf.slice(3, 3);
+```
+
+- 切片后，buf调用release回收内存会有影响，配合buf1.retain则buf.release不会报错，这样buf1/buf2和buf都需要调用release方法进行回收
+
+## CompositeByteBuf
+
+- 将小的bytebuf合并成新的bytebuf
+
+```java
+ByteBuf buf1 = ByteBufAllocator.DEFAULT.buffer(5);
+buf1.writeBytes(new byte[]{1, 2, 3, 4, 5});
+ByteBuf buf2 = ByteBufAllocator.DEFAULT.buffer(5);
+buf2.writeBytes(new byte[]{6, 7, 8, 9, 10});
+
+CompositeByteBuf buf3 = ByteBufAllocator.DEFAULT.compositeBuffer();
+// true 表示增加新的 ByteBuf 自动递增 write index, 否则 write index 会始终为 0
+buf3.addComponents(true, buf1, buf2);
 ```
 
 
@@ -1251,13 +1539,17 @@ try {
 
 然后丢给下一个handler执行
 
-![](..\image\java\Netty\20201006145150.png)
+![](../..\image\java\Netty\20201006145150.png)
 
-![](..\image\java\Netty\20201006164012.png)
+![](../..\image\java\Netty\20201006164012.png)
 
 # TCP粘包拆包
 
 TCP是面向连接的，面向流的，提供高可靠性服务。收发两端（客户端和服务器端）都要有一一成对的socket，因此，发送端为了将多个发给接收端的包，更有效的发给对方，使用了优化方法（Nagle算法），将多次间隔较小且数据量小的数据，合并成一个大的数据块，然后进行封包。这样做虽然提高了效率，但是接收端就难于分辨出完整的数据包了，因为面向流的通信是无消息保护边界的
+
+- 因为TCP的消息是有应答的，所以每次消息发出都会要有响应，这样带来了吞吐量的问题
+- 所以TCP将详细封装成一个大的数据块，发给服务器端（Nagle算法）
+- TCP的滑动窗口也会造成这个现象
 
 ## 基本介绍
 
@@ -1268,11 +1560,19 @@ TCP是面向连接的，面向流的，提供高可靠性服务。收发两端�
 
 ![](../..\image\java\Netty\20201006171253.png)
 
-## 举例
-
 ## 解决方案
 
-- 自定义协议+编解码器
+- 短连接
+  - 可以解决粘包问题，不能解决拆包问题
+
+- 定长的消息解码器
+  - io.netty.handler.codec.FixedLengthFrameDecoder
+  - 需要注意的是，定长一定要客户端发送消息的最大长度
+- 分割符解码器 
+  - io.netty.handler.codec.LineBasedFrameDecoder
+- 基于字段长度（LTC）
+
+  - io.netty.handler.codec.LengthFieldBasedFrameDecoder
 
 # netty源码解析
 
@@ -1334,4 +1634,85 @@ NioEventLoopGroup对象可以理解为一个线程池，内部维护了一组线
 # 更换编解码
 
 ## Google 的 ProtoBuf
+# 搭建Http服务
 
+- SimpleChannelInboundHandler可以快速的过滤msg的类型
+
+```java
+public static void main(String[] args) {
+    EventLoopGroup bossGroup = new NioEventLoopGroup(1);
+    EventLoopGroup workGroup = new NioEventLoopGroup();
+    try {
+        ServerBootstrap bootstrap = new ServerBootstrap();
+        bootstrap.group(bossGroup, workGroup)
+                .channel(NioServerSocketChannel.class)
+                .childHandler(new HttpServerInitializer());
+        ChannelFuture channelFuture = bootstrap.bind(new InetSocketAddress(6666)).sync();
+        channelFuture.channel().closeFuture().sync();
+    } catch (Exception e) {
+
+    } finally {
+        bossGroup.shutdownGracefully();
+        bossGroup.shutdownGracefully();
+    }
+}
+```
+
+```
+ * @Description 在某个Channel注册到EventLoop后，对这个Channel执行一些初始化操作
+ * @createTime 2020年09月16日 09:23:00
+ */
+public class HttpServerInitializer extends ChannelInitializer<SocketChannel> {
+    /**
+     * 向管道加入处理器
+     * @param socketChannel
+     * @throws Exception
+     */
+    @Override
+    protected void initChannel(SocketChannel socketChannel) throws Exception {
+        ChannelPipeline pipeline = socketChannel.pipeline();
+        pipeline.addLast("httpServerCodec", new HttpServerCodec());
+        pipeline.addLast("httpServerHandler", new HttpServerHandler());
+    }
+}
+```
+
+```java
+* @Description HttpObject:客户端与服务器端通讯的工具封装成：HttpObject
+ * @createTime 2020年09月16日 09:38:00
+ */
+@Slf4j
+public class HttpServerHandler extends SimpleChannelInboundHandler<HttpObject> {
+
+    /**
+     * 读取数据
+     * @param ch
+     * @param object
+     * @throws Exception
+     */
+    @Override
+    protected void channelRead0(ChannelHandlerContext ch, HttpObject object) throws Exception {
+        if(object instanceof HttpRequest) {
+            log.debug("msg: {} ", object.getClass());
+            log.debug("客户端地址: {} ", ch.channel().remoteAddress());
+            ByteBuf content = Unpooled.copiedBuffer("netty, 服务器", CharsetUtil.UTF_8);
+			//设置版本等
+            DefaultFullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK, content);
+            response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/plain; charset=UTF-8");
+            //告诉相应的结果长度
+            response.headers().set(HttpHeaderNames.CONTENT_LENGTH, content.readableBytes());
+            ch.writeAndFlush(response);
+        }
+    }
+}
+```
+
+# 自定义协议
+
+* 魔数，用来在第一时间判定是否是无效数据包（如：jvm字节码以cafebaby开头）
+* 版本号，可以支持协议的升级
+* 序列化算法，消息正文到底采用哪种序列化反序列化方式，可以由此扩展，例如：json、protobuf、hessian、jdk
+* 指令类型，是登录、注册、单聊、群聊... 跟业务相关
+* 请求序号，为了双工通信，提供异步能力（如：发送123，消息不一定以123这个顺序来发）
+* 正文长度
+* 消息正文
