@@ -1386,11 +1386,15 @@ buf3.addComponents(true, buf1, buf2);
 
 # 心跳机制
 
-IdleStateHandler是netty处理空闲状态的处理器
+## 空闲检测
+
+IdleStateHandler是netty处理空闲状态的处理器(用来判断读和写的空闲时间太长)
 
 - readerIdleTime:多久时间没读，发送一个心跳检测包，是否连接
 - writerIdleTime：多久时间没写，发送一个心跳检测包
 - allIdleTime：多久时间没有读写
+
+如果上面的三个条件达到，则会触发相应的事件，所以，我们需要创建一个双向的handler（入站和出站处理器）
 
 ```java
 EventLoopGroup bossGroup = new NioEventLoopGroup(1);
@@ -1449,6 +1453,11 @@ public class IdleStateServerHandler extends ChannelInboundHandlerAdapter {
     }
 }
 ```
+
+## 心跳数据包
+
+- 一般写的空闲时间要比读的空闲时间少2-3秒
+- 隔了一定时间没有写数据，发送一个心跳包给客户端
 
 # websorcket
 
@@ -1716,3 +1725,310 @@ public class HttpServerHandler extends SimpleChannelInboundHandler<HttpObject> {
 * 请求序号，为了双工通信，提供异步能力（如：发送123，消息不一定以123这个顺序来发）
 * 正文长度
 * 消息正文
+
+# Netty参数调优
+
+- 参数配置说明
+
+1. 客户端 ：在option配置参数
+
+```java
+bootstrap.group(loopGroup)
+        .option()
+```
+
+2. 服务器端
+   1. option():设置的是SocketChannal 参数
+   2. childOption(): 设置的是NioServerSocketChannel的参数
+
+## CONNECT_TIMEOUT_MILLIS
+
+* 属于 SocketChannal 参数
+* 用在客户端建立连接时，如果在指定毫秒内无法连接，会抛出 timeout 异常
+
+* SO_TIMEOUT 主要用在阻塞 IO，阻塞 IO 中 accept，read 等都是无限等待的，如果不希望永远阻塞，使用它调整超时时间
+
+```java
+bootstrap.group(loopGroup)
+        .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 500)
+```
+
+源码解析：在io.netty.channel.nio.AbstractNioChannel.AbstractNioUnsafe#connect中，有一个定时任务，如果超过设置的时间段，就会检测是否连接成功
+
+```java
+int connectTimeoutMillis = config().getConnectTimeoutMillis();
+if (connectTimeoutMillis > 0) {
+    connectTimeoutFuture = eventLoop().schedule(new Runnable() {
+        @Override
+        public void run() {
+            ChannelPromise connectPromise = AbstractNioChannel.this.connectPromise;
+            ConnectTimeoutException cause =
+                    new ConnectTimeoutException("connection timed out: " + remoteAddress);
+            if (connectPromise != null && connectPromise.tryFailure(cause)) {
+                close(voidPromise());
+            }
+        }
+    }, connectTimeoutMillis, TimeUnit.MILLISECONDS);
+}
+```
+
+## SO_BACKLOG
+
+- 配置 TCP的 **待连接队列**大小
+- linux中，通过 /proc/sys/net/core/somaxconn 指定，在使用 listen 函数时，内核会根据传入的 backlog 参数与系统参数，取二者的较小值
+- 所以我们需要将参数配置的比linux默认值小才生效
+
+```java
+option(ChannelOption.SO_BACKLOG, 值)
+```
+
+## 打开文件数
+
+- 属于linux一个进程能打开的文件数
+- 临时调整(在linux脚本中)
+
+```shell
+ulimit -n 
+```
+
+## TCP_NODELAY
+
+- 属于 SocketChannal 参数
+- TCP模式开启（false），合并数据包（nagle算法）发送，建议设置为true（不进行合并）
+
+## ALLOCATOR
+
+- netty中ByteBuf 类型设置(池化或者非池化)
+- 可以在io.netty.buffer.ByteBufUtil中看到相关配置代码
+
+```java
+String allocType = SystemPropertyUtil.get(
+        "io.netty.allocator.type", PlatformDependent.isAndroid() ? "unpooled" : "pooled");
+allocType = allocType.toLowerCase(Locale.US).trim();
+
+ByteBufAllocator alloc;
+if ("unpooled".equals(allocType)) {
+    alloc = UnpooledByteBufAllocator.DEFAULT;
+    logger.debug("-Dio.netty.allocator.type: {}", allocType);
+} else if ("pooled".equals(allocType)) {
+    alloc = PooledByteBufAllocator.DEFAULT;
+    logger.debug("-Dio.netty.allocator.type: {}", allocType);
+} else {
+    alloc = PooledByteBufAllocator.DEFAULT;
+    logger.debug("-Dio.netty.allocator.type: pooled (unknown: {})", allocType);
+}
+```
+
+## RCVBUF_ALLOCATOR
+
+* 属于 SocketChannal 参数
+* 控制 netty 接收缓冲区大小
+* 负责入站数据的分配，决定入站缓冲区的大小（并可动态调整），统一采用 direct 直接内存，具体池化还是非池化由 allocator 决定
+
+# 源码解析
+
+## 启动流程
+
+- 启动流程最主要的事情是在这个io.netty.bootstrap.AbstractBootstrap#doBind方法中执行的
+
+1. init
+   1. 创建NioServerSocketChannel
+   2. 添加NioserverSocketChannel初始化handler（这里面做的事情是：向nio ssc 加入了acceptor handler (在accept事件发生后建立连接）
+
+```java
+private ChannelFuture doBind(final SocketAddress localAddress) {
+    final ChannelFuture regFuture = initAndRegister();
+    final Channel channel = regFuture.channel();
+    if (regFuture.cause() != null) {
+        return regFuture;
+    }
+    if (regFuture.isDone()) {
+        ChannelPromise promise = channel.newPromise();
+        doBind0(regFuture, channel, localAddress, promise);
+        return promise;
+    } else {
+        final PendingRegistrationPromise promise = new PendingRegistrationPromise(channel);
+        regFuture.addListener(new ChannelFutureListener() {
+            @Override
+            public void operationComplete(ChannelFuture future) throws Exception {
+                Throwable cause = future.cause();
+                if (cause != null) {
+                    promise.setFailure(cause);
+                } else {
+                    promise.registered();
+
+                    doBind0(regFuture, channel, localAddress, promise);
+                }
+            }
+        });
+        return promise;
+    }
+}
+```
+
+1. 关键代码 `io.netty.bootstrap.AbstractBootstrap#initAndRegister`
+
+```java
+final ChannelFuture initAndRegister() {
+    Channel channel = null;
+    try {
+        channel = channelFactory.newChannel();
+        // 1.1 初始化 - 做的事就是添加一个初始化器 ChannelInitializer
+        init(channel);
+    } catch (Throwable t) {
+        // 处理异常...
+        return new DefaultChannelPromise(new FailedChannel(), GlobalEventExecutor.INSTANCE).setFailure(t);
+    }
+
+    // 1.2 注册 - 做的事就是将原生 channel 注册到 selector 上
+    ChannelFuture regFuture = config().group().register(channel);
+    if (regFuture.cause() != null) {
+        // 处理异常...
+    }
+    return regFuture;
+}
+```
+
+2. 在io.netty.bootstrap.ServerBootstrap#init中，设置了一个初始化的ChannelInitializer
+
+- register
+  - 启动nio boss线程
+
+1. io.netty.channel.AbstractChannel.AbstractUnsafe#register中将方法交给eventLoop去执行，而不是main线程去执行
+
+```java
+eventLoop.execute(new Runnable() {
+    @Override
+    public void run() {
+        register0(promise);
+    }
+});
+```
+
+2. io.netty.channel.AbstractChannel.AbstractUnsafe#register0的io.netty.channel.nio.AbstractNioChannel#doRegister中，回去将NioServerSocketChannel注册到selector上
+
+```java
+protected void doRegister() throws Exception {
+    boolean selected = false;
+    for (;;) {
+        try {
+            selectionKey = javaChannel().register(eventLoop().unwrappedSelector(), 0, this);
+            return;
+        }
+    }
+}
+```
+
+- regFuture的回调doBind0
+  - 原生ServerSocketChannel绑定
+
+1. io.netty.bootstrap.AbstractBootstrap#doBind0
+
+```java
+channel.eventLoop().execute(new Runnable() {
+    @Override
+    public void run() {
+        if (regFuture.isSuccess()) {
+            channel.bind(localAddress, promise).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+        } else {
+            promise.setFailure(regFuture.cause());
+        }
+    }
+});
+```
+
+2. 查看channel.bind方法，一路执行到io.netty.channel.AbstractChannel.AbstractUnsafe#bind方法
+
+```java
+try {
+    //绑定jdk的socket 和端口
+    doBind(localAddress);
+}
+
+if (!wasActive && isActive()) {
+    invokeLater(new Runnable() {
+        @Override
+        public void run() {
+            //触发head的channel，去绑定accept事件
+            //调用每个handler的active方法
+            pipeline.fireChannelActive();
+        }
+    });
+}
+```
+
+3. 在io.netty.channel.nio.AbstractNioChannel#doBeginRead中执行了accept的事件绑定
+
+## NioEventLoop
+
+- NioEventLoop的重要组成: selector，线程，任务队列
+- NioEventLoop既会处理io事件，也会处理普通任务和定时任务
+
+1. 在构造方法时创建selector
+
+```java
+NioEventLoop(NioEventLoopGroup parent, Executor executor, SelectorProvider selectorProvider,
+             SelectStrategy strategy, RejectedExecutionHandler rejectedExecutionHandler,
+             EventLoopTaskQueueFactory queueFactory) {
+    super(parent, executor, false, newTaskQueue(queueFactory), newTaskQueue(queueFactory),
+            rejectedExecutionHandler);
+    this.provider = ObjectUtil.checkNotNull(selectorProvider, "selectorProvider");
+    this.selectStrategy = ObjectUtil.checkNotNull(strategy, "selectStrategy");
+    final SelectorTuple selectorTuple = openSelector();
+    this.selector = selectorTuple.selector;
+    this.unwrappedSelector = selectorTuple.unwrappedSelector;
+}
+```
+
+```
+private SelectorTuple openSelector() {
+    final Selector unwrappedSelector;
+    try {
+    	//这个才是将来nio真正底层的selector
+        unwrappedSelector = provider.openSelector();
+    } 
+```
+
+2. eventloop 的nio线程在何时启动
+   1. 当首次调用execute方法时
+
+测试代码：
+
+```java
+EventLoop eventLoop = new NioEventLoopGroup().next();
+eventLoop.execute(() ->{
+    log.debug("hello");
+});
+```
+
+最终调试：io.netty.util.concurrent.SingleThreadEventExecutor#execute(java.lang.Runnable, boolean)
+
+```java
+private void execute(Runnable task, boolean immediate) {
+    boolean inEventLoop = inEventLoop();
+    addTask(task);
+    if (!inEventLoop) {
+        startThread();
+```
+
+最终在：io.netty.util.concurrent.SingleThreadEventExecutor#doStartThread中，有个run方法，一直循环查询有没有执行事件
+
+```java
+private void doStartThread() {
+    assert thread == null;
+    executor.execute(new Runnable() {
+        @Override
+        public void run() {
+        	//
+            thread = Thread.currentThread();
+            if (interrupted) {
+                thread.interrupt();
+            }
+
+            boolean success = false;
+            updateLastExecutionTime();
+            try {
+                //循环查询有没有执行事件发生
+                SingleThreadEventExecutor.this.run();
+```
+

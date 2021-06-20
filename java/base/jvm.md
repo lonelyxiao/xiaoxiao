@@ -6,7 +6,7 @@
 - JDK包含了JRE,JDK有编译器等
 -  JRE中包含虚拟机JVM
 
-![](../../image/java/jvm/2021427224536.jpg)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/2021427224536.jpg)
 
 # JVM结构
 
@@ -49,11 +49,11 @@
 
 # 类加载过程
 
-![](../../image/java/jvm/20200618220310.jpg)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20200618220310.jpg)
 
 - 详细图
 
-![详细图](../../image/java/jvm/20200620112743.jpg)
+![详细图](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20200620112743.jpg)
 
 # 类加载子系统
 
@@ -86,7 +86,7 @@
 
   - 将符号引用转为对应直接引用
 
-  ![](../../image/java/jvm/20210429232122.png)
+  ![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210429232122.png)
 
   - 一个类可能会引用很多其他类
 
@@ -105,7 +105,7 @@ class A {
 - 他只有类存在静态代码时才会有
 - 他不需要定义，是javac编译器自动收集类中所有变量的赋值动作和静态代码块中的语句合并而来
 
-![](../../image/java/jvm/20210429233002.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210429233002.png)
 
 - 他是按照代码的顺序执行的
 
@@ -212,7 +212,7 @@ Stream.of(urLs).forEach(url -> System.out.println(url.toExternalForm()));
 - 如果一个类加载器收到请求，它不会自己先去加载，二十把这个加载委托给父类的加载器，如果父类加载器还存在父类加载器，就会依次递归，直到最顶层的启动类加载器
 - 如果父类加载器加载返回失败，则子类才会自己尝试去加载
 
-![](../../image/java/jvm/20200621170659.jpg)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20200621170659.jpg)
 
 例1：
 
@@ -241,7 +241,7 @@ Stream.of(urLs).forEach(url -> System.out.println(url.toExternalForm()));
 
 ## 详细图
 
-![](../../image/java/jvm/20200621210144.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20200621210144.png)
 
 - 程序计数器、栈、本地栈是线程私有的
 - JIT编译缓存在非堆空间
@@ -317,7 +317,7 @@ cpu需要不停的切换线程，这个时候切换回来，知道它执行到�
 - 当我们每执行一个方法的时候，当前执行方法的局部变量等相当于一个栈帧，执行入栈操作
 - 栈帧1、2、3 相当于method1、2、3
 
-![](../../image/java/jvm/202154160117.jpg)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/202154160117.jpg)
 
 ### 栈常见异常
 
@@ -333,7 +333,7 @@ cpu需要不停的切换线程，这个时候切换回来，知道它执行到�
 
 https://docs.oracle.com/en/java/javase/11/tools/tools-and-command-reference.html
 
-![](../../image/java/jvm/20210504172343.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210504172343.png)
 
 #### 具体命令
 
@@ -378,13 +378,13 @@ https://docs.oracle.com/en/java/javase/11/tools/tools-and-command-reference.html
 
 看class
 
-![](../../image/java/jvm/20210505000254.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210505000254.png)
 
 - linenumbertable
   - 编译后的字节码对应的编号（start pc）与java代码的对应行号关系
 
 
-![](../../image/java/jvm/20210505000752.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210505000752.png)
 
 - localvaribletable
   - 局部变量相关信息
@@ -398,7 +398,7 @@ https://docs.oracle.com/en/java/javase/11/tools/tools-and-command-reference.html
 - 局部变量安装声明顺序存储
 - 如果是非static方法，this存放到0的位置（**为什么static不能使用this，因为static 的局部变量表中不存在this**）
 
-![](../../image/java/jvm/20210505101919.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210505101919.png)
 
 - **局部变量表中的变量是重要的垃圾回收根节点，只要被局部变量表中直接或者间接引用的对象，就不会被回收**
 
@@ -475,7 +475,7 @@ public void test2() {
 
 ```
 
-![](../../image/java/jvm/20200625223504.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20200625223504.png)
 
 ## 动态链接
 
@@ -489,9 +489,9 @@ public void test2() {
 
 - **作用就是将符号引用转化为直接引用**
 
-![](../../image/java/jvm/20210505123637.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210505123637.png)
 
-![](../../image/java/jvm/20210505123726.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210505123726.png)
 
 ### 方法的调用
 
@@ -564,7 +564,7 @@ public static native void sleep(long millis) throws InterruptedException;
 
 # 堆
 
-![](../../image/java/jvm/20200630234840.jpg)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20200630234840.jpg)
 
 ## 核心概述
 
@@ -593,9 +593,9 @@ https://docs.oracle.com/javase/8/
   - 比例2：1
   - 新生的对象在eden，没有被第一次GC，则进入S区
 
-![](../../image/java/jvm/20200701215552.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20200701215552.png)
 
-![](../../image/ms1/2019713122911.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/ms1/2019713122911.png)
 
 ### 设置新生代老年代比例
 
@@ -688,7 +688,7 @@ C:\Users\alonePc>jstat -gc 15192
 
 ## GC过程
 
-![](../../image/java/jvm/2020052811241498.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/2020052811241498.png)
 
 - Eden区内存满时，这时候触发一次**Minor GC**，把Eden区的存活对象转移到From区，非存活对象进行清理，然后给新创建的对象分配空间，存入Eden区
 - 随着分配对象的增多，Eden区的空间又不足了，这时候再触发一次Minor GC，清理掉Eden区和S1区的死亡对象，把存活对象转移到S2区，然后再给新对象分配内存
@@ -711,7 +711,7 @@ C:\Users\alonePc>jstat -gc 15192
 
 - OutOfMemeryError之前一定发生FullGC，因为FullGC之后，老年代内存不够才会报错误
 
-![](../../image/java/jvm/20210509204844.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210509204844.png)
 
 
 
@@ -1019,7 +1019,7 @@ public class CustomerTest {
 - 局部变量表存了一个cust的变量
 - cust指向堆空间
 
-![](../../image/java/jvm/20200719164542.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20200719164542.png)
 
 ## 对象访问定位
 
@@ -1031,12 +1031,12 @@ public class CustomerTest {
 - 句柄访问(效率低，要访问先得访问句柄，然后再访问对象) 
   - 一个对象有一个句柄
 
-![](../../image/java/jvm/20210513225422.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210513225422.png)
 
 - 直接访问(hotspot)
   - 如果对象地址发生移动（复制算法回收垃圾时），就要去更改reference
 
-![](../../image/java/jvm/20210513230344.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210513230344.png)
 
 # 本地内存
 
@@ -1067,7 +1067,7 @@ public class CustomerTest {
 - JIT编译器
   - 虚拟机将源代码直接编译成机器相关的机器语言（并不会马上执行）
 
-![](../../image/java/jvm/20210514213755.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210514213755.png)
 
 ## 指令等概念
 
@@ -1110,7 +1110,7 @@ public class CustomerTest {
   - 方法调用计数器
   - 回边计数器：统计循环体的计数
 
-![](../../image/java/jvm/20210515144322.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210515144322.png)
 
 ## 设置程序执行模式
 
@@ -1268,7 +1268,7 @@ System.out.println(str == b);
 - java c#的垃圾回收选择
 - 通过一系列称为GC Roots的对象作为起点，然后向下搜索，搜索所走过的路径称为引用链/Reference Chain，当一个对象到GC Roots没有任何引用链相连时，即该对象不可达，也就说明此对象是不可用的
 
-![](../../image/java/jvm/202518212252.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/202518212252.png)
 
 ### GC Roots
 
@@ -1395,7 +1395,7 @@ System.out.println(str == b);
 每个小区间都独立使用，独立回收
 ```
 
-![](../../image/java/jvm/20210519215957.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210519215957.png)
 
 ## System.gc()
 
@@ -1537,7 +1537,7 @@ o = null;
   - 串型垃圾回收
   - 并行垃圾回收
 
-![](../../image/java/jvm/20210521232221.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210521232221.png)
 
 - 按工作模式分
   - 独占式
@@ -1557,7 +1557,7 @@ o = null;
 - 内存占用 
   - Java 堆区所占的内存大小
 
-![](../../image/java/jvm/20210522145142.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210522145142.png)
 
 ## 七种经典回收器
 
@@ -1572,7 +1572,7 @@ o = null;
   - 绿色虚线：jdk14移除
   - 青色虚线：jdk14移除（删除CMS垃圾回收）
 
-![](../../image/java/jvm/20210522154532.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210522154532.png)
 
 ## 查看垃圾回收器
 
@@ -1593,7 +1593,7 @@ o = null;
   - Serial old是运行在client模式下默认的老年代的垃圾回收器
   - Serial old在Server模式下主要有两个用途:①与新生代的Parallelscavenge配合使用作为老年代CMS收集器的后备垃圾收集方案
 
-![](../../image/java/jvm/20210522174245.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210522174245.png)
 
 ## ParNew 回收器
 
@@ -1601,7 +1601,7 @@ o = null;
 - 年轻代采用复制算法
 - JDK14凉了
 
-![](../../image/java/jvm/20210523095845.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210523095845.png)
 
 ## Parallel Scavenge回收器
 
@@ -1611,7 +1611,7 @@ o = null;
 - Parallel 收集器在JDK1.6时提供了用于执行老年代垃圾收集的Parallel old收集器，用来代替老年代的Serial old收集器。
 - Parallel old收集器采用了**标记-压缩算法**，但同样也是基于**并行回收**
 
-![](../../image/java/jvm/20210523103645.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210523103645.png)
 
 ## CMS 回收器
 
@@ -1620,7 +1620,7 @@ o = null;
 - 第一款真正意义上的并发收集器（用户线程和GC线程并发执行）
 - 采用标记-清除算法
 
-![](../../image/java/jvm/20210523110220.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210523110220.png)
 
 - GC阶段
   - 初始标记：标记出GC Roots能直接关联到的对象
@@ -1686,7 +1686,7 @@ o = null;
 
 ### Region
 
-![](../../image/java/jvm/2021523182527.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/2021523182527.png)
 
 - Humoungous:大对象存储区域
 - 设置H的原因
@@ -1717,7 +1717,7 @@ o = null;
 
 - (如果需要，单线程、独占式、高强度的Full GC还是继续存在的。它针对Gc的评估失败提供了一种失败保护机制，即强力回收。)
 
-![](../../image/java/jvm/20210523215903.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210523215903.png)
 
 #### 年轻代回收过程
 
@@ -1739,7 +1739,7 @@ o = null;
 
 - 当我们需要回收某个region时，只需要搜索set，去扫描对应的有指向本region的其他region
 
-![](../../image/java/jvm/20210523230508.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210523230508.png)
 
 ---
 
@@ -1767,7 +1767,7 @@ o = null;
 
 ## 总结
 
-![](../../image/java/jvm/20210523234558.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210523234558.png)
 
 # GC日志分析
 
@@ -1845,7 +1845,7 @@ o = null;
 
 # 新时代的GC
 
-![](../../image/java/jvm/20210524230903.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210524230903.png)
 
 - ZGC（JDK14）:主打低延迟
 
@@ -1857,7 +1857,7 @@ o = null;
 
 安装对应的插件 [Visual GC](https://visualvm.github.io/archive/downloads/release136/com-sun-tools-visualvm-modules-visualgc_1.nbm)
 
-![](../../image/java/jvm/20210509174804.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210509174804.png)
 
 - 插件中心
 
@@ -1871,13 +1871,13 @@ https://visualvm.github.io/pluginscenters.html
 
 ### 集成idea
 
-![](../../image/java/jvm/20210607230120.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210607230120.png)
 
-![](../../image/java/jvm/20210607230440.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210607230440.png)
 
 ### 两种模式
 
-![](../../image/java/jvm/20210607232903.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210607232903.png)
 
 - Instrumentation
   - 对正在运行的jvm有影响
@@ -1894,29 +1894,29 @@ https://visualvm.github.io/pluginscenters.html
 
 - 当出现OOM时会生成dump文件
 
-![](../../image/java/jvm/20210518233116.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210518233116.png)
 
 - 查看超大对象
 
-![](../../image/java/jvm/20210518233641.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210518233641.png)
 
 ## 内存查看
 
 - 当点击MarkCurrent之后，会将当前内存暂停，后续产生的内存变成红色
 
-![](../../image/java/jvm/20210608202710.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210608202710.png)
 
 1.如果我们看到的count比较多，size比较大，则可能产生了死循环无限创建对象
 
 - 内存泄漏分析
 
-![](../../image/java/jvm/20210608203336.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210608203336.png)
 
 1. 当我们点击run gc之后发现内存还未被回收，则这个对象有内存泄漏风险
 
 - 对对应的对象分析出引用和入引用
 
-![](../../image/java/jvm/20210608203717.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210608203717.png)
 
 ## Eclipse MAT
 
@@ -1932,11 +1932,11 @@ https://visualvm.github.io/pluginscenters.html
 
 打开文件后图示
 
-![](../../image/java/jvm/20210606190415.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210606190415.png)
 
 
 
-![](../../image/java/jvm/20210607201902.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210607201902.png)
 
 ### Histogram
 
@@ -1950,7 +1950,7 @@ https://visualvm.github.io/pluginscenters.html
 
 如图：A的深堆即：A+B,C因为还被B引用，所以不是A的深堆 
 
-![](../../image/java/jvm/20210606224345.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210606224345.png)
 
 ### 支配树
 
@@ -1962,7 +1962,7 @@ MAT提供了一个称为支配树（Dominator Tree）的对象图。支配树体
 
 如图，我们说E的支配者是C，因为想访问E，必须通过C
 
-![](../../image/java/jvm/20210606232251.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210606232251.png)
 
 # Arthas
 
@@ -2166,7 +2166,7 @@ class Son extends Father {
   - JVM Bytecode Viewer
   - Binary Viewer
 
-![](../../image/java/jvm/20210526220610.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210526220610.png)
 
 - idea插件
   - jclasslib Bytecode
@@ -2238,7 +2238,7 @@ ca fe ba be ## 魔数
 
 - 常量池11种数据类型
 
-![](../../image/java/jvm/2021527215522.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/2021527215522.png)
 
 - 0a对应10，则太代表表中的CONSTANT_Mehtodref_info，后面两个index，个占两个字节，如此对应21个（对应常量池计数器）
 - 注意如果是01字符串，则他的bytes长度是有前两个字节的length决定的
@@ -2251,7 +2251,7 @@ ca fe ba be ## 魔数
 
 在常量池后，紧跟着访问标记。该标记使用两个字节表示，用于识别一些类或者接口层次的访问信息，包括:这个Class是类还是接口;是否定义为public类型;是否定义为 abstract类型，如果是类的话，是否被声明为 final等。各种访问标记如下所示:
 
-![](../../image/java/jvm/20210527233705.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210527233705.png)
 
 - 表示ACC_PUBLIC+ACC_SUPER(表明这个类是public的)
 
@@ -2263,7 +2263,7 @@ ca fe ba be ## 魔数
 
 - 表示当前这个类是什么名字，父类有哪些，接口有哪些
 
-![](../../image/java/jvm/20210527234809.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210527234809.png)
 
 ### 字段表集合
 
@@ -2275,7 +2275,7 @@ ca fe ba be ## 魔数
 
 2. 字段表
 
-![](../../image/java/jvm/20210528230735.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210528230735.png)
 
 - 属性
   - 一个字段还可能拥有一些属性，用于存储更多的额外信息。比如初始化值（常量的初始化值）、一些注释信息等。属性个数存放在attribute_count中，属性具体内容存放在attributes数组中。
@@ -2288,7 +2288,7 @@ ca fe ba be ## 魔数
 - 方法计数器
 - 方法表
 
-![](../../image/java/jvm/20210529112351.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210529112351.png)
 
 #### code结构
 
@@ -2337,13 +2337,13 @@ LocalVariableTable_attribute {
 - 方法表集合之后的属性表集合，指的是class文件所携带的辅助信息，比如该 class文件的**源文件的名称**。以及任何带有RetentionPolicy.CLASS或者RetentionPolicy.RUNTINE的注解。这类信息通常被用于Java虚拟机的验证和运行，以及Java程序的调试，一般无须深入了解。
 - 字段表、方法表都可以有自己的属性表。用于描述某些场景专有的信息 
 
-![](../../image/java/jvm/20210529162529.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210529162529.png)
 
 (比较复杂，后续再回过头补充 p230)
 
 - 属性表结构
 
-![](../../image/java/jvm/20210529165254.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210529165254.png)
 
 # 常用命令
 
@@ -2584,7 +2584,7 @@ System.out.println(0.0/0.0);
 
 ### 所有运算符
 
-![](../../image/java/jvm/20210530200318.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210530200318.png)
 
 ### ++运算符
 
@@ -2752,7 +2752,7 @@ xastore则专门针对数组操作，以iastore为例，它用于给一个int数
 
 - ifeq， iflt， ifle, ifne, ifgt, ifge, ifnull, ifnonnull
 
-![](../../image/java/jvm/20210601212206.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210601212206.png)
 
 举例：
 
@@ -2786,7 +2786,7 @@ if(a == 0) {
 
 - 在操作数栈中取出两个，比较后直接跳转
 
-![](../../image/java/jvm/20210601214903.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210601214903.png)
 
 ### 多条件指令
 
@@ -2840,7 +2840,7 @@ java虚拟机支持两种同步结构:方法级的同步和方法内部一段指
 
 - 可以看到他的访问标识是 同步
 
-![](../../image/java/jvm/20210602211838.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210602211838.png)
 
 ### 代码块同步
 
@@ -2855,7 +2855,7 @@ java虚拟机支持两种同步结构:方法级的同步和方法内部一段指
 
 
 
-![](../../image/java/jvm/202162220201.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/202162220201.png)
 
 ## 加载
 
@@ -2876,7 +2876,7 @@ java虚拟机支持两种同步结构:方法级的同步和方法内部一段指
 - 加载的类在VM中创建相应的类结构，类结构会存储在方法区
 - 但是他的class是在堆空间的
 
-![](../../image/java/jvm/20210602231930.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210602231930.png)
 
 ```java
 //加载String
@@ -3062,7 +3062,7 @@ Stream.of(urLs).forEach(url -> System.out.println(url.toExternalForm()));
 
 - Java语言编写，由sun.misc.Launcher$ExtClassLoader实现。
 
-![](../../image/java/jvm/20210605115647.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210605115647.png)
 
 获取扩展类加载器目录
 
@@ -3182,7 +3182,7 @@ protected final Class<?> defineClass(byte[] b, int off, int len)
 
 - 1.0
 
-![](../../image/java/jvm/20210605184052.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210605184052.png)
 
 
 
@@ -3217,7 +3217,7 @@ protected final Class<?> defineClass(byte[] b, int off, int len)
 
 1. 停顿时间
 
-![](../../image/java/jvm/20210606105000.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210606105000.png)
 
 2. 吞吐量
 
@@ -3600,6 +3600,7 @@ D:\git\gitee\xiaoxiao>java -X
 - 方法区
 
 ```shell
+
 ```
 
 - OutofMemory相关
