@@ -2,6 +2,7 @@
     * [jvm](/java/base/jvm)
     * [通用](/java/base/common)
     * [java基础](/java/base/javaBase)
+    * [并发编程](/java/base/concurrent)
 * Spring
     * [Spring](/java/spring/Spring.md)
     * [SpringBoot](/java/spring/SpringBoot.md)

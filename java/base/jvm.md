@@ -2052,7 +2052,7 @@ System.out.println(i1 == i2);
  1 invokestatic #2 <java/lang/Integer.valueOf>
 ```
 
-2. 从valueOf可以看出，如果超过了某个长度（[-128, 127] ），则会直接new一个，否则从缓存（**内部数组初始化的值**）中取一个书，也就是说，这个范围内的数的地址都是相等的
+2. 从valueOf可以看出，如果超过了某个长度（[-128, 127] ），则会直接new一个，否则从缓存（**内部数组初始化的值**）中取一个数，也就是说，这个范围内的数的地址都是相等的
 
 ```java
 public static Integer valueOf(int i) {
