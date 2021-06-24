@@ -24,3 +24,4 @@
 	* [Elasticsearch](/database/Elasticsearch.md)
 	* [Redis](/database/Redis.md)
 	* [Mysql](/database/Mysql.md)
+* [算法](/algorithm/base)
