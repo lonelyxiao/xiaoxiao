@@ -1,0 +1,18 @@
+local num = redis.call('get', KEYS[1])
+if num == 0 then
+	return -1
+else
+	# 扣减活动库存
+	redis.call('decr', KEYS[1])
+    # 设置用户信息
+    redis.call("sadd", KEYS[2], KEYS[3])
+	return 1
+end
+
+local value = redis.call('get', KEYS[1]) if value == ARGV[1] 
+then
+	redis.call('del', KEYS[1])
+	return 1
+else 
+	return 0
+end

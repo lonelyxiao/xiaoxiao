@@ -108,6 +108,8 @@ class A {
 ![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210429233002.png)
 
 - 他是按照代码的顺序执行的
+  - 因为声明的对象在后面，而使用的代码在前面
+  - staic里面能赋值是因为jvm会把static赋值过程自己编译成一个clinit方法，在链接阶段赋值
 
 ```java
 static {
@@ -128,8 +130,9 @@ private static int num = 4;
 
 ### 类加载器分类
 
-- 引导类加载器和自定义加载器
-- 所有派生于抽象类ClassLoader的类加载器都划分为自定义加载器
+- 引导类加载器
+- 自定义加载器
+  - 所有派生于抽象类ClassLoader的类加载器都划分为自定义加载器
 
 ### 代码获取类加载器
 
@@ -154,9 +157,9 @@ System.out.println(classLoader);
 ```java
 //String 类使用引导类加载器
 //java核心库使用引导类加载器
-ClassLoader str = String.class.getClassLoader();
+ClassLoader loader = String.class.getClassLoader();
 //输出null（凡是这里是null的都是引导类加载器）
-System.out.println(str);
+System.out.println(loader);
 ```
 
 ### 自定义类加载器
@@ -256,13 +259,17 @@ Stream.of(urLs).forEach(url -> System.out.println(url.toExternalForm()));
 
 ## 程序计数器
 
+### 简介
+
+程序计数器可以在多线程切换上下文时，保存当前线程执行的指令地址
+
 - （PC Registery）/PC 寄存器
 
 - 用来存储指向下一条指令的地址（代码的指令存放在栈帧当中）
 - 一个很小的内存空间
 - 线程私有的
 
-### 举例说明
+### 举例
 
 ```java
 public static void main(String[] args) {
@@ -272,17 +279,9 @@ public static void main(String[] args) {
 }
 ```
 
-反编译class
+1. 反编译class
 
-最左边的数字就是偏移地址（指令地址），中间的是操作指令
-
-加入执行到5时，PC寄存器将5存入（**程序计数器记录的是左边的序号**）
-
-执行引擎通过PC寄存器记录的地址读取对应的操作指令，然后操作栈结构，局部变量表，实现存取计算等
-
-将字节码指令翻译成机器指令，到cpu做计算
-
-```java
+```shell
 0 bipush 10
 2 istore_1
 3 bipush 20
@@ -290,8 +289,15 @@ public static void main(String[] args) {
 6 ldc #2 <abc>
 8 astore_3
 9 return
-
 ```
+
+最左边的数字就是偏移地址（指令地址），中间的是操作指令
+
+假如：执行到5时，PC寄存器将5存入（**程序计数器记录的是左边的序号**）
+
+执行引擎通过PC寄存器记录的地址读取对应的操作指令，然后操作栈结构，局部变量表，实现存取计算等
+
+将字节码指令翻译成机器指令，到cpu做计算
 
 ### 常见问题
 
@@ -306,6 +312,8 @@ cpu需要不停的切换线程，这个时候切换回来，知道它执行到�
 ## 虚拟机栈
 
 ### 概述
+
+- 由栈帧组成
 
 - 一个栈帧对应着一个方法
 - 生命周期和线程一致
@@ -369,7 +377,9 @@ https://docs.oracle.com/en/java/javase/11/tools/tools-and-command-reference.html
 - 在编译的时候，就确定了局部变量表的长度
 
 ```tex
-在栈帧中，与性能调优关系最为密切的部分就是局部变量表。局部变量表中的变量也是重要的垃圾回收根节点，只要被局部变量表中直接或间接引用的对象都不会被回收。
+在栈帧中，与性能调优关系最为密切的部分就是局部变量表。
+局部变量表中的变量也是重要的垃圾回收根节点（jvm垃圾回收采用可达性分析法），
+只要被局部变量表中直接或间接引用的对象都不会被回收。
 ```
 
 - 一个方法开始，局部变量表会存储几个数据（**this**、形参）
@@ -572,14 +582,9 @@ public static native void sleep(long millis) throws InterruptedException;
 - 堆可以是物理上不连续，但逻辑上连续的内存空间
 - 并非所有的堆是线程共享的，小块的**TLAB空间**是线程私有的
 
-## 插件安装
-
-
-
 ## 内存细分
 
 - 7以前：新生代+老年代+永久区
-  - 新生代：
 - 8以后：新生代+老年代+元空间（本地内存）
 ### 新生代老年代
 
@@ -590,7 +595,7 @@ https://docs.oracle.com/javase/8/
   - 一类是生命周期长，甚至与jvm生命周期保持一致
 - 堆区细分的话，分为年轻代和老年代
 - 年轻代分为eden区/S0区，S1区（有时叫from和to区）
-  - 比例2：1
+  - 比例2:1(老年代:年轻代)
   - 新生的对象在eden，没有被第一次GC，则进入S区
 
 ![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20200701215552.png)
@@ -949,7 +954,7 @@ static final int b=2;
 
 ## 对象实例化
 
-### 创建方式
+### 对象创建方式
 
 - new 
   - 变形1：xxx的静态方法
@@ -958,6 +963,15 @@ static final int b=2;
 - Constructor的newInstance()
   - 可以调用空参和带参的构造器
   - 权限没有要求
+
+```java
+//调用有参的构造方法生成类实例
+Constructor<InternalClass> constructor
+        = InternalClass.class.getDeclaredConstructor(new Class[] {Integer.class});
+InternalClass instance = constructor.newInstance(new Integer[] {1});
+log.debug("instance {}", instance);
+```
+
 - 使用clone()
   - 当前类需要实现Cloneable的接口
 - 使用反序列化
@@ -1231,6 +1245,11 @@ System.out.println(c == d);
 
 ## intern()方法
 
+- 如果发现常量池有字符串相同，则将常量池的字符串地址返回
+- 如果常量池没有
+  - jdk6：常量池没有，则将当前堆中的String放入常量池，且返回常量池的地址
+  - jdk7以上：常量池没有，在常量池创建一个引用，指向堆区的“ab"，目的是
+
 ```java
 //StringBuilder的toString不会在常量池产生“ab"
 String str = new String("a") + new String("b");
@@ -1242,6 +1261,43 @@ System.out.println(str == b);
 ```
 
 - 对于字符串，如果有大量存在的重复字符串时，使用intern能够节省内存空间
+  - 如"a"+"b"等这样的操作  
+
+## 面试题
+
+- new String("a") + new String("b"); 会创建几个对象？
+
+1. new StringBuilder()
+2. new String(“a”)；
+3. 字符串常量池"a"
+4. new String("b")
+5. 常量池“b”
+6. new String(“ab”) //StringBuilder的toString不会在常量池产生“ab"
+
+- 输出java是的拼接
+
+1. 输出为true，因为java是jvm初始化时（加载sun.misc.Version）就将字符串放入了常量池
+
+```java
+String java = "ja" + new String("va");
+String jTmp = java.intern();
+System.out.println(java == jTmp);
+```
+
+2. 源码：
+
+```java
+public class Version {
+    private static final String launcher_name = "java";
+    private static final String java_version = "1.8.0_131";
+    private static final String java_runtime_name = "Java(TM) SE Runtime Environment";
+```
+
+他在java.lang.System#initializeSystemClass的静态方法汇总调用了
+
+```java
+sun.misc.Version.init();
+```
 
 # 垃圾回收
 
@@ -1637,7 +1693,8 @@ o = null;
 ## G1垃圾回收器
 
 ```tex
-官方给G1设定的目标是在延迟可控的情况下获得尽可能高的吞吐量，所以才担当起“全功能收集器”的重任与期望。
+官方给G1设定的目标是在延迟可控的情况下获得尽可能高的吞吐量，
+所以才担当起“全功能收集器”的重任与期望。
 ```
 
 - G1是一个并行回收器，它把堆内存分割为很多不相关的区域(Region),使用不同的Region来表示Eden、幸存者0区，幸存者1区，老年代等
@@ -1700,7 +1757,13 @@ o = null;
 - 年轻代GC
 
 ```tex
-应用程序分配内存，当年轻代的Eden区用尽时开始年轻代回收过程;G1的年轻代收集阶段是一个并行的独占式收集器。在年轻代回收期，61 GC暂停所有应用程序线程，启动多线程执行年轻代回收。然后从年轻代区间移动存活对象到survivor区间或者老年区间，也有可能是两个区间都会涉及。
+应用程序分配内存，
+当年轻代的Eden区用尽时开始年轻代回收过程;
+G1的年轻代收集阶段是一个并行的独占式收集器。
+在年轻代回收期，G1 GC暂停所有应用程序线程，
+启动多线程执行年轻代回收。
+然后从年轻代区间移动存活对象到survivor区间或者老年区间，
+也有可能是两个区间都会涉及。
 ```
 
 - 老年代并发标记过程
@@ -1712,7 +1775,13 @@ o = null;
 - 混合回收
 
 ```tex
-标记完成马上开始混合回收过程。对于一个混合回收期，G1 GC从老年区间移动存活对象到空闲区间，这些空闲区间也就成为了老年代的一部分。和年轻代不同，老年代的G1回收器和其他GC不同，G1的老年代回收器不需要整个老年代被回收，一次只需要扫描/回收一小部分老年代的Region就可以了。同时，这个老年代Region是和年轻代一起被回收的。
+标记完成马上开始混合回收过程。
+对于一个混合回收期，G1 GC从老年区间移动存活对象到空闲区间，
+这些空闲区间也就成为了老年代的一部分。
+和年轻代不同，老年代的G1回收器和其他GC不同，
+G1的老年代回收器不需要整个老年代被回收，
+一次只需要扫描/回收一小部分老年代的Region就可以了。
+同时，这个老年代Region是和年轻代一起被回收的。
 ```
 
 - (如果需要，单线程、独占式、高强度的Full GC还是继续存在的。它针对Gc的评估失败提供了一种失败保护机制，即强力回收。)
@@ -2062,7 +2131,7 @@ public static Integer valueOf(int i) {
 }
 ```
 
-- 插箱比较
+- 拆箱比较
 
 ```java
 Integer i3 = 128;
@@ -2466,7 +2535,8 @@ d代表double
 
 ```tex
 也有一些指令的助记符中没有明确地指明操作类型的字母，
-如arraylength指令，它没有代表数据类型的特殊字符，但操作数永远只能是一个数组类型的对象.
+如arraylength指令，它没有代表数据类型的特殊字符，
+但操作数永远只能是一个数组类型的对象.
 ```
 
 - 无任何关系的
@@ -2480,7 +2550,8 @@ d代表double
 作用：加载和存储指令用于将数据从栈帧的局部变量表和操作数栈之间来回传递。
 
 ```tex
-如果看到 load push  ldc const 相关的指令，那么他就是将局部变量表/常量池的数据压入操作数栈中
+如果看到 load push  ldc const 相关的指令，
+那么他就是将局部变量表/常量池的数据压入操作数栈中
 如果看到store相关的，那么他就是将数据存入局部变量表中
 ```
 
@@ -2646,7 +2717,7 @@ System.out.println(i);
 ### 宽化类型转换
 
 - 小范围类型向大范围类型的安全转换
-  - 从int类型到long、float或者double类型。对应的指令为: i21、i2f、i2d
+  - 从int类型到long、float或者double类型。对应的指令为: i2l、i2f、i2d
   - 从long类型到float、double类型。对应的指令为:l2f、l2d
   - 从float类型到double类型。对应的指令为:f2d
   - 简化为: int --> long --> float --> double
@@ -2697,11 +2768,18 @@ public void method4() {
 说明：
 
 ```tex
-xaload在执行时，要求操作数中栈顶元素为数组索引i,栈顶顺位第2个元素为数组引用a,该指令会弹出栈顶这两个元素，并将a[i]重新压入栈。
+xaload在执行时，
+要求操作数中栈顶元素为数组索引i,
+栈顶顺位第2个元素为数组引用a,
+该指令会弹出栈顶这两个元素，并将a[i]重新压入栈。
 ```
 
 ```tex
-xastore则专门针对数组操作，以iastore为例，它用于给一个int数组的给定索引赋值。在iastore执行前，操作数栈顶需要以此准备3个元素:值、索引、数组引用，iastore会弹出这3个值，并将值赋给数组中指定索引的位置。
+xastore则专门针对数组操作，
+以iastore为例，它用于给一个int数组的给定索引赋值。
+在iastore执行前，
+操作数栈顶需要以此准备3个元素:值、索引、数组引用，
+iastore会弹出这3个值，并将值赋给数组中指定索引的位置。
 ```
 
 ### 类型检查指令

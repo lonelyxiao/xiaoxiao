@@ -21,7 +21,7 @@ sh startup.sh -m standalone
 - 启动后访问：http://192.168.1.131:8848/nacos/index.html#/login
 - 默认密码 nacos / nacos
 
-## Jar包引入
+## pom包引入
 
 - 引入对于版本的cloud和alibaba
 
@@ -44,7 +44,8 @@ sh startup.sh -m standalone
 
 ## 服务注册
 
-- 将一个服务注册到nacos中
+> 将一个服务注册到nacos中
+
 - 通过 Nacos Server 和 spring-cloud-starter-alibaba-nacos-discovery 实现服务的注册与发现
 
 - 引入jar
@@ -77,6 +78,7 @@ spring:
     nacos:
       discovery:
         server-addr: 192.168.1.131:8848
+## 暴露所有端点m
 management:
   endpoints:
     web:
@@ -101,7 +103,8 @@ public class NacosProviderApplication8001 {
 
 ## 配置中心
 
-- nacos能够做统一的配置中心
+> nacos能够做统一的配置中心
+
 - Nacos Client 从 Nacos Server 端获取数据时，调用的是此接口 `ConfigService.getConfig`
 - nacos配置文件中心：${prefix} - ${spring.profiles.active} . ${file-extension}
 - `group` 默认为 `DEFAULT_GROUP`，可以通过 `spring.cloud.nacos.config.group` 配置

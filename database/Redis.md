@@ -208,6 +208,83 @@ redis 127.0.0.1:6379> MSET key1 value1 key2 value2 .. keyN valueN
 - getset
 - 如果存在值则进行替换
 
+```shell
+127.0.0.1:6379> GETSET key value
+```
+
+
+
+### 应用场景
+
+#### 分布式锁
+
+- 利用过期的键，可以做分布式的锁
+  - 配合他的过期的键
+
+```shell
+## 设置一个锁，过期时间为10秒，NX: 如果存在则为nil
+SET lock1 1 ex 10 NX
+```
+
+- 如：
+
+```shell
+## 当前锁
+127.0.0.1:6379> set lock1 1 ex 10
+OK
+127.0.0.1:6379> ttl lock1
+(integer) 4
+```
+
+##### 简单的锁
+
+```java
+public static final String KEY = "lock:key";
+
+/**
+ * 加锁操作，value可以添加自己的线程 <br/>
+ * 目的是为了能够在将来，防止其他线程删除本线程的锁
+ */
+public  String lock() {
+    String value = UUID.randomUUID().toString()+Thread.currentThread().getId();
+    Boolean bool = redisTemplate.opsForValue().setIfAbsent(KEY, value, 60L, TimeUnit.SECONDS);
+    if(bool) {
+        return value;
+    } else {
+        return "";
+    }
+
+}
+
+public void  unlock(String value) {
+    String script = "local value = redis.call('get', KEYS[1])\n" +
+            "if value == KEYS[2] then\n" +
+            "\tredis.call('del', KEYS[1])\n" +
+            "\treturn 1\n" +
+            "else \n" +
+            "\treturn 0 end";
+    Object res = redisTemplate.execute(new RedisCallback<Long>() {
+        @Override
+        public Long doInRedis(RedisConnection connection) throws DataAccessException {
+            return connection.eval(script.getBytes(StandardCharsets.UTF_8), ReturnType.INTEGER, 2, KEY.getBytes(StandardCharsets.UTF_8), value.getBytes(StandardCharsets.UTF_8));
+        }
+    });
+    System.out.println(res);
+}
+```
+
+存在问题：
+
+1. 业务时间大于锁时间问题
+2. redis异步复制造成的锁丢失,比如:主节点没来的及把刚刚set进来这条数据给从节点，就挂了。
+   1. 一主多从的情况
+   2. 因为redis集群是ap原则
+
+#### 某个文章进行点赞
+
+- 利用INCR count自增
+- 点一次赞执行下命令
+
 ## List
 
 ### 基本操作
@@ -301,12 +378,23 @@ OK
 "1"
 ```
 
-### 场景
+### 使用场景
 
-- 队列
-  - LPUSH  RPOP
-- 栈
-  - LPUSH LPOP
+#### 队列
+
+- LPUSH  RPOP
+
+#### 栈
+
+- LPUSH LPOP
+
+#### 订阅的文章推送
+
+- 如果订阅了某个公众号，则这个公众号发布文章时
+
+```shell
+lpush article:用户id 文章id
+```
 
 ## SET集合
 
@@ -318,7 +406,7 @@ SADD key member1 [member2]
 # 返回集合中的所有成员
 smembers key
 # 判断 member 元素是否是集合 key 的成员
-## 存在返回1
+## key中存在member返回1
 sismember key member
 # 返回集合中一个或多个随机数
 srandmember key [count]
@@ -382,7 +470,38 @@ scard key
 4) "1,"
 ```
 
+### 应用场景
+
+#### 用户之间的共同关注
+
+- A用户的关注放一个集合，粉丝放一个集合
+- A用户和B用户的关注求交集就是共同关注
+
+#### 抽奖活动
+
+```shell
+# 抽取某个人，还可以继续抽奖
+srandmember key [count]
+
+# 随机抽奖，删除抽奖的
+SPOP key [count]
+```
+
+#### 朋友圈点赞
+
+```shell
+## 点赞
+sadd 用户id:文章id  点赞用户1 点赞用户2
+## 删除点赞
+SREM myset 点赞用户
+
+```
+
+
+
 ## HASH(哈希)
+
+### 基本操作
 
 - 由field和关联的value组成的map键值对
 
@@ -410,11 +529,26 @@ set key field value
 1) "laoxiao"
 ```
 
-
-
 - 不适用hash的情况
   - 使用二进制位操作命令
   - 使用过期键功能
+
+### 使用场景
+
+#### 购物车功能
+
+```shell
+## 新增商品
+hset shopcar:用户id 商品id 数量
+## 增加某个商品的数量
+hincrby shopcar:用户id 商品id
+##获取商品总数
+hlen shopcar:用户id
+## 获取全部商品
+hgetall shopcar:用户id
+```
+
+
 
 ## 有序集合
 
@@ -434,8 +568,6 @@ set key field value
 2) "wangwu"
 
 ```
-
-
 
 - 按照分数查询（返回指定分数区间）
 
@@ -465,6 +597,14 @@ set key field value
 ```shell
 127.0.0.1:6379> ZREVRANGEBYSCORE key max min [WITHSCORES] [LIMIT offset count]
 ```
+
+- 给member增加increment
+
+```shell
+ZINCRBY key increment member
+```
+
+
 
 # 特殊数据类型
 
@@ -606,6 +746,8 @@ OK
 
 # 事务
 
+## 基本操作
+
 - Redis单条命令保证原子性，但是事务不保证原子性
 - Redis事务没有隔离级别概念
 - Redis事务本质：一组命令，在队列中，按照顺序执行
@@ -647,7 +789,13 @@ OK
   - 命令错误，其他命令不会执行
   - 运行时异常，其他命令照样执行
 
-# Redis乐观锁
+## Redis乐观锁
+
+- 乐观锁的实现，必须基于WATCH，然后利用redis的事务。
+
+1. 开启监控money
+   1. 监控了这个键后，如果其他线程修改了这个键，那么事务执行的时候就会失败
+2. 开启事务
 
 ```shell
 127.0.0.1:6379> set money 100
@@ -669,6 +817,95 @@ QUEUED
 127.0.0.1:6379> UNWATCH
 OK
 ```
+
+## 秒杀案例
+
+- 秒杀场景：库存-1， 人数+1
+
+### 基于乐观锁
+
+**错误示例**
+
+1. 查验库存还够不够
+2. 开启乐观锁监听，然后开启事务
+3. 扣除库存
+4. 执行事务命令，如果成功返回的不是null，则将用户设置进入用户set集合
+
+```java
+sendUserNumber.incrementAndGet();
+String userId = IdUtil.simpleUUID();
+redisTemplate.setEnableTransactionSupport(true);
+long inventory = Long.parseLong(redisTemplate.opsForValue().get("px:inventory").toString());
+if(inventory <= 0) {
+    log.debug("==>库存不够....");
+    return;
+}
+redisTemplate.watch("px:inventory");
+redisTemplate.multi();
+try {
+    redisTemplate.opsForValue().decrement("px:inventory");
+} finally {
+    List list = redisTemplate.exec();
+    Optional.ofNullable(list).filter(var -> var.size()>0).ifPresent( var -> {
+        log.debug("用户 {} 抢到商品", userId);
+        getUserNumber.incrementAndGet();
+        redisTemplate.opsForSet().add("px:user", userId);
+    });
+}
+```
+
+- 问题：
+
+1. 库存问题，即有200个库存，2000个用户抢，可是只消耗了30个
+2. 并发问题，虽然执行操作是乐观锁，但是，获取和执行库存-1不是原子操作
+
+### lua脚本模式
+
+1. 通过lua脚本保证原子性，在脚本里对库存-1 和 对用户集合的添加
+
+```java
+String userId = IdUtil.simpleUUID();
+String lua = "local num = redis.call('get', KEYS[1])\n" +
+    "if tonumber(num) <= 0 then\n" +
+    "\treturn -1\n" +
+    "else\n" +
+    "\tredis.call('decr', KEYS[1])\n" +
+    "redis.call(\"sadd\", KEYS[2], KEYS[3])\n" +
+    "\treturn 1\n" +
+    "end";
+Object obj = redisTemplate.execute((RedisCallback) (connection) -> {
+    return connection.eval(lua.getBytes(StandardCharsets.UTF_8), ReturnType.MULTI,
+                           3,
+                           "px:inventory".getBytes(StandardCharsets.UTF_8),
+                           "px:user".getBytes(StandardCharsets.UTF_8),
+                           userId.getBytes(StandardCharsets.UTF_8));
+});
+Optional.ofNullable(obj).map(var -> (List<Long>) var)
+    .filter(var -> var.size()>0)
+    .map(var -> var.get(0))
+    .ifPresent(var -> {
+        if(var.compareTo(1L) == 0) {
+            getUserNumber.incrementAndGet();
+        }
+    });
+```
+
+- 脚本示例：
+
+```lua
+local num = redis.call('get', KEYS[1])
+if num == 0 then
+	return -1
+else
+	# 扣减活动库存
+	redis.call('decr', KEYS[1])
+    # 设置用户信息
+    redis.call("sadd", KEYS[2], KEYS[3])
+	return 1
+end
+```
+
+
 
 # 安全配置
 
@@ -696,6 +933,8 @@ OK
 
 # 配置文件
 
+## 配置端口和ip
+
 ```shell
 ## 可以导入多个配置文件
 # include /path/to/local.conf
@@ -705,17 +944,36 @@ OK
 bind 0.0.0.0 -::1
 port 6379
 
-# 是否以守护进程运行，默认是NO
-daemonize yes
-## 如果以守护进程运行，则需要指定一个进程文件
-pidfile /var/run/redis_6379.pid
+```
 
-#日志级别
-loglevel notice
 
-## 日志文件名
-logfile ""
 
+## 最大内存配置
+
+- 默认64位是不限制内存的
+  - 一般配置物理内存的3/4
+
+```shell
+### 最大内存配置
+# maxmemory <bytes>
+## 配置内存
+maxmemory 1024
+```
+
+内存满了的策略
+
+如果超过内存，会报OOM错误
+
+```shell
+## 内存满了的策略
+# maxmemory-policy noeviction
+```
+
+
+
+## 持久化配置
+
+```shell
 #### 持久化配置
 
 ## 如果3600秒内有一个key修改，就进行持久化操作
@@ -734,6 +992,22 @@ rdbchecksum yes
 
 # rdb保存文件
 dbfilename dump.rdb
+```
+
+
+
+
+
+```shell
+
+
+#日志级别
+loglevel notice
+
+## 日志文件名
+logfile ""
+
+
 
 ################################主从复制
 
@@ -745,12 +1019,6 @@ dbfilename dump.rdb
 
 ##最大的客户端连接数
 # maxclients 10000
-
-### 最大内存配置
-# maxmemory <bytes>
-
-## 内存满了的策略
-# maxmemory-policy noeviction
 
 
 ##########APPEND ONLY MODE (另一种持久化模式)
@@ -767,6 +1035,17 @@ appendfsync everysec
 ## 不执行sync， 操作系统自己同步
 # appendfsync no
 ```
+
+## 以守护进程运行
+
+```shell
+# 是否以守护进程运行，默认是NO
+daemonize yes
+## 如果以守护进程运行，则需要指定一个进程文件
+pidfile /var/run/redis_6379.pid
+```
+
+
 
 # Redis 持久化
 
@@ -996,7 +1275,21 @@ sentinel parallel-syncs <master-name> <numslaves>
 sentinel failover-timeout <master-name> <milliseconds>
 ```
 
+# Redis 缓存过期淘汰策略
 
+- 定期删除： 每隔一段时间，去随机抽取，看有没有需要删除的key
+- 惰性删除：被使用的时候，如果需要删除则删除
+
+如果内存快满了，则还有兜底策略，就是上面提到的内存配置策略
+
+ volatile-lru ->对所有设置了过期时间的key使用LRu算法进行删除
+ allkeys-lru -> **对所有key使用LRU算法进行删除**（一般生产使用）
+ volatile-lfu -> Evict using approximated LFU, only keys with an expire set.
+ allkeys-lfu -> 对所有key使用LRu算法进行删除
+ volatile-random -> 对所有过期key随机删除
+ allkeys-random -> 对所有key随机删除
+ volatile-ttl -> 对所有设置了过期时间的key随机删除
+ noeviction ->不会驱逐任何key
 
 # 源码解析
 

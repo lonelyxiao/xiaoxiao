@@ -67,11 +67,12 @@
 | 可插拔注解处理api（JSR 269） | 5.0  | @Indexed(减少运行时的scanning的操作) |
 |                              |      |                                      |
 
-## spring编程模型
+## Spring编程模型
 
 - aware接口
   - aware回调接口，每当初始化这个接口的实现bean时，会回调设置一个值
   - 如：ApplicationContextAware.setApplicationContext
+  - 如：
 - 组合模式
   - Composite
 - 模板模式
@@ -3031,7 +3032,7 @@ public Object postProcessAfterInitialization(Object bean, String beanName) throw
          是：切面的通知方法，包装成增强器（Advisor）;给业务逻辑组件创建一个代理对象（cglib）；
  * 5）、执行目标方法：
     * 1）、代理对象执行目标方法
-    *2）、CglibAopProxy.intercept()；
+      *2）、CglibAopProxy.intercept()；
          * 	1）、得到目标方法的拦截器链（增强器包装成拦截器MethodInterceptor）
          * 2）、利用拦截器的链式机制，依次进入每一个拦截器进行执行；
             *3）、效果：
@@ -3670,7 +3671,7 @@ public interface SmartInitializingSingleton {
 		- 先获取缓存中保存的单实例Bean。如果能获取到说明这个Bean之前被创建过（所有创建过的单实例Bean都会被缓存起来），从private final Map<String, Object> singletonObjects = new ConcurrentHashMap<String, Object>(256);获取的
 		- 缓存中获取不到，开始Bean的创建对象流程
 		- 获取当前Bean依赖的其他Bean;如果有按照getBean()把依赖的Bean先创建出来；比如之前我们有在在配置文件中配置dependsOn
-<bean id="testBean" class="com.xiao.entry.TestBean" depends-on="book" >
+		<bean id="testBean" class="com.xiao.entry.TestBean" depends-on="book" >
 		- String[] dependsOn = mbd.getDependsOn();
 		- 启动单实例Bean的创建流程
 
@@ -4342,3 +4343,48 @@ public String create(){
     return "success===>"+order;
 }
 ```
+
+# 面试题
+
+## 循环依赖
+
+官网说明：https://docs.spring.io/spring-framework/docs/current/reference/html/core.html#beans-dependency-resolution
+
+![image-20210629165813136](https://gitee.com/xiaojihao/pubImage/raw/master/image/spring/20210629165813.png)
+
+### 解决方案
+
+- 构造器的注入方式没办法解决循环依赖问题
+- 将scope设置@Scope("prototype")原型没办法解决循环依赖
+
+- 使用set方式注入，可以解决循环依赖的问题
+
+
+
+循环依赖的异常：
+
+```tex
+Caused by: org.springframework.beans.factory.BeanCurrentlyInCreationException
+```
+
+### 解决原理
+
+- 在org.springframework.beans.factory.support.DefaultSingletonBeanRegistry中，有三个map，分别是三个缓存
+
+```java
+//一级缓存:存放的是已经初始化好了的Bean
+private final Map<String, Object> singletonObjects = new ConcurrentHashMap<>(256);
+
+//三级缓存:
+private final Map<String, ObjectFactory<?>> singletonFactories = new HashMap<>(16);
+
+//二级缓存: 存放的是实例化了，但是未初始化的Bean
+private final Map<String, Object> earlySingletonObjects = new HashMap<>(16);
+```
+
+- 步骤
+
+1. A创建过程中需要B，于是A将自己放到三级缓里面，去实例化B
+2. B实例化的时候发现需要A，于是B先查一级缓存，没有，再查二级缓存，还是没有，再查三级缓存，找到了A然后把三级缓存里面的这个A放到二级缓存里面，并删除三级缓存里面的A
+3. B顺利初始化完毕，将自己放到一级缓存里面（此时B里面的A依然是创建中状态>,然后回来接着创建A，此时B已经创建结束，直接从一级缓存里面拿到B，然后完成创建，并将A自己放到一级缓存里面。
+

@@ -16,14 +16,12 @@ Spring Boot:2.2.2.RELEASE
 
 ```xml
  <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-devtools</artifactId>
-            <scope>runtime</scope>
-            <optional>true</optional>
-        </dependency>
+     <groupId>org.springframework.boot</groupId>
+     <artifactId>spring-boot-devtools</artifactId>
+     <scope>runtime</scope>
+     <optional>true</optional>
+</dependency>
 ```
-
-
 
 
 
@@ -792,7 +790,7 @@ public class TestController {
 
 ## 流程图
 
-![](../image/SpringCloud/20200322210442.jpg)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/SpringCloud/20200322210442.jpg)
 
 ## 生产者
 
@@ -929,11 +927,11 @@ trace:span的集合，一整条调用的链路存在的唯一标识
 
 span：调用链路的来源，标识一次请求
 
-![](../image/SpringCloud/20200324211701.jpg)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/SpringCloud/20200324211701.jpg)
 
 一次调用链不同请求之间的服务依赖关系
 
-![](../image/SpringCloud/20200324212836.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/SpringCloud/20200324212836.png)
 
 - 下载zipKin
 
@@ -1386,7 +1384,7 @@ public class FlowLimitController {
 - 流控关联
   - A与B关联，B达到阈值，则限流A
 
-![](../image/SpringCloud/20200328123634.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/SpringCloud/20200328123634.png)
 
 - 流控效果
   - 预热（Warm Up）：有时，一个接口，平时没有访问，一瞬间请求爆发
@@ -1394,7 +1392,7 @@ public class FlowLimitController {
 
 ### 降级
 
-![](../image/SpringCloud/20200328130846.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/SpringCloud/20200328130846.png)
 
 - RT(平均响应时间、毫秒级)
   - 平均响应时间 超出阈值且这些超过阈值的请求数>=5, 则触发熔断降级
@@ -1411,7 +1409,7 @@ public class FlowLimitController {
 
 对该资源，每秒传入的第N个参数超过阈值
 
-![](../image/SpringCloud/20200329120459.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/SpringCloud/20200329120459.png)
 
 - 参数例外项
 
@@ -1582,7 +1580,7 @@ transaction ID xid ：全局事务id
 - TM向TC发起针对XID的全局提交或回滚决议；
 - TC调度XID下管辖的全部分支事务完成提交或回滚请求；
 
-![](../image/SpringCloud/20200330231443.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/SpringCloud/20200330231443.png)
 
 ### 安装
 

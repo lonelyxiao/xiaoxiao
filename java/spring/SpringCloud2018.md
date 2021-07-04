@@ -354,17 +354,17 @@ eureka:
 
 访问：<http://eureka7001.com:7001/>能看到集群信息
 
-## euraka 与zookeeper的区别
+> Euraka 与zookeeper的区别
 
- 在分布式系统领域有个著名的CAP定理（
+ 在分布式系统领域有个著名的CAP定理
 
-C-数据一致性；
+1. C-数据一致性；
 
-A-服务可用性；
+2. A-服务可用性；
 
-P-服务对网络分区故障的容错性(单台服务器，或多台服务器出问题（主要是网络问题）后，正常服务的服务器依然能正常提供服务)，这三个特性在任何分布式系统中不能同时满足，最多同时满足两个）
+3. P-服务对网络分区故障的容错性(单台服务器，或多台服务器出问题（主要是网络问题）后，正常服务的服务器依然能正常提供服务)，这三个特性在任何分布式系统中不能同时满足，最多同时满足两个）
 
-![](../image/SpringCloud/1.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/SpringCloud/1.png)
 
 **CAP理论也就是说在分布式存储系统中，最多只能实现以上两点。而由于当前网络延迟故障会导致丢包等问题，所以我们分区容错性是必须实现的。也就是NoSqL数据库P肯定要有，我们只能在一致性和可用性中进行选择，没有Nosql数据库能同时保证三点。（==>AP 或者 CP）**
 
@@ -394,7 +394,7 @@ euraka保证的是ap：eureka各个节点平等，只要有一台在，就能保
 
 # Ribbon负载均衡
 
-pring Cloud Ribbon是基于Netflix Ribbon实现的一套**客户端**的**负载均衡**的工具。
+Spring Cloud Ribbon是基于Netflix Ribbon实现的一套**客户端**的**负载均衡**的工具。
 
 负载均衡分为两种：
 
@@ -417,7 +417,7 @@ Ribbon在工作时分成两步
 
 
 
-## ribbon的基本实现
+## Ribbon的基本实现
 
 首先，它集成的是客户端的
 
@@ -479,7 +479,7 @@ control更改，这时，直接使用服务端**spring.application.name= provide
  }
 ```
 
-## ribbon的负载均衡
+## Ribbon的负载均衡
 
 复制一个与dept-8001相同的项目，该端口为8002，并且配置文件instance-id需要更改，其他不更改，运行80端口地址，发现会轮询的访问这两个dept服务，如果有一个服务挂了，也会去访问，ribbon通过spring.application.name来访问服务端，如果application系统，就会通过负载均衡的方式来访问
 
@@ -489,7 +489,7 @@ eureka:
     instance-id: provider-dept-8002
 ```
 
-## ribbon的内置负载均衡
+## Ribbon的内置负载均衡
 
 他们都是IRule接口的实现类
 
@@ -545,17 +545,7 @@ public class PaymentMain80 {
 
 rest接口第N次请求数%服务器总集群数量=实际调用服务器下标
 
-每次服务重启后rest从1开始计算
-
-源码：
-
-```java
-public class RoundRobinRule extends AbstractLoadBalancerRule {
-    //选择服务器
-    public Server choose(ILoadBalancer lb, Object key) {
-```
-
-
+每次服务重启后rest从1开始计算 
 
 # Feign负载均衡
 
@@ -634,11 +624,139 @@ public class DepFeignApplication80 {
 
 # OpenFeign
 
+## 基本使用
+
+> 直连的方式
+
+1. 引入openfeign的jar包
+
+```xml
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-openfeign</artifactId>
+</dependency>
+```
+
+2. 编写启动类
+
+```java
+@SpringBootApplication
+@EnableFeignClients
+public class OrderApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(OrderApplication.class, args);
+    }
+
+}
+```
+
+3. 在服务端编写一个模拟的接口（获取用户的接口）
+
+```java
+@RestController
+@RequestMapping("/user")
+@Slf4j
+public class UserController {
+    @GetMapping("/get")
+    public UserVO getUser(Long userId) {
+        log.debug("接收到请求：{}", userId);
+        return new UserVO("张三", 20);
+    }
+}
+```
+
+4. 编写消费端的openfeign代码
+
+```java
+@Component
+@FeignClient("http://127.0.0.1:81")
+@RequestMapping("/user")
+public interface UserFeign {
+    @GetMapping("/get")
+    UserVO getUser(Long userId);
+}
+```
+
+> 使用注册中心模式
+
+1. 添加注册相关的jar包（如nacos）
+
+```xml
+<dependency>
+    <groupId>com.alibaba.cloud</groupId>
+    <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
+</dependency>
+```
+
+2. 开启注册的注解
+
+```java
+@SpringBootApplication
+@EnableFeignClients
+@EnableDiscoveryClient
+public class OrderApplication
+```
+
+3. 将调用的地方的name改为服务方的服务名（user-81）
+
+```java
+@Component
+@FeignClient(name = "user-81")
+@RequestMapping("/user")
+public interface UserFeign 
+```
+
+## 超时配置
+
+- 有些接口，可能调用会很长时间（openfeign默认超时1s）
+- 修改超时的配置
+
+```yaml
+# 设置feign客户端超时时间(OpenFeign默认支持ribbon)
+ribbon:
+  # 指的是建立连接所用的时间,适用于网络状态正常的情况下,两端连接所用的时间
+  ReadTimeout: 5000
+  # 指的是建立连接后从服务器读取到可用资源所用的时间
+  ConnectTimeout: 5000
+```
+
+## 日志增强
+
+- 定义一个config
+
+```java
+@Configuration
+public class LevelLog {
+    @Bean
+    public Logger.Level feignLoggerLevel() {
+        // 请求和响应的头信息,请求和响应的正文及元数据
+        return Logger.Level.FULL;
+    }
+}
+```
+
+- 配置文件
+
+```yaml
+logging:
+  level:
+    # feign日志以什么级别监控哪个接口
+    com.cloud.xiao.controller.FeignController.getDiscovery: debug
+```
+
+
+
 ## 常见错误
 
 - Method Not Allowed
   - 可能是调用的type出错
   - 可能是返回值问题（如返回string， feign接口是实体对象）
+  - 可能是服务方式get，消费方使用post调用
+
+在sun.net.www.protocol.http.HttpURLConnection#getOutputStream中，如果 body有值，则自动转为post请求, 而openfeign默认将参数放入body中
+
+所以，如果是get请求，需要带上**RequestParam**
 
 # Hystrix断路器
 
@@ -886,11 +1004,7 @@ public String paymentCircuitBreaker_fallback(@PathVariable("id") Integer id) {
 
 # zuul路由网关
 
-所有的请求经过网关，就行路由转发功能
-
-1、起到保护微服务名称的作用
-
-2、Zuul和Eureka进行整合，将Zuul自身注册为Eureka服务治理下的应用，同时从Eureka中获得其他微服务的消息，也即以后的访问微服务都是通过Zuul跳转后获得。 
+ 
 
 # Gateway新一代网关
 
@@ -908,6 +1022,8 @@ public String paymentCircuitBreaker_fallback(@PathVariable("id") Integer id) {
 
 ## 配置
 
+> 引入jar包
+
 - 新建gateway模块，引入jar包（包括：starter-web、nacos-discovery），注意，如果引入zookeeper-discovery，则需要exclusion掉他的默认的zoukeeperjar包
 
 ```xml
@@ -921,6 +1037,8 @@ public String paymentCircuitBreaker_fallback(@PathVariable("id") Integer id) {
 </dependency>
 ```
 
+> 添加配置文件
+
 - 增加配置文件，gateway也是要注册进入注册中心的的
   - id:路由的ID，没有固定规则但要求唯一，简易配合服务名
   - uri:  匹配后提供服务的路由地址
@@ -928,7 +1046,11 @@ public String paymentCircuitBreaker_fallback(@PathVariable("id") Integer id) {
 
 ```yaml
 server:
-  port: 9527
+  port: 80
+
+spring:
+  application:
+    name: gateway-80
   cloud:
     nacos:
       discovery:
@@ -944,9 +1066,29 @@ server:
             - Path=/api/**   
 ```
 
+> 添加启动类
+
+- 网关的启动类其实只需要enable注册中心即可
+
+```java
+@SpringBootApplication
+@EnableDiscoveryClient
+public class GatewayApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(GatewayApplication.class, args);
+    }
+}
+```
+
+> 启动后前往nacos注册中心能看到对应的配置
+
+- 服务名即spring-name
+
+![image-20210703144901029](https://gitee.com/xiaojihao/pubImage/raw/master/image/spring/20210703144908.png)
+
 ## 断言
 
-### 地址断言
+>  地址断言
 
 ```yaml
 routes:
@@ -957,6 +1099,41 @@ routes:
 ```
 
 ## 过滤器
+
+> 过滤器配置
+
+在过滤器中，可以鉴权
+
+```java
+@Component
+public class AuthorFilter implements GlobalFilter, Ordered {
+    @Override
+    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        //模拟获取token
+        String token = exchange.getRequest()
+            .getHeaders().getFirst("Authorization");
+        //模拟获取用户
+        String username = exchange.getRequest()
+            .getQueryParams().getFirst("username");
+        if(token == null) {
+            //认证不通过
+            exchange.getResponse()
+                .setStatusCode(HttpStatus.MULTI_STATUS);
+            return exchange.getResponse().setComplete();
+        }
+        //通过
+        return chain.filter(exchange);
+    }
+
+    @Override
+    public int getOrder() {
+        //过滤器执行的顺序，0表示第一个执行
+        return 0;
+    }
+}
+```
+
+## 路由
 
 ### 重写地址
 
@@ -1003,4 +1180,504 @@ header contains multiple values 'http://localhost:8001, http://localhost:8001', 
 ```
 
 
+
+# Nacos
+
+- Nacos 支持基于 DNS 和基于 RPC 的服务发现（可以作为springcloud的注册中心）、动态配置服务（可以做配置中心）、动态 DNS 服务
+- 服务注册+服务配置=eureka+config
+- Nacos支持ap+cp模式，可自由切换
+
+## 安装
+
+```shell
+## 启动
+sh startup.sh -m standalone
+
+## 如果出现类似错误，可以替换 \r
+[root@localhost nacos]# ./bin/startup.sh -m standalone
+-bash: ./bin/startup.sh: /bin/bash^M: 坏的解释器: 没有那个文件或目录
+
+## 解决方案
+[root@localhost nacos]# sed -i 's/\r$//' ./bin/startup.sh
+```
+
+- 启动后访问：http://192.168.1.131:8848/nacos/index.html#/login
+- 默认密码 nacos / nacos
+
+## pom包引入
+
+- 引入对于版本的cloud和alibaba
+
+```xml
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-dependencies</artifactId>
+    <version>Hoxton.SR10</version>
+    <type>pom</type>
+    <scope>import</scope>
+</dependency>
+<dependency>
+    <groupId>com.alibaba.cloud</groupId>
+    <artifactId>spring-cloud-alibaba-dependencies</artifactId>
+    <version>2.2.1.RELEASE</version>
+    <type>pom</type>
+    <scope>import</scope>
+</dependency>
+```
+
+## 服务注册
+
+> 将一个服务注册到nacos中
+
+- 通过 Nacos Server 和 spring-cloud-starter-alibaba-nacos-discovery 实现服务的注册与发现
+
+- 引入jar
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-web</artifactId>
+</dependency>
+<dependency>
+    <groupId>com.alibaba.cloud</groupId>
+    <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
+</dependency>
+<dependency>
+    <groupId>com.alibaba.spring</groupId>
+    <artifactId>spring-context-support</artifactId>
+    <version>1.0.2</version>
+</dependency>
+```
+
+- yml配置相应的配置
+
+```yml
+server:
+  port: 8001
+spring:
+  application:
+    name: nacos-provider-8001
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 192.168.1.131:8848
+## 暴露所有端点m
+management:
+  endpoints:
+    web:
+      exposure:
+        include: '*'
+```
+
+- 配置启动项
+
+```java
+@SpringBootApplication
+@EnableDiscoveryClient
+public class NacosProviderApplication8001 {
+
+    public static void main(String[] args) {
+        SpringApplication.run(NacosProviderApplication8001.class, args);
+    }
+}
+```
+
+- 启动成功后能够在nacos中心的 服务管理-服务列表下 看到这个服务
+
+## 配置中心
+
+> nacos能够做统一的配置中心
+
+- Nacos Client 从 Nacos Server 端获取数据时，调用的是此接口 `ConfigService.getConfig`
+- nacos配置文件中心：${prefix} - ${spring.profiles.active} . ${file-extension}
+- `group` 默认为 `DEFAULT_GROUP`，可以通过 `spring.cloud.nacos.config.group` 配置
+- Nacos Config Starter 实现了 `org.springframework.cloud.bootstrap.config.PropertySourceLocator`接口，并将优先级设置成了最高
+
+1. 导入jar包
+
+```xml
+<dependency>
+    <groupId>com.alibaba.cloud</groupId>
+    <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
+</dependency>
+```
+
+2. 在resource下新建两个配置文件：新建配置文件 bootstrap.yml
+
+```yaml
+spring:
+  application:
+    name: mall-member
+  cloud:
+    nacos:
+      config:
+        # 配置中心地址
+        server-addr: 192.168.1.131:8848
+        ## 配置中心的文件类型
+        file-extension: yaml
+  profiles:
+    ## 配置环境
+    active: dev
+```
+
+### 动态刷新
+
+- 调用接口，动态刷新配置
+
+```java
+@RestController
+@RefreshScope// 发送post的请求，支持动态刷新
+public class ConfigController {
+
+    @Value("${config.info}")
+    private String config;
+    @GetMapping("/getconfig")
+    public String getConfig() {
+        return config;
+    }
+}
+```
+
+### 命名空间
+
+- spring.cloud.nacos.config.namespace
+- 一般生产每个微服务都是一个命名空间
+- 它的配置值是创建命名空间的` 命名空间ID`
+
+### Group
+
+- 一般用于想相同微服务，不同的场景
+- 如：某个时间段用特殊的配置
+- 同时，我们也可以用他来区分是线上环境还是开发环境
+
+### 数据集
+
+- 一般配置太多，我们不会吧配置放到一个文件中
+- 如：mybatis配置是一个配置，redis配置是一个配置文件
+- 如果没有把配置对于的选项，则使用默认的配置
+
+```yaml
+## 使用data-id=mybatis.yaml的配置spring.cloud.nacos.config.extension-configs[0].data-id=mybatis.yaml
+```
+
+## 持久化配置
+
+- 为了保证数据存储的一致性，nacos采用集中式存储的方式来支持集群化部署，目前只支持mysql的存储
+
+1. 前往conf目录，寻找sql脚本,在nacos_config数据库中执行脚本
+
+# Sentinel
+
+- 功能：流量控制、熔断降级、系统负载保护
+- Hystrix的升级版
+
+![](https://gitee.com/xiaojihao/pubImage/raw/master/image/spring/20210704154543.png)
+
+## 安装
+
+1. 前往sentinel（https://github.com/alibaba/Sentinel）下载 sentinel-dashboard-1.7.1.jar的安装包
+2. 将jar包上传linux，编写一个简单脚本
+
+```shell
+#! /bin/bash
+start(){
+  nohup java -jar sentinel-dashboard-1.8.1.jar  > log.file  2>&1 &
+}
+start;
+```
+
+3. 登录：http://192.168.1.131:8080/#/login 密码 sentinel/sentinel
+
+## 应用注入sentinel管理
+
+> 此处我们将user包注入
+
+1. 引入客户端的jar包
+
+```xml
+<dependency>
+    <groupId>com.alibaba.cloud</groupId>
+    <artifactId>spring-cloud-starter-alibaba-sentinel</artifactId>
+</dependency>
+```
+
+2. 配置sentinel的相关配置
+
+```yaml
+    sentinel:
+      transport:
+        dashboard: 192.168.1.131:8080
+        #跟控制台交流的端口,随意指定一个未使用的端口即可
+        port: 8719
+        #客户端的ip，建议配置上
+        clientIp: 192.168.1.107
+```
+
+启动后能在界面看到对应的配置，也能看到调用的对应接口
+
+**sentinel是懒加载的**
+
+![image-20210704170325027](https://gitee.com/xiaojihao/pubImage/raw/master/image/spring/20210704170325.png)
+
+ ## 流控
+
+进入**簇点链路**菜单，查看对应的接口（只有访问过的接口才会出现在菜单里面）
+
+> 名词解释
+
+![image-20210704172344012](https://gitee.com/xiaojihao/pubImage/raw/master/image/spring/20210704172344.png)
+
+- 资源名：唯一名称，默认是请求路径
+
+- QPS:每秒请求数
+- 线程数： 进入以后只执行对应线程数的请求，当线程数（处理该接口的线程）达到阈值，则进行限流
+
+为了方便测试，建立两个接口
+
+![image-20210704172312208](https://gitee.com/xiaojihao/pubImage/raw/master/image/spring/20210704172312.png)
+
+> 测试QPS限制
+
+在对应的地址处点击**流控**
+
+我们对a接口做QPS限制为1，则快速访问A时，发现1秒只能访问1次，如果过多访问，会抛出**Blocked by Sentinel (flow limiting)**异常
+
+> 高级选项
+>
+> >流控模式-关联
+
+我们对流控做关联调整
+
+![image-20210704172832212](https://gitee.com/xiaojihao/pubImage/raw/master/image/spring/20210704172832.png)
+
+- a接口关联b接口，B达到阈值，则限流A（**qps的配置还是配置A这里**）
+
+> > 流控效果
+
+- 预热（Warm Up）
+  - 有时，一个接口，平时没有访问，一瞬间请求爆发
+  - 让通过的流量缓慢增加，在一定时间内逐渐增加到阈值上限，给冷系统一个预热的时间，避免冷系统被压垮。warm up冷启动主要用于启动需要额外开销的场景，例如建立数据库连接等。(如：我们设置qps=100,当流量猛增时，我们不让限制一瞬间是100)
+
+- 排队等待：阈值必须是QPS,一个个匀速排队执行（对应算法：漏桶算法）
+
+## 降级
+
+
+
+![image-20210704175421667](C:\Users\lonelyxiao\AppData\Roaming\Typora\typora-user-images\image-20210704175421667.png)
+
+> RT(平均响应时间、毫秒级)
+
+- 当1s内持续进入5个请求，对应时刻的平均响应时间(秒级）均超过阈值（count，以ms为单位)，那么在接下的时间窗口（DegradeRule中的timewindow，以s为单位)之内，对这个方法的调用都会自动地熔断(抛出 DegradeException )
+- RT最大4900
+
+如：此时，对接口做出限制2000秒阻塞，限制RT=1000ms, 时间窗口=1s
+
+
+
+> 异常比例（秒级）
+
+QPS>=5且这个1秒访问的请求数异常比例（报错的请求）超过阈值，触发降级，时间窗口结束后，关闭熔断降级
+
+> 异常比例（秒级）
+
+QPS>=5且这个1秒访问的请求数异常比例（报错的请求）超过阈值，触发降级，时间窗口结束后，关闭熔断降级
+
+> 异常数（分钟级）
+
+当资源近 1 分钟的异常数超过阈值，触发降级，时间窗口（时间窗口配置应该>60s）结束后，关闭熔断降级
+
+## 热点Key限流
+
+热点key的限流往往需要配合SentinelResource注解来进行配置
+
+参数必须是基本类型或者**String**
+
+> SentinelResource兜底方法在同一个类
+
+1. 定义一个热点key的方法，一个兜底方法
+   1. 当热点value所配置的规则超过时，出发handler方法
+
+```java
+@SentinelResource(value = "hotKey", blockHandler = "blockHandler")
+@GetMapping("/hotKey")
+public String hotKey(String p1, String p2) {
+    return "hotkey";
+}
+
+public String blockHandler(String p1, String p2, BlockException exception) {
+    return "block error";
+}
+```
+
+2. 前往界面配置规则
+   1. 标识value这个规则，第0个参数，即p1qps达到1以上后，触发兜底方法
+
+![image-20210704205944501](https://gitee.com/xiaojihao/pubImage/raw/master/image/spring/20210704205944.png)
+
+> 兜底方法不在同一个类
+
+1. 定义一个类
+
+```java
+public class HandlerClass {
+    public static String blockHandler(String p1, String p2, BlockException exception) {
+        return "block error";
+    }
+}
+```
+
+2. 调整配置
+   1. blockHandlerClass标识器配置的类
+
+```java
+@SentinelResource(value = "hotKey", blockHandlerClass = HandlerClass.class, blockHandler = "blockHandler")
+@GetMapping("/hotKey")
+public String hotKey(String p1, String p2) {
+    return "hotkey";
+}
+```
+
+> 特殊值配置
+
+当我们设置了热点key，但是我们还想key在某个特殊值的时候能达到200的阈值，这时，我们可以配置高级选项
+
+![image-20210704210734138](https://gitee.com/xiaojihao/pubImage/raw/master/image/spring/20210704210734.png)
+
+
+
+## SentinelResource强化
+
+**SentinelResource**注解，不单单对热点key生效，前面的流控，降级都可以生效，只要将其value配置在对应资源名处，就不是对接口，而是对对应的配置的兜底value生效
+
+> fallback
+
+- fallback针对的是业务上的异常
+- blockHandler针对的是sentinel的配置服务
+
+如：此处注意，异常必须是Throwable，因为exceptionsToTrace默认是这个，如果是其他，需要额外配置
+
+```java
+@SentinelResource(value = "fallback", fallback = "handlerFallback")
+@RequestMapping("/fallback")
+public String fallback(String p1) {
+    if(Objects.equals(p1, "1")) {
+        throw new IllegalArgumentException("发生了异常");
+    }
+    return "fallback";
+}
+
+public String handlerFallback(String p1, Throwable e) {
+    return "异常方法....";
+}
+```
+
+> 整合Openfeign
+
+当我们的服务方网络断了或者挂了，则可以调用兜底方法进行数据的返回
+
+1. 引入注册jar包，sentinel的jar包
+2. 前往配置文件开启配置(**激活sentinel对openfeign的支持**)
+
+```yaml
+feign:
+  sentinel:
+    enabled: true
+```
+
+3. 更改openfeign的调用类，**注意这个mapping注解不能用**
+
+```java
+@FeignClient(name = "user-81", fallback = UserFeignImpl.class)
+//@RequestMapping("/user")
+public interface UserFeign {
+    @GetMapping("/user/get")
+    UserVO getUser(@RequestParam("userId") Long userId);
+    
+}
+```
+
+4. 实现兜底方法,这个兜底方法，必须是spring bean
+
+```java
+@Component
+public class UserFeignImpl implements UserFeign {
+    @Override
+    public UserVO getUser(Long userId) {
+        return new UserVO("服务器凉了，兜底的方法", 20);
+    }
+}
+```
+
+## 系统规则
+
+对整个系统进行配置
+
+## 持久化
+
+如果不配置持久化，则每次服务重启，我们的配置都会消失
+
+此处，我们将持久化配置到nacos中
+
+1. 引入相关jar包
+
+```xml
+<dependency>
+    <groupId>com.alibaba.csp</groupId>
+    <artifactId>sentinel-datasource-nacos</artifactId>
+</dependency>
+```
+
+2. 配置nacos信息
+
+```yaml
+sentinel:
+  datasource:
+    ds1:
+      nacos:
+        server-addr: 192.168.1.131:8848
+        data-id: user-sentinel
+        group-id: DEFAULT_GROUP
+        data-type: json
+        rule-type: flow
+```
+
+3. 前往nacos配置相关配置
+   1. 注意data-id一定要一致
+
+![image-20210705001425585](https://gitee.com/xiaojihao/pubImage/raw/master/image/spring/20210705001425.png)
+
+resource:资源名称;
+
+limitApp:来源应用;
+
+grade:阈值类型，0表示线程数，1表示QPS;
+
+count:单机阈值;
+
+strategy:流控模式, O表示直接，1表示关联，2表示链路;
+
+controlBehavior:流控效果，0表示快速失败，1表示Warm Up，2表示排队等待;
+
+clusterMode:是否集群。
+
+- 配置代码
+
+```json
+[
+    {
+        "resource": "/user/a",
+        "limitApp": "default",
+        "grade": 1,
+        "count": 5,
+        "strategy": 0,
+        "controlBehavior": 0,
+        "clusterMode": false
+    }
+]
+```
+
+4. 启动服务后，刷新接口，能够在sentinel看到配置好的配置
+
+![image-20210705001801653](https://gitee.com/xiaojihao/pubImage/raw/master/image/spring/20210705001801.png)
 

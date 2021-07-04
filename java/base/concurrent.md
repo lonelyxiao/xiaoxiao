@@ -314,13 +314,33 @@ public enum State {
 
 - 一般我们造的对象，都由对象头和对象的成员属性组成
 
+### 普通对象头结构
+
+- 此处以32位虚拟机为例
+
+如：一个Integer：8个字节对象头+4个字节的数据，int 只有4个字节数据
+
+- klassword: 类型指针
+
+![image-20210628153023099](https://gitee.com/xiaojihao/pubImage/raw/master/image/java/concurrent/20210628153030.png)
+
+### Mark Word结构
+
+- age: 垃圾回收的年龄
+- biased_lock：是否是偏向锁
+- 最后两位：锁状态
+
+![image-20210628153735951](https://gitee.com/xiaojihao/pubImage/raw/master/image/java/concurrent/20210628153736.png)
+
 ## Monitor
 
 - monitor是操作系统提供的对象
-- 当对某个对象加synchronized（obj）的时候，obj的对象头会尝试加上一个monitor的指针
+- 每个Java对象都可以关联一个Monitor对象，如果使用synchronized给对象上锁〈重量级)之后，该对象头的Mark Word 中就被设置指向Monitor对象的指针
+
+![image-20210628154124702](https://gitee.com/xiaojihao/pubImage/raw/master/image/java/concurrent/20210628154124.png)
+
 - monitor里面的owner属性指向抢到锁的线程
 - 此时另外一个线程来抢这个锁，则monitor的的EntryList指向抢锁的线程
-
 - 当线程执行完，将EntryList中的线程全部唤醒，继续抢锁
 
 ![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/jvm/20210619104359.png)
@@ -331,12 +351,22 @@ public enum State {
 
 - 轻量级锁是没有阻塞的概念的
 
-1. 线程0获取了obj的锁，在thread0对象里存储一个锁记录（obj地址），thread0的对象头的lock record与obj对象头交换，此时obj对象头锁状态变成00（表示轻量锁）
+轻量级锁加锁过程：
 
-![image-20210620133724895](https://gitee.com/xiaojihao/pubImage/raw/master/image/java/concurrent/image-20210620133724895.png)
+1. 当执行到加锁模块时，栈帧中生成一个锁记录的结构，内部存储锁定的对象和Mark Word![image-20210620133724895](https://gitee.com/xiaojihao/pubImage/raw/master/image/java/concurrent/image-20210620133724895.png)
 
-2. 如果有其他线程来已经持有了轻量级的锁，那么表明有竞争，进入锁膨胀过程
-3. 当退出synchronized代码块（解锁时）锁记录的值不为null，这时使用cas将 Mark Word的值恢复给对象头
+2. 让锁记录中Object reference指向锁对象，并尝试用cas替换Object的Mark Word，将Mark Word 的值存入锁记录
+3. 如果cas替换成功，对象头中存储了锁记录地址和状态00，表示由该线程给对象加锁(此时，obj的分带年龄，锁标识等都存储到锁记录中，将来解锁可以恢复过去)
+
+![image-20210628155654661](https://gitee.com/xiaojihao/pubImage/raw/master/image/java/concurrent/20210628155654.png)
+
+3. 如果CAS失败，则有一下两种情况
+   1. 如果是其它线程已经持有了该Object的轻量级锁，这时表明有竞争，进入锁膨胀过程
+   2. 如果是自己执行了synchronized锁重入，那么再添加一条Lock Record作为重入的计数
+
+![image-20210628155943006](https://gitee.com/xiaojihao/pubImage/raw/master/image/java/concurrent/20210628155943.png)
+
+3. 当退出synchronized代码块（解锁时）锁记录的值不为null（为null表示为锁重入），这时使用cas将 Mark Word的值恢复给对象头
    1. 成功，解锁成功
    2. 失败，说明轻量级锁进行了锁膨胀或已经升级为重量级锁，进入重量级锁解锁流程
 
@@ -345,7 +375,10 @@ public enum State {
 如果在尝试加轻量级锁的过程中，CAS操作无法成功，这时一种情况就是有其它线程为此对象加上了轻量级锁(有竞争)，这时需要进行锁膨胀，将轻量级锁变为重量级锁。
 
 1. 当Thread1 去申请轻量锁的时候，发现obj锁状态是00（轻量级）
-2. 此时进入锁膨胀流程
+
+![image-20210628160246205](https://gitee.com/xiaojihao/pubImage/raw/master/image/java/concurrent/20210628160246.png)
+
+1. 此时进入锁膨胀流程
    1. obj对象申请monitor锁，让obj指向monitor重量级锁地址，owner指向已经申请好锁的thread0,entrylist阻塞队列存储一个thread1
    2. monitor地址状态变为10（重量级锁）
 
@@ -363,7 +396,7 @@ public enum State {
 
 ## 偏向锁
 
-- 轻量级锁在没有竞争时(就自己这个线程，每次重入仍然需要执行CAS(每一次都要看一下是不是自己线程的锁)操作。
+- 轻量级锁在没有竞争时(就自己这个线程，每次重入仍然需要执行CAS(每一次都要看一下是不是**自己线程的锁**)操作。
 - Java 6中引入了偏向锁来做进一步优化:只有第一次使用CAS将**线程ID设置到对象的 Mark Word头**，之后发现这个线程ID是自己的就表示没有竞争，不用重新CAS。以后只要不发生竞争，这个对象就归该线程所有
 
 重入锁示例：
@@ -392,8 +425,8 @@ public void method2() {
 
 ### 撤销偏向锁的场景
 
-1. 调用hashcode方法
-2. 其他线程使用对象（两个线程锁同一个对象，顺序执行场景）
+1. 调用hashcode方法（调用hashcode方法需要将hashcode赋值）
+2. 其他线程使用对象（两个线程锁同一个对象，顺序执行场景）（obj的markword不知道记录哪个线程的id，所以无法使用偏向锁）
 3. 调用wait/notify
 
 ## 锁消除
@@ -401,7 +434,7 @@ public void method2() {
 - JIT即使编译器会将锁进行优化
 - 当锁的对象没有竞争时，会对锁进行消除优化
 
-## wait l notify
+## wait | notify
 
 - Monitor中Owner线程发现条件不满足，调用wait方法，即可进入WaitSet变为WAITING状态
 - WAITING线程会在Owner线程调用notify或notifyAll 时唤醒，但唤醒后并不意味者立刻获得锁，仍需进入EntryList重新竞争
@@ -423,7 +456,7 @@ synchronized (LOCK) {
 
 - sleep不会释放锁，wait会释放锁
 - sleep是 Thread方法，而wait是Object的方法
-- sleep不需要强制和synchronized配合使用，但wait需要和synchronized一起用
+- sleep不需要强制和synchronized配合使用，**但wait需要和synchronized一起用**
 
 ### 虚假唤醒
 
@@ -445,7 +478,14 @@ synchronized (LOCK) {
 }
 ```
 
+### 原理
+
+- wait: 将线程放入monitor的wait队列中，进行阻塞
+- notifyall: 将monitor的wait队列中的待处理线程放入entrylist，让其也可以继续竞争锁
+
 ## park$unpark
+
+- 基本用法
 
 ```java
 //暂停当前线程
@@ -476,11 +516,24 @@ LockSupport.unpark(t1);
 
 - 每个thread都有一个park对象
 
-1. 当前线程调用Unsafe.park()方法
-2. 检查_counter，如果counter=0，这时，获得_mutex互斥锁
-3. 调用unpark，唤醒thread，判断条件
+- 当前线程调用Unsafe.park()方法
+
+1. 检查_counter，如果counter=0，这时，获得_mutex互斥锁
+2. 进入阻塞队列_cond条件变量阻塞
+3. 再设置_counter = 0
 
 ![](https://gitee.com/xiaojihao/pubImage/raw/master/image/java/concurrent/image-20210621113043839.png)
+
+- 调用unpark
+
+1. 设置_counter=1
+2. 唤醒条件变量中_cond对应的线程
+3. thread0恢复运行之后，设置counter=0
+
+- 先调用unpark再调用park
+
+1. 调用unpark，设置_counter=1
+2. 调用park，发现_counter=1,线程无需阻塞，继续运行，然后设置__couter=0
 
 # 保护性暂停模式
 
@@ -612,82 +665,6 @@ class Message {
     private int id;
     private String message;
 }
-```
-
-# ReentrantLock
-
-## 特点
-
-- 可中断（如A线程持有锁，B线程可以中断他）
-- 设置超时时间
-- 可以设置为公平锁（可以防止线程饥饿问题）
-- 支持多个条件变量
-
-- 可重入
-
-```java
-public static void method1() {
-    lock.lock();
-    try {
-        method2();
-    } finally {
-        lock.unlock();
-    }
-}
-public static void method2() {
-    lock.lock();
-    try {
-
-    } finally {
-        lock.unlock();
-    }
-}
-```
-
-- 可打断
-
-```java
-//尝试去获取锁，当有竞争时，进入阻塞队列
-//当其他线程调用打断是，抛出异常
-lock.lockInterruptibly();
-```
-
-- 锁超时
-  1. trylock也可以被打断，被打断抛出异常
-  2. 超时未获取到锁则返回false
-
-```java
-lock.tryLock(1, TimeUnit.SECONDS)
-```
-
-## 公平锁
-
-- 按照获取尝试获取锁的顺序给予资源
-- 通过构造方法创建公平锁
-
-```java
-ReentrantLock lock = new ReentrantLock(true);
-```
-
-- 公平锁会降低并发度
-
-## 条件变量
-
-- 类似synchronized的wait
-- 使用方式：
-
-1. 创建某个条件（将来调用await方法的线程都会进入这个条件中阻塞）
-2. 调用await方法，进入阻塞
-3. 另外一个线程调用signal唤醒，线程去竞争锁
-
-```
-//一把锁可以创建多个条件
-Condition condition1 = lock.newCondition();
-Condition condition2 = lock.newCondition();
-
-condition1.await();
-//唤醒某一个锁
-condition1.signal();
 ```
 
 # 内存模型
@@ -986,7 +963,9 @@ AtomicLongFieldUpdater
 ```java
 public static void testField() {
     //修改的类的类型， 字段类型，  字段名称
-    AtomicReferenceFieldUpdater<Student, String> fieldUpdater = AtomicReferenceFieldUpdater.newUpdater(Student.class, String.class, "name");
+    AtomicReferenceFieldUpdater<Student, String> 
+        fieldUpdater = 
+        AtomicReferenceFieldUpdater.newUpdater(Student.class, String.class, "name");
     Student student = new Student();
     fieldUpdater.compareAndSet(student, null, "张三");
     log.debug("修改后的值： {}", student);
@@ -1066,10 +1045,9 @@ public ThreadPoolExecutor(int corePoolSize,
                           int maximumPoolSize,
                           long keepAliveTime,
                           TimeUnit unit,
-                          BlockingQueue<Runnable> workQueue) {
-    this(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue,
-         Executors.defaultThreadFactory(), defaultHandler);
-}
+                          BlockingQueue<Runnable> workQueue,
+                          ThreadFactory threadFactory,
+                          RejectedExecutionHandler handler)
 ```
 
 corePoolSize: 核心线程数，既执行外部请求的线程数量，当线程池的数目达到core值后，任务会放入缓存的队列中。
@@ -1164,10 +1142,12 @@ void execute(Runnable command);
 // 提交任务 task，用返回值 Future 获得任务执行结果
 <T> Future<T> submit(Callable<T> task);
 // 提交 tasks 中所有任务
-<T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks)
+<T> List<Future<T>> 
+    invokeAll(Collection<? extends Callable<T>> tasks)
 					throws InterruptedException;
 // 提交 tasks 中所有任务，带超时时间
-<T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks,
+<T> List<Future<T>> 
+    invokeAll(Collection<? extends Callable<T>> tasks,
 					long timeout, TimeUnit unit)
 					throws InterruptedException;
 // 提交 tasks 中所有任务，哪个任务先成功执行完毕，返回此任务执行结果，其它任务取消
@@ -1340,13 +1320,35 @@ static class MyTask extends RecursiveTask<Integer> {
 
 ## AQS
 
-全称是AbstractQueuedSynchronizer，是阻塞式锁和相关的同步器工具的框架
+全称是AbstractQueuedSynchronizer，是阻塞式锁(如synchronized 就是阻塞的锁，cas不是)和相关的同步器工具的框架
 
 特点：
 
-1. 用state属性来表示资源的状态（分独占模式和共享模式)，子类需要定义如何维护这个状态，控制如何获取锁和释放锁
+1. **用state属性来表示资源的状态**（分独占模式（只有一个线程可以占用）和共享模式)，子类需要定义如何维护这个状态，控制如何获取锁和释放锁
 2. 提供了基于FIFO（先进先出）的等待队列，类似于Monitor的EntryList
 3. 条件变量来实现等待、唤醒机制，支持多个条件变量，类似于Monitor的WaitSet
+
+## 加锁基本原理
+
+- 获取锁的姿势
+
+```java
+// 如果获取锁失败
+if (!tryAcquire(arg)) {
+// 入队, 可以选择阻塞当前线程 park unpark
+}
+```
+
+- 释放锁的姿势
+
+```java
+// 如果释放锁成功
+if (tryRelease(arg)) {
+// 让阻塞线程恢复运行
+}
+```
+
+
 
 ## AQS基本实现
 
@@ -1368,6 +1370,7 @@ public static void main(String[] args) {
 }
 
 static class MyLock implements Lock {
+    //自定义同步器
     class MySync extends AbstractQueuedSynchronizer {
         @Override
         protected boolean tryAcquire(int arg) {
@@ -1383,6 +1386,7 @@ static class MyLock implements Lock {
         protected boolean tryRelease(int arg) {
             //尝试解锁
             setExclusiveOwnerThread(null);
+            //此处不需要cas是因为只有一个线程会释放锁
             setState(0);
             return true;
         }
@@ -1401,21 +1405,25 @@ static class MyLock implements Lock {
     MySync mySync = new MySync();
     @Override
     public void lock() {
+        //尝试，不成功，进入等待队列
         mySync.acquire(1);
     }
 
     @Override
     public void lockInterruptibly() throws InterruptedException {
+        //尝试一次，不成功返回，不进入队列
         mySync.acquireInterruptibly(1);
     }
 
     @Override
     public boolean tryLock() {
+        //尝试一次，不成功返回，不进入队列
         return mySync.tryAcquire(1);
     }
 
     @Override
     public boolean tryLock(long time, TimeUnit unit) throws InterruptedException {
+        //尝试，不成功，进入等待队列，有时限
         return mySync.tryAcquireNanos(1, unit.toNanos(time));
     }
 
@@ -1429,6 +1437,83 @@ static class MyLock implements Lock {
         return mySync.newCondition();
     }
 }
+```
+
+## ReentrantLock
+
+### 特点
+
+- 可中断（如A线程持有锁，B线程可以中断他）
+- 设置超时时间
+- 可以设置为公平锁（可以防止线程饥饿问题）
+- 支持多个条件变量
+
+- 可重入
+
+```java
+public static void method1() {
+    lock.lock();
+    try {
+        method2();
+    } finally {
+        lock.unlock();
+    }
+}
+public static void method2() {
+    lock.lock();
+    try {
+
+    } finally {
+        lock.unlock();
+    }
+}
+```
+
+- 可打断
+
+```java
+//尝试去获取锁，当有竞争时，进入阻塞队列
+//当其他线程调用打断是，抛出异常
+lock.lockInterruptibly();
+```
+
+- 锁超时
+  1. trylock也可以被打断，被打断抛出异常
+  2. 超时未获取到锁则返回false
+
+```java
+lock.tryLock(1, TimeUnit.SECONDS)
+```
+
+### 公平锁
+
+- 按照获取尝试获取锁的顺序给予资源
+- 通过构造方法创建公平锁
+
+```java
+ReentrantLock lock = new ReentrantLock(true);
+```
+
+- 公平锁会降低并发度
+
+### 条件变量
+
+- 类似synchronized的wait
+- 使用方式：
+
+1. 必须在lock中使用
+2. 创建某个条件（将来调用await方法的线程都会进入这个条件中阻塞）
+3. 调用await方法，进入阻塞
+4. 另外一个线程调用signal唤醒，线程去竞争锁
+
+```java
+//一把锁可以创建多个条件
+Condition condition1 = lock.newCondition();
+Condition condition2 = lock.newCondition();
+
+condition1.await();
+//唤醒某一个锁
+condition1.signal();
 ```
 
 ## ReentrantLock原理

@@ -307,6 +307,8 @@ while (jmsxPropertyNames.hasMoreElements()) {
 
 #### 事务（偏生产者）
 
+- 事务的消息是异步推送的（消息开启了持久化是同步的，但在事务的开启下，是异步的）
+
 - 生产者事务
 
 ```java
@@ -417,6 +419,22 @@ while(receive!=null){
     System.out.println("持久化topic:"+ textMessage.getText());
     receive=subscriber.receive();
 }
+```
+
+## prefetch机制
+
+ActiveMQ 在发送一些消息之后，开启2个消费者去处理消息。会发现一个消费者处理了所有的消息，另一个消费者根本没收到消息。原因在于ActiveMQ的prefetch机制。当消费者去获取消息时，不会一条一条去获取，而是一次性获取一批，默认是1000条。这些预获取的消息，在还没确认消费之前，在管理控制台还是可以看见这些消息的，但是不会再分配给其他消费者，此时这些消息的状态应该算作“已分配未消费”，如果消息最后被消费，则会在服务器端被删除，如果消费者崩溃，则这些消息会被重新分配给新的消费者。但是如果消费者既不消费确认，又不崩溃，那这些消息就永远躺在消费者的缓存区里无法处理。更通常的情况是，消费这些消息非常耗时，你开了10个消费者去处理，结果发现只有一台机器吭哧吭哧处理，另外9台啥事不干。
+
+解决方案：`将prefetch设为1，每次处理1条消息，处理完再去取`
+
+- 在消费端设置prefetch
+
+```java
+ActiveMQConnectionFactory factory = new ActiveMQConnectionFactory(URL);
+ActiveMQPrefetchPolicy p = new ActiveMQPrefetchPolicy();
+// 设置prefetch 值(多个消费者有用)
+p.setQueuePrefetch(1);
+factory.setPrefetchPolicy(p);
 ```
 
 # ActiveMq Broker
@@ -898,26 +916,26 @@ CLIENT_ID：订阅者id
 
 - 默认使用异步发送模式 
 
-- 在使用明确指定同步发送或者未使用事务的前提下发送持久化消息，是同步的
+- 在使用明确指定同步发送或者**未使用事务的前提下发送持久化消息**（每一次发送都是同步发送的且会阻塞producer直到broker返回一个确认,），是同步的
 
-- 在userAsyncSend=true情况下，客户端需要融入消息丢失的可能
+- 在userAsyncSend=true情况下，客户端需要融入消息丢失的可能（生产者生产快，能够接受消息丢失的情况）
 
   - 开启方法（三种方法）
 
-  1 
+  1.  URl的方式
 
   ```java
   new ActiveMQConnectionFactory("tcp://locahost:61616?jms.useAsyncSend=true");
   ```
 
-  2
+  2. factory设置
 
   ```java
   ((ActiveMQConnectionFactory)connectionFactory).setUseAsyncSend(true);
   
   ```
 
-  3
+  3. connection设置
 
   ```java
   ((ActiveMQConnection)connection).setUseAsyncSend(true);
@@ -927,9 +945,11 @@ CLIENT_ID：订阅者id
 
 **异步消息怎么确保发送成功**
 
-使用回调方法的方式，来确认消息是否发送成功
+使用回调方法的方式，在生产端来确认消息是否发送成功，
 
-生产者代码
+- 生产者代码
+  - 可以根据MessageID来判断哪条消息
+  - onException:可能需要重新发送
 
 ```java
 //创建消息的生产者
@@ -937,7 +957,8 @@ ActiveMQMessageProducer producer = (ActiveMQMessageProducer)session.createProduc
 TextMessage textMessage = null;
 //生产三条消息
 for(int i=0; i<3; i++){
-    textMessage = session.createTextMessage("msg+" + i);    textMessage.setJMSMessageID(UUID.randomUUID().toString());
+    textMessage = session.createTextMessage("msg+" + i);    
+    textMessage.setJMSMessageID(UUID.randomUUID().toString());
     //获取message的唯一id
     String msgId = textMessage.getJMSMessageID();
     //消息发送mq,使用异步回调方法确认消息是否发送成功
@@ -956,6 +977,8 @@ for(int i=0; i<3; i++){
 
 ## 延迟投递和定时投递
 
+- 如：延迟发送消息
+
 延迟投递：方法执行后，延迟N秒投递消息
 
 定时投递：
@@ -969,7 +992,7 @@ for(int i=0; i<3; i++){
 
 
 
-2、代码编写
+2、代码编写：在消息发送的时候，设置属性
 
 ```java
 for(int i=0; i<3; i++){
@@ -977,11 +1000,11 @@ for(int i=0; i<3; i++){
     textMessage.setJMSMessageID(UUID.randomUUID().toString());
     //获取message的唯一id
     String msgId = textMessage.getJMSMessageID();
-    //延迟三秒执行
+    //延迟 delay 秒执行
     textMessage.setLongProperty(ScheduledMessage.AMQ_SCHEDULED_DELAY, delay);
-    //每4秒执行一次
+    //每 period 秒执行一次
     textMessage.setLongProperty(ScheduledMessage.AMQ_SCHEDULED_PERIOD, period);
-    //执行五次
+    //执行 repeat 次
     textMessage.setIntProperty(ScheduledMessage.AMQ_SCHEDULED_REPEAT, repeat);
     producer.send(textMessage);
 }
@@ -991,16 +1014,25 @@ for(int i=0; i<3; i++){
 
 - 哪些情况会引起消息重复
 
-1、client使用了事务且在session中调用了rollback()
+1. client使用了事务且在session中调用了rollback()
+   1. 客户端事务回滚了
 
-2、client使用了事务、且在commit前关闭或者没有commit
+2. client使用了事务、且在commit前关闭或者没有commit
+   1. 客户端没有调用commit
 
-3、client在CLIENT_ACKNOWLEDGE模式下，session中调用了recover
+3. client在CLIENT_ACKNOWLEDGE模式下，session中调用了recover
+
+```java
+Session session = connection.createSession(false, Session.CLIENT_ACKNOWLEDGE);
+session.recover();
+```
+
+
 
 - 默认重复6次，间隔1s
-- 如果消息重复超过6次，broker会把这个消息放到DLQ（死信队列）
+- 如果消息重复超过6次，broker会把这个消息放到DLQ（死信队列）中
 
-修改重试次数
+在**生产端**修改重试次数
 
 ```java
 RedeliveryPolicy redeliveryPolicy = new RedeliveryPolicy();
@@ -1010,9 +1042,23 @@ factory.setRedeliveryPolicy(redeliveryPolicy);
 
 # 死信队列
 
-- 默认不会把非持久的消息发送到死信队列中
+- 当客户端接受消息没确认，超过次数后，broker会把这个消息放到DLQ（死信队列）中
 
-- 
+![image-20210701154450429](https://gitee.com/xiaojihao/pubImage/raw/master/image/spring/20210701154450.png)
+
+- 默认不会把**非持久的消息**发送到死信队列中
+- 一般生产环境中在使用MQ的时候设计两个队列:一个是核心业务队列，一个是死信队列。
+
+- 队列私有的私信队列
+  - 如：一个queue的名字是order,那么order超过限制的消息进入order独有的队列中
+- 删除过期的消息，而不是进入死信队列中
+  - 有时需要直接删除过期的消息而不需要发送到死队列中，“processExpired”表示是否将过期消息放入死信队列，默认为true;
+
+- 非持久的放入死信队列中
+  - 默认情况下，Activemq不会把非持久的死消息发送到死信队列中。
+  - processNonPersistent”表示是否将“非持久化”消息放入死信队列，默认为false。
 
  # 重复消费问题
+
+- 准备一个第三服务方来做消费记录。以redis为例，给消息分配一个全局id，只要消费过该消息，将<id,message>以K-V形式写入redis。那消费者开始消费前，先去redis中查询有没消费记录即可。
 

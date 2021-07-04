@@ -391,13 +391,125 @@ public class Test {
 }
 ```
 
+# 响应式编程
+
+核心类：java.util.concurrent.Flow
+
+> 核心类中定义了几个接口
+
+- Subscription 接口定义了连接发布者和订阅者的方法；
+- Publisher<T> 接口定义了发布者的方法；
+- Subscriber<T> 接口定义了订阅者的方法；
+- Processor<T,R> 接口定义了处理器；
+
+## 发布订阅demo
+
+> 普通模式
+
+- 可以看出，与其他观察者模式不同的是，flow是发布者主动向生产者请求获取数据
+
+```java
+//定义一个发布者，发布数据
+//此处使用jdk9自带的，他实现了Publisher接口
+SubmissionPublisher<Integer> publisher = new SubmissionPublisher<>();
+
+//定义一个订阅者
+Flow.Subscriber<Integer> subscriber = new Flow.Subscriber<>() {
+    private Flow.Subscription subscription;
+    @Override
+    public void onSubscribe(Flow.Subscription subscription) {
+        //建立订阅关系的时候调用
+        //保存订阅关系，用于后面想发布者请求数据
+        this.subscription = subscription;
+        //向发布者请求一条数据
+        subscription.request(1);
+    }
+
+    @Override
+    public void onNext(Integer item) {
+        //接收到数据
+        System.out.println(item);
+        //获取一条数据后向服务器端请求数据
+        subscription.request(1);
+        //也可以告诉发布者不再接受数据
+        //subscription.cancel();
+    }
+
+    @Override
+    public void onError(Throwable throwable) {
+        //发生异常调用
+        System.out.println(throwable);
+    }
+
+    @Override
+    public void onComplete() {
+        //发布者关闭时候调用
+        System.out.println("处理完了....");
+    }
+};
+//发布者与订阅者产生关系
+publisher.subscribe(subscriber);
+//发布数据
+publisher.submit(1);
+publisher.submit(2);
+//关闭发布者
+publisher.close();
+Thread.sleep(10000);
+```
+
+> 添加processor
+
+- Processor相当于一个中间过滤的作用
+
+- Processor,需要继承SubmissionPublisher并实现Processor接口
+
+> > 定义一个自己的processor
+
+- 输入源数据integer，过滤掉小于0的,然后转换成字符串发布出去
+
+```java
+class MyProcessor extends SubmissionPublisher<String> implements Flow.Processor<Integer,String> {
+    private Flow.Subscription subscription;
+    @Override
+    public void onSubscribe(Flow.Subscription subscription) {
+        this.subscription = subscription;
+        subscription.request(1);
+    }
+    @Override
+    public void onNext(Integer item) {
+        if(item>0) {
+            this.submit("获取到数据："+ item);
+        }
+        subscription.request(1);
+    }
+    @Override
+    public void onError(Throwable throwable) { 
+    }
+    @Override
+    public void onComplete() {
+        this.close();
+    }
+}
+```
+
+> > 调用者调整
+
+- 调用者需要对调整订阅的相关代码
+- 发布者直接关联的是processor
+
+```java
+MyProcessor processor = new MyProcessor();
+
+//发布者与订阅者产生关系
+publisher.subscribe(processor);
+processor.subscribe(subscriber);
+```
+
 # JAVA8
 
 ## 环境
 
 新项目：project  sdk(1.8)   level(8)->modules level（8）->java compile version(1.8)
-
-
 
 ## 特性
 
@@ -1026,7 +1138,7 @@ hello word! java9
 
 - 好处：安全、加载更快一点
 
-1. 建立一个模块exprot-module，这个模块是用来导出的，在根路径下简历module-info.java文件
+1. 建立一个模块exprot-module，这个模块是用来导出的，在根路径下建立module-info.java文件
 
 ```java
 module exprot.module {
