@@ -104,7 +104,14 @@ spring-expression:spring表达式语言
 ## Java Beans
 
 ```tex
-JavaBean是一种特殊的类，主要用于传递数据信息，这种类中的方法主要用于访问私有的字段，且方法名符合某种命名规则。如果在两个模块之间传递信息，可以将信息封装进JavaBean中，这种对象称为“值对象”(Value Object)，或“VO”。方法比较少。这些信息储存在类的私有变量中，通过set()、get()获得。
+JavaBean是一种特殊的类，主要用于传递数据信息，
+这种类中的方法主要用于访问私有的字段，
+且方法名符合某种命名规则。
+如果在两个模块之间传递信息，
+可以将信息封装进JavaBean中，
+这种对象称为“值对象”(Value Object)，或“VO”。
+方法比较少。
+这些信息储存在类的私有变量中，通过set()、get()获得。
 ```
 
 ### 特性
@@ -130,7 +137,7 @@ public class Person {
 }
 ```
 
-#### Introspector类
+> Introspector类
 
 - 编写BeanInfo的示例
   - 可以看到打印的，多出了一个
@@ -150,7 +157,7 @@ public static void main(String[] args) throws IntrospectionException {
 
 - 打印出Person的属性信息,和**父类object信息**
 
-![](../image/java/spring/20210609175925.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/spring/20210609175925.png)
 
 - 我们可以加上stopClass的参数，避免他向上寻找父类
 
@@ -2150,7 +2157,7 @@ AbstractApplicationContext#obtainFreshBeanFactory
 
 ## 资源加载器
 
-![](../image/java/spring/20210218145156.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/spring/20210218145156.png)
 
 ## 通配路径资源加载
 
@@ -4054,11 +4061,11 @@ public class ServerBeanDefinition implements ImportBeanDefinitionRegistrar {
 
 建立web项目
 
-![](../image/servlet3.0/20190704212029.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/servlet3.0/20190704212029.png)
 
-![](../image/servlet3.0/20190704212310.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/servlet3.0/20190704212310.png)
 
-![](../image/servlet3.0/20190704212429.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/servlet3.0/20190704212429.png)
 
 pom文件：
 
@@ -4172,7 +4179,7 @@ protected WebApplicationContext createRootApplicationContext() {
 
 ## 总结
 
-![](../image/spring/20210324180122.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/spring/20210324180122.png)
 
 以注解方式来启动SpringMVC；继承AbstractAnnotationConfigDispatcherServletInitializer；
 实现抽象方法指定DispatcherServlet的配置信息；
@@ -4320,7 +4327,7 @@ public Callable<String> async01(){
 
 第二种方式： 先将DeferredResult对象存入一个队列（消息中间件）中，然后另外一个线程取出对象，设置result，则createOrder将返回信息
 
-![](../image/servlet3.0/QQ20190728175259.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/servlet3.0/QQ20190728175259.png)
 
 ```java
 @ResponseBody
