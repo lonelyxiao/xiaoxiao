@@ -189,34 +189,37 @@ public class DependencyLookUpConfig {
 }
 ```
 
-- 依赖查找
-  - 延迟查找:并不是里面初始化
+> 依赖查找
+
+- 及时查找
 
 ```java
-public class DependencyLookUpDemo {
-    public static void main(String[] args) {
-        BeanFactory beanFactory = new AnnotationConfigApplicationContext(DependencyLookUpConfig.class);
-        lookUpLazyTime(beanFactory);
-        lookUpRealTime(beanFactory);
-    }
+public static void main(String[] args) {
+    BeanFactory beanFactory = new AnnotationConfigApplicationContext(DependencyLookUpConfig.class);
+    lookUpLazyTime(beanFactory);
+    lookUpRealTime(beanFactory);
+}
 
-    /**
+/**
      * 及时查找
      * @param beanFactory
      */
-    static void lookUpRealTime(BeanFactory beanFactory) {
-        Person bean = beanFactory.getBean(Person.class);
-        System.out.println(bean);
-    }
+static void lookUpRealTime(BeanFactory beanFactory) {
+    Person bean = beanFactory.getBean(Person.class);
+    System.out.println(bean);
+}
+```
 
-    /**
+- 延迟查找:并不是里面初始化,延迟查找需要通过中间类来获取bean
+
+```java
+/**
      * 延迟查找
      * @param beanFactory
      */
-    static void lookUpLazyTime(BeanFactory beanFactory) {
-        ObjectFactory<Person> bean = beanFactory.getBean(ObjectFactory.class);
-        System.out.println(bean.getObject());
-    }
+static void lookUpLazyTime(BeanFactory beanFactory) {
+    ObjectFactory<Person> bean = beanFactory.getBean(ObjectFactory.class);
+    System.out.println(bean.getObject());
 }
 ```
 
@@ -255,71 +258,73 @@ private static void lookUpByAnnotation(BeanFactory beanFactory) {
 
 - 依赖注入来源与依赖查找的来源并不是同一个
 
-### IOC依赖来源
+## IOC依赖来源
 
 - 自定义bean：我们自定义的bean
 - 内建的bean
 - 容器内建依赖：beanfactory
 -  IoC中，依赖查找和依赖注入的数据来源并不一样。因为BeanFactory、ResourceLoader、ApplicationEventPublisher、ApplicationContext这四个并不是Bean，它们只是一种特殊的依赖项，无法通过依赖查找的方式来获取，只能通过依赖注入的方式来获取。
 
-## applicationContext
+> ApplicationContext
 
 - applicationContext是BeanFactory子接口
 - 他提供了获取上下文，监听的方法
 
-![](..\image\java\spring\20210128221447.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/spring/20210128221447.png)
 
 - 查看源码可以得知，application有个getBeanFactory的方法
-- 他将beanFactory组合进来了，所以，applicationContext虽然实现了BeanFactory,但他们是两个东西，一般我们需要beanfactory时，通常用ApplicationContext.getBeanFactory()
+- 他将BeanFactory组合进来了，所以，applicationContext虽然实现了BeanFactory,但他们是两个东西，一般我们需要beanfactory时，通常用ApplicationContext.getBeanFactory()
+
+> BeanFactory与FactoryBean
+
+-  BeanFactory是IOC最基本的容器，负责管理bean，它为其他具体的IOC容器提供了最基本的规范
+- FactoryBean是创建bean的一种方式，帮助实现负责的初始化操作
 
 ## IOC生命周期
 
 ```java
 public void refresh() throws BeansException, IllegalStateException {
-		synchronized (this.startupShutdownMonitor) {
-			
-			prepareRefresh();
-            //创建beanfactory
-			ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory();
-            //对beanfactory进行初步的初始化操作
-            //加入一些bean依赖，和内建的非bean的依赖
-			prepareBeanFactory(beanFactory);
+    synchronized (this.startupShutdownMonitor) {
 
-			try {
-				postProcessBeanFactory(beanFactory);
+        prepareRefresh();
+        //创建beanfactory
+        ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory();
+        //对beanfactory进行初步的初始化操作
+        //加入一些bean依赖，和内建的非bean的依赖
+        prepareBeanFactory(beanFactory);
 
-				invokeBeanFactoryPostProcessors(beanFactory);
+        try {
+            postProcessBeanFactory(beanFactory);
 
-				//对bean的拓展和修改
-				registerBeanPostProcessors(beanFactory);
-				//国际化操作
-				initMessageSource();
+            invokeBeanFactoryPostProcessors(beanFactory);
 
-				initApplicationEventMulticaster();
+            //对bean的拓展和修改
+            registerBeanPostProcessors(beanFactory);
+            //国际化操作
+            initMessageSource();
 
-				onRefresh();
+            initApplicationEventMulticaster();
 
-				registerListeners();
+            onRefresh();
 
-		
-				finishBeanFactoryInitialization(beanFactory);
-				finishRefresh();
-			}
+            registerListeners();
+
+
+            finishBeanFactoryInitialization(beanFactory);
+            finishRefresh();
+        }
 ```
-
-## BeanFactory与FactoryBean
-
-- BeanFatory 是IOC底层容器
-- FactoryBean是创建bean的一种方式，帮助实现负责的初始化操作
 
 # Spring Bean
 
 ## BeanDefinition
 
 - 一个定义bean的元信息的接口
+- 用于保存 Bean 的相关信息，包括属性、构造方法参数、依赖的 Bean 名称及是否单例、延迟加载等
+- 它是实例化 Bean 的原材料，Spring 就是根据 BeanDefinition 中的信息实例化 Bean
 - 这个接口有setter，getter方式来进行操作
 
-### 元信息
+> 元信息的一些属性
 
 | 属性(Property)           | 说明                                        |
 | ------------------------ | ------------------------------------------- |
@@ -333,7 +338,7 @@ public void refresh() throws BeansException, IllegalStateException {
 | Initialization method    | Bean初始化回调方法名称                      |
 | Destruction method       | Bean销毁回调方法名称                        |
 
-### 如何定义元信息
+> > 定义元信息
 
 ```java
 BeanDefinitionBuilder beanDefinitionBuilder = BeanDefinitionBuilder.genericBeanDefinition(Person.class);
@@ -355,18 +360,22 @@ genericBeanDefinition.setPropertyValues(propertyValues);
 - Bean的名称
   - bean名称在所在的beanFactory或者他的beanDefinition里是唯一的，而不是在应用里唯一
 
-## 将BeanDefinition注入容器
+## 注入容器的方式
 
-### xml方式
+> xml方式
 
 <bean name></bean>
 
-### 注解方式
+> 注解方式
 
 - @Bean
 - @Component
 
-### Java API方式
+> Java API方式
+
+1. 定义相关类的元信息
+
+2. 将元信息注入进入容器中
 
 - 命名的方式： registry.registerBeanDefinition(name, beanDefinitionBuilder.getBeanDefinition());
 - 非命名方式： BeanDefinitionReaderUtils.registerWithGeneratedName(beanDefinitionBuilder.getBeanDefinition(), registry);
@@ -386,12 +395,18 @@ public static void main(String[] args) {
 }
 
 private static void registryBeanDefinition(BeanDefinitionRegistry registry, String name) {
-    BeanDefinitionBuilder beanDefinitionBuilder = BeanDefinitionBuilder.genericBeanDefinition(Person.class);
-    beanDefinitionBuilder.addPropertyValue("name", "张三").addPropertyValue("age", 12);
+    //1. 定义相关类的元信息
+    BeanDefinitionBuilder beanDefinitionBuilder 
+        = BeanDefinitionBuilder.genericBeanDefinition(Person.class);
+    beanDefinitionBuilder
+        .addPropertyValue("name", "张三")
+        .addPropertyValue("age", 12);
     if(StringUtils.isEmpty(name)) {
+        //2.将元信息注入进入容器中
         BeanDefinitionReaderUtils.registerWithGeneratedName(beanDefinitionBuilder.getBeanDefinition(), registry);
         return;
     }
+    //2.将元信息注入进入容器中
     registry.registerBeanDefinition(name, beanDefinitionBuilder.getBeanDefinition());
 
 }
@@ -410,14 +425,20 @@ private static void registryBeanDefinition(BeanDefinitionRegistry registry) {
 
 ## BeanDefinition 合并
 
-- 当子类注入bean，父类也注入了并，那么采用合并的方式，能够将父类的值合并到子类
+- 当子类注入bean，父类也注入了bean，那么采用合并的方式，能够将父类的值合并到子类
+
 - RootBeanDefinition表示顶层bean，这是不需要合并的
+
 - 子类的有GenericBeanDefinition，这个是需要合并的
-- 在ConfigurableBeanFactory#getMergedBeanDefinition会递归的向上合并
+
+  
+
+> 在ConfigurableBeanFactory#getMergedBeanDefinition会递归的向上合并
 
 ```java
 //当前不包含这个beandefiniton，则去父类查找是否存在bean
-if (!containsBeanDefinition(beanName) && getParentBeanFactory() instanceof ConfigurableBeanFactory) {
+if (!containsBeanDefinition(beanName) 
+    && getParentBeanFactory() instanceof ConfigurableBeanFactory) {
    return ((ConfigurableBeanFactory) getParentBeanFactory()).getMergedBeanDefinition(beanName);
 }
 //如果存在这个bean的话，则继续寻找
@@ -454,8 +475,6 @@ public class Person{
 }
 ```
 
-
-
 - 实现InitializingBean方式
 
 ```java
@@ -467,14 +486,18 @@ public class Person implements InitializingBean {
 }
 ```
 
+> 打印顺序
+
+PostConstruct---->afterPropertiesSet----->initMethod
+
 ## 层次性依赖查找
 
-- 类似双亲委派一样，当local beanFactory没有找到bean，则去parent寻找
-
+- HierarchicalBeanFactory可以类似双亲委派一样，当local beanFactory没有找到bean，则去parent寻找
 - 层次性依赖查找接口：HierarchicalBeanFactory
-- 根据bean名称查找
-  - 基于containsLocalBean方式实现
-  - spring api  没有实现，需要我们自己跟进localBean来实现
+> 根据bean名称查找
+
+1. 基于containsLocalBean方式实现
+2. spring api  没有实现，需要我们自己跟进localBean来实现
 
 ```java
 public static void main(String[] args) {
@@ -501,9 +524,22 @@ public static BeanFactory getBeanFactory() {
 
 ## 延迟依赖查找
 
-- ObjectFactory
-- ObjectProvider
-  - ObjectProvider  继承 ObjectFactory
+> ObjectFactory
+
+```java
+public interface ObjectFactory<T> {
+	T getObject() throws BeansException;
+}
+```
+
+只是一个普通的对象工厂接口。在Spring中主要两处用了它
+
+1. Scope接口中的get方法，需要传入一个`ObjectFactory`
+
+> ObjectProvider
+
+- ObjectProvider  继承 ObjectFactory
+
 - ObjectProvider在java8的拓展
 
 ```java
@@ -561,7 +597,7 @@ public String getHello() {
 | Bean名称                    | Bean 实例                       | 使用场景             |
 | --------------------------- | ------------------------------- | -------------------- |
 | environment                 | Enviroment对象                  | 外部配置以及profiles |
-| systemProperties            | Properties对象                  | java系统属性         |
+| SystemProperties            | Properties对象                  | java系统属性         |
 | systemEnvironment           | Map对象                         | 操作系统环境变量     |
 | messageSource               | MessageSource对象               | 国际化文案           |
 | applicationEventMulticaster | applicationEventMulticaster对象 | Spring 事件广播      |

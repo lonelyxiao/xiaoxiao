@@ -2,7 +2,7 @@
 basicAck
 ```
 
-# mandatory z简介
+# 简介
 
 - rabbitmq 是一个跨平台的消息中间键
 
@@ -158,7 +158,7 @@ public void provider() throws Exception {
     //创建一个持久化、非排他的、非自动删除的队列
     channel.queueDeclare(QUEUE_NAME , true , false , false , null);
     //将交换器与队列通过路由键绑定
-    channel.queueBind (QUEUE_NAME, EXCHANGE_NAME, ROUTING_KEY) ;
+    channel.queueBind (QUEUE_NAME, EXCHANGE_NAME, ROUTING_KEY);
     //发送一条持久化的消息 ： hello wor l d !
     String message = "Hello World!";
     channel.basicPublish(EXCHANGE_NAME, ROUTING_KEY,
@@ -278,15 +278,15 @@ RabbitMQ 常用的交换器类型有 fanout 、 direct 、 topic 、 headers 这
 channel.exchangeDeclare(EXCHANGE_NAME,  "direct", true , false , null );
 ```
 
-#### fanout 
+> fanout 
 
 - 它会把所有发送到该交换器的消息路由到所有与该交换器绑定的队列中。 
 
-#### direct 
+> direct 
 
 - 它会把消息路由到那些 BindingKey 和 RoutingKey**完全匹配**的队列中 
 
-#### topic 
+> topic 
 
 topic 类型的交换器在匹配规则上进行了扩展，它与 direct 类型的交换器相似，也是将消息路由到 BindingKey 和 RoutingKey 相匹配的队列中，但这里的匹配规则有些不同，它约定 ：
 
@@ -477,7 +477,7 @@ channel.addReturnListener(new ReturnListener() {
 
 
 
-## 生产者确认
+## 生产者
 
 ### 事务
 
@@ -503,9 +503,9 @@ try {
 }
 ```
 
-### 发送方确认机制
+### 确认机制
 
-消息的确认，时值消息投递后(到达队列)，broker收到消息，则会 给生产者一个应答。生产者进行应答，确认这条消息是否正常发送broker
+消息的确认，是指消息投递后(到达队列)，**broker收到消息，则会 给生产者一个应答**。生产者进行应答，确认这条消息是否正常发送broker
 
 - 每发送一批消息后，调用 channel.waitForConfirms() 方法，等待服务器的确认返回 。 
 
@@ -631,9 +631,16 @@ Consumer consumer = new DefaultConsumer(channel) {
 - ack : 成功处理消息
 - nack:处理消息失败，让生产者重新发
 
+> 在Consumer的handleDelivery方法中
+
 ```java
-//requeue：是否重回队列
-channel.basicNack(envelope.getDeliveryTag(), false, true);
+
+if((Integer)properties.getHeaders().get("num") == 0) {
+     //是否为批量的，是否重回队列
+    channel.basicNack(envelope.getDeliveryTag(), false, true);
+} else {
+    channel.basicAck(envelope.getDeliveryTag(), false);
+}
 ```
 
 ## 过期时间（ TTL) 

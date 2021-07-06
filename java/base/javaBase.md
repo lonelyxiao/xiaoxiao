@@ -1286,7 +1286,7 @@ public static void main(String[] args) throws IOException, InterruptedException 
 
 ## 局部变量的类型推断
 
-- var其实就是从右边推断类型，并不是弱类型
+- var其实就是从右边推断类型，并不是弱类型（比如： 我们右边定义一个String， 左边直接定义一个var，就可以直接推断出这个变量的类型）
 - 它的作用可以看做：定义当一个很长的类名时，我们可以用var来代替
 
 ```shell

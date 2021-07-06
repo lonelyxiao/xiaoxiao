@@ -39,7 +39,7 @@
 
 启动器其实就是jar包的集合
 
-如：支持全栈的开发，如spring mvc的jar包
+如：支持web的开发，如spring mvc的jar包
 
 ```xml
 <dependency>

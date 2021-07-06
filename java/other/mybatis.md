@@ -174,7 +174,7 @@ scriptRunner.runScript(Resources.getResourceAsReader("create-table.sql"));
 
 - SqlSession是MyBatis提供的操作数据库的API，但是真正执行SQL的是Executor组件
 
-![](..\image\java\mybaits\20201111090756.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/java/mybaits/20201111090756.png)
 
 - SimpleExecutor是基础的Executor，能够完成基本的增删改查操作
 - ResueExecutor对JDBC中的Statement对象做了缓存，当执行相同的SQL语句时，直接从缓存中取出Statement对象进行复用，避免了频繁创建和销毁Statement对象
@@ -1148,6 +1148,26 @@ public <E> List<E> doQuery(MappedStatement ms, Object parameter, RowBounds rowBo
 TypeHandler，在整个过程中，进行数据库类型和javabean类型的映射
 
 # 插件开发
+
+## 四大接口
+
+>  拦截执行器的方法
+
+Executor (update, query, flushStatements, commit, rollback,getTransaction, close, isClosed)
+
+> 拦截参数的处理
+
+ParameterHandler (getParameterObject, setParameters) 
+
+> 拦截结果集的处理
+
+ResultSetHandler (handleResultSets, handleOutputParameters) 
+
+> 拦截Sql语法构建的处理
+
+StatementHandler (prepare, parameterize, batch, update, query) 
+
+![](https://gitee.com/xiaojihao/pubImage/raw/master/image/spring/20210706204151.jpeg)
 
 ## 原理
 
