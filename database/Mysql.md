@@ -7,9 +7,39 @@
 - 实例instance
   - 启动一个数据库叫一个实例
 
-# 结构
+# Mysql分层
+
+## 结构
 
 ![](https://gitee.com/xiaojihao/pubImage/raw/master/image/spring/20210708163932.png)
+
+![image-20210712212602360](https://gitee.com/xiaojihao/pubImage/raw/master/image/spring/20210712212609.png)
+
+## 查询操作
+
+1. 先去缓存区里查找这条sql是否有缓存
+2. 如果缓存区没有，则去词法分析器分析这条sql（分析词法是否正确、语法分析）
+3. 优化器：分析条件有没有建立索引，分析哪种查询效率高
+4. 执行器：真正的执行操作，去调用引擎的接口
+5. 数据库引擎去磁盘进行查找数据
+6. 返回数据，将数据已key-value形式放入缓存中（key: sql，  value: 数据）
+
+## 分词概念
+
+- Server层:连接器、查询缓存、分析器、优化器、执行器
+  - 内置函数:日期、时间、数学、加密函数等
+  - 跨存储引擎功能:存储过程、触发器、视图等
+- 存储引擎
+
+## 缓存机制
+
+- 缓存适合读多写少的情况，如果需要，需要去my.cnf文件配置query_cache_type参数（0,1,2）
+  - 0：
+  - 1: 无论哪张表，都会使用缓存
+  - 2： 按需缓存。如果：:select SQL_CACHE* from test; 表示当前查询，使用缓存
+- mysql> show status like '%Qcache%'; 
+  - 获取缓存的数据信息
+- 5.7以后版本没有查询缓存这个功能
 
 # 事务
 
@@ -561,7 +591,80 @@ mysql> select ISNULL(1);
 提供严格的事务隔离，它要求事务序列化执行，事务只能一个接着一个地执行，但不能并发执行
 ```
 
+# 日志模块
 
+## bin log(逻辑日志)
+
+> 概念
+
+- 二进制日志
+- 在服务层实现的功能（引擎共用）
+- Binlog为逻辑日志,记录的是一条语句的原始逻辑
+- Binlog不限大小,追加写入,不会覆盖以前的日志
+
+> 查看是否开启
+
+```sql
+### log_bin=on 标识开启了
+mysql> show variables like '%log_bin%';
++---------------------------------+--------------------------------+
+| Variable_name                   | Value                          |
++---------------------------------+--------------------------------+
+| log_bin                         | ON                             |
+| log_bin_basename                | /var/lib/mysql/mysql_bin       |
+| log_bin_index                   | /var/lib/mysql/mysql_bin.index |
+| log_bin_trust_function_creators | OFF                            |
+| log_bin_use_v1_row_events       | OFF                            |
+| sql_log_bin                     | ON                             |
++---------------------------------+--------------------------------+
+```
+
+> 配置开启
+
+在my.conf配置
+
+```conf
+[mysqld]
+server-id=123454
+log_bin=mysql_bin
+binlog_format=ROW
+expire_logs_days=30
+```
+
+## redo log
+
+- 记录InnoDB存储引擎的事务日志
+- mysql 先写日志再写磁盘（当mysql不忙的时候，将日志数据写入磁盘文件中）
+
+![image-20210712223827118](https://gitee.com/xiaojihao/pubImage/raw/master/image/spring/20210712223827.png)
+
+> Redo Log写入原理
+
+- 以循环方式写入日志文件,不断的写与擦除,文件1写满时，切换到文件2，文件2写满时，再次切换到文件1。
+- writepos当前记录的位置,循环边写边后移
+- checkpoint当前要擦除的位置,循环边写边后移
+- 当擦除的时候，先会操作阻塞，将日志写入磁盘表里面的结构里
+
+![image-20210712224508580](https://gitee.com/xiaojihao/pubImage/raw/master/image/spring/20210712224508.png)
+
+> Flush log 原理
+
+- os buffer： 内核态的内存
+- innodb_flush_log_at_trx_commit：默认是1， （配置值： 0,1,2）
+
+![image-20210712224838371](https://gitee.com/xiaojihao/pubImage/raw/master/image/spring/20210712224838.png)
+
+> 日志刷盘规则
+
+默认情况下事务每次提交的时候都会刷事务日志到磁盘中，这是因为变量 innodb_flush_log_at_trx_commit 的值为1。但是innodb不仅仅只会在有commit动作后才会刷日志到磁盘，这只是innodb存储引擎刷日志的规则之一。
+
+1.发出commit动作时。已经说明过，commit发出后是否刷日志由变量 innodb_flush_log_at_trx_commit 控制。
+
+2.每秒刷一次。这个刷日志的频率由变量 innodb_flush_log_at_timeout 值决定，默认是1秒。要注意，这个刷日志频率和commit动作无关。
+
+3.当log buffer中已经使用的内存超过一半时。
+
+4.当有checkpoint时，checkpoint在一定程度上代表了刷到磁盘时日志所处的LSN位置。
 
 # 索引
 
@@ -830,4 +933,32 @@ mysql  如果以索引为条件进行操作的话，则是行锁
 ```sql
 show status like "innodb_row_locks%";
 ```
+
+# 性能分析Explain
+
+- 我们常常用到explain这个命令来查看一个这些SQL语句的执行计划
+
+```sql
+-- 实际SQL，查找用户名为Jefabc的员工
+select * from emp where name = 'Jefabc';
+-- 查看SQL是否使用索引，前面加上explain即可
+explain select * from emp where name = 'Jefabc';
+```
+
+
+
+> 描述
+
+id:选择标识符
+select_type:表示查询的类型。
+table:输出结果集的表
+partitions:匹配的分区
+type:表示表的连接类型
+possible_keys:表示查询时，可能使用的索引
+key:表示实际使用的索引
+key_len:索引字段的长度
+ref:列与索引的比较
+rows:扫描出的行数(估算的行数)
+filtered:按表条件过滤的行百分比
+Extra:执行情况的描述和说明
 
