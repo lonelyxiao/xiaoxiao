@@ -7,7 +7,9 @@
 - 实例instance
   - 启动一个数据库叫一个实例
 
+# 结构
 
+![](https://gitee.com/xiaojihao/pubImage/raw/master/image/spring/20210708163932.png)
 
 # 事务
 
@@ -488,10 +490,31 @@ mysql> select ISNULL(1);
 
 ## 事务概念  
 
-1. 原子性（ atomicity)  
-2. 一效性 （ consistency)  
-3. 隔离性（ isolation)  
-4. 持久性（ durability)  
+> 原子性（ atomicity)  
+
+原子性的体现在于回滚，innodb操作会产生undo log 文件，记录sql的数据信息
+
+1. 一效性 （ consistency)  
+   1. 是数据库追求的最终目标，也就是说数据操作后的状态要是合法的
+2. 隔离性（ isolation)  
+   1. 写-写：锁方式
+   2. 写-读：MVCC
+
+> 持久性（ durability)  
+
+- 指的是事务一旦提交，对数据库的改变就是永久性的
+
+- mysql在查询过程中，会去先查询buffer(一部分数据的缓冲)， 修改数据时，有些数据也会先写入缓冲，再由缓冲写入磁盘io
+
+  - 问题：如果缓冲写入io时，mysql挂了，则数据就可能丢了
+  - 这时就引入了redo log概念
+
+  > > redo log
+
+  - 修改数据时，有些数据也会先写入缓冲, 并且写入redo log中，再由缓冲写入磁盘io
+  - redo log 的数据是append的方式，磁盘也是顺序写入的，所以快
+
+  
 
 ## 隔离级别  
 
@@ -641,10 +664,25 @@ MYISAM中:
 ## 什么情况下无法利用索引呢?
 
 - 在查询语句中使用LIKE关键字进行查询时，如果匹配字符串的第一个字符为"%”，索引不会被使用。如果"%"不是在第一个位围，索引就会被使用。
-- 多列索引是在表的多个字段上创建一个索引，只有查询条件中使用了这些字段中的第一个字段，索引才会被使用。
-  - 如 索引是：name age sex  , 查询的时候 使用了name 就可以使用索引（最左原则）
-  - 如： age sex 无法使用索引，  age sex name  可以使用
+  - 如果使用两个%% 可以使用覆盖索引，如： select phone from user where phone like '%56456%'
+
+> 多列索引是在表的多个字段上创建一个索引，只有查询条件中使用了这些字段中的第一个字段，索引才会被使用。
+- 如 索引是：name age sex  , 查询的时候 使用了name 就可以使用索引（最左原则）
+- 如： age sex 无法使用索引，  age sex name  可以使用
+
+> > 原理
+
+左边的key是有序的排列在树结构上的
+
+右边的只有在a相等的情况下，b才有序的
+
+![image-20210708102059747](https://gitee.com/xiaojihao/pubImage/raw/master/image/spring/20210708102059.png)
+
 - 查询语句只有OR关键字时，如果OR前后的两个条件的列都是索引，那么查询中将使用索引。**如果OR前后有一个条件的列不是索引，那么查询中将不使用索引**。
+- 多列索引，左边使用了范围查询 如：   where  name=''  and age>10 and sex=0  (age索引在sex索引左边)
+- 计算，如: +、-、*、/、!=、<>、is null、 is not null、or
+- 函数，如: sum(）、 round(）等等
+- 手动/自动类型转换，如: id = "1"，本来是数字，给写成字符串了
 
 ## hash索引
 
@@ -701,5 +739,95 @@ mysql > explain select * from stu where age between 10 and 20;
 > 顺序读带来了几个好处
 
 1. 磁盘和磁头不再需要来回做机械运动；
-
 2. 可以充分利用磁盘预读
+
+btree索引的存储是有序的，所以访问索引是顺序io，而通过索引访问数据时确实是随机的
+
+# MVCC
+
+多版本并发控制，保证读和写之间没有锁竞争
+
+> ACID
+
+- 原子性（atomicity)： undo log实现
+- 一致性（consistency)：
+- 隔离性（isolation）：加锁和MVCC实现
+- 持久性（durability）： redo log
+
+> 读已提交
+
+读已提交/重复读，都是基于mvcc实现的
+
+> MVCC概念
+
+- undo log
+  - 如，下图，每行数据都有事务id，回滚指针
+  - undo log存储我们的历史数据
+  - roll point 指向上个版本的undo log,undo log 里面的roll point 又指向他的前一个版本数据
+
+![image-20210708091728051](https://gitee.com/xiaojihao/pubImage/raw/master/image/spring/20210708091735.png)
+
+- 版本链
+- read view
+  - 我们知道在版本链中，去查询哪个版本的数据
+  - 他在代码中就是一个对象
+
+m_ids: 表示在生成`ReadView`时当前系统中**活跃的读写事务**的`事务id`列表(事务未提交id)
+
+min_trx_id： 表示在生成`ReadView`时当前系统中活跃的读写事务中最小的`事务id，也就是`m ids中的最小值
+
+max_trx_id: 表示生成`ReadView`时系统中应该分配给下一个事务的`id`值
+
+creator_trx_id:表示生成该`Readview`的事务的`事务id
+
+> ReadView如何判断版本链中的哪个版本可用?
+
+trx_id == creator_trx_id: 可以访问这个版本（当前数据的创建者）
+
+trx_id  < min_trx_id:  可以访问这个版本（表示trx_id这个数据已经提交）
+
+trx_id  > max_trx_id: 不可以访问这个版本（表示trx_id数据未提交）
+
+min_trx id <= trx_id <= max _trx_id:如果trx_id在m ids中是不可以访问这个版本的，反之可以
+
+- 读已提交：每一个select都会生成一个readview
+- 可重复读：生成的readview是以事务为单位
+
+> 解决可重复读的幻读问题
+
+- 快照读的解决方式
+  - 读取专门的快照 (对于RC，快照（ReadView）会在每个语句中创建。对于RR，快照是在事务启动时创建的)
+  - 每个事务都只生成一个readview，外界再怎么修改数据，readview没有变化
+- 间隙锁（mysql默认）
+  - 锁的就是两个值之间的空隙。在一行行扫描的过程中，不仅将给行加上了行锁，还给行两边的空隙，也加上了间隙锁
+
+# InnoDb和MyIsam区别
+
+- InnoDB支持事务，MyISAM不支持事务。这是MSQL将默认存储引擎从MylSAM变成InnoDB的重要原因之一。
+- InnoDB支持外键，而MylSAM不支持。对一个包含外键的InnoDB表转为MYISAM会失败。
+- InnoDB是聚集（聚簇)索引，plylSAM是非聚集(非聚簇）索引.
+- MylSAM支持FULLTEXT类型的全文索引,
+- lnnoDB最小的锁粒度是行锁，MylSAM最小的锁粒度是表锁。
+
+# 锁的类型
+
+> 表锁和行锁
+
+mysql  如果以索引为条件进行操作的话，则是行锁
+
+如果**索引失效**,则会由行锁上升到表锁
+
+> 间隙锁
+
+如果我在索引列插入： 1,3,5,6,7这些数据
+
+然后我们查找范围： where  id>=1  and id<=7
+
+这个时候，数据库会将 1-7的数据锁上，这时我们插入id=2的数据是插入不了的，因为已经产生了间隙锁
+
+> 获取数据库锁的次数信息
+
+```sql
+show status like "innodb_row_locks%";
+```
+

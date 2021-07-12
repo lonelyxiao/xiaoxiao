@@ -3243,13 +3243,23 @@ protected final Class<?> defineClass(byte[] b, int off, int len)
 
 ## 破坏双亲委派
 
-- 重写loadClass方法
-- 线程上下文类加载器
-  - java涉及了SPI的加载就是采用这种方式
-  - 由父加载器去执行线程上下文加载器
-- 双亲委派模型的第三次“被破坏”是由于用户对程序动态性的追求而导致的。如:代码热替换(Hot Swap〉、模块热部署（Hot Deployment）等
-  - 热替换：修改程序文件立即生效（如：js）
-  - 热部署
+> 重写loadClass方法
+
+- 自定义类加载器重写loadClass可以破坏loadClass
+  - 不过我们尽量重写findClass，不要破坏
+
+> 线程上下文类加载器
+
+- java涉及了SPI的加载就是采用这种方式
+  - SPI:在Java平台中，通常把核心类rt.jar中提供外部服务、可由应用层自行实现的接口称为SPI
+- 线程上下文的类加载器默认是AppClassloader
+- 由父加载器去执行线程上下文加载器
+  - 当系统类加载器想要加载的时候，可以委托线程类加载器去加载class
+
+> 双亲委派模型的第三次“被破坏”是由于用户对程序动态性的追求而导致的。如:代码热替换(Hot Swap〉、模块热部署（Hot Deployment）等
+
+- 热替换：修改程序文件立即生效（如：js）
+- 热部署
 
 ## 沙箱安全机制
 

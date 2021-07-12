@@ -37,7 +37,7 @@ routing key:一个路由规则，虚拟机可以用它来确定如何路由一�
 
 queue:消息队列，保存消息并将他们转发给消费者
 
-![](../image/rabbitmq/Q0190724225531.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/rabbitmq/Q0190724225531.png)
 
 整体架构图
 
@@ -45,7 +45,7 @@ queue:消息队列，保存消息并将他们转发给消费者
 
 消息流转示意图
 
-![](../image/rabbitmq/QQ20190724225830.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/rabbitmq/QQ20190724225830.png)
 
 # 快速开始
 
@@ -219,7 +219,7 @@ public void consumer() throws Exception {
 
 - 整体结构
 
-![](../image/rabbitmq/QQ20190724225653.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/rabbitmq/QQ20190724225653.png)
 
 ## 生产者与消费者
 
@@ -230,7 +230,7 @@ public void consumer() throws Exception {
     或者 RabbitMQ 服务实例。大多数情况下也可以将一个 RabbitMQ Broker 看作一 台 RabbitMQ
     服务器 。 
 
-![](../image/message/20210531155342.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/message/20210531155342.png)
 
 ## 队列 
 
@@ -248,7 +248,7 @@ public void consumer() throws Exception {
 - 生产者将消息发送给交换器时， 需要一个 RoutingKey ， 当 BindingKey 和 RoutingKey 相匹
   配时，消息会被路由到对应的队列 中 
 
-![](../image/message/20210531161612.jpg)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/message/20210531161612.jpg)
 
 ### RoutingKey 
 
@@ -812,7 +812,7 @@ rabbitmqctl change_password {username} {newpassword ｝
 
 - 创建用户
 
-![](../image/message/20210604172255.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/message/20210604172255.png)
 
 # 整合spring
 
@@ -1229,7 +1229,7 @@ public void onOrderMessage(@Payload com.xiao.entity.Order order, //对象序列�
 
 把需要的队列做成镜像队列，存在于多个节点，属于RabbitMQ的HA方案,如图，三台服务器的节点数据都会实现实时的同步，保证数据100%不丢失
 
-![](../image/RabbitMq/2019年9月16日232703.png)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/RabbitMq/2019年9月16日232703.png)
 
 
 
@@ -1237,5 +1237,5 @@ public void onOrderMessage(@Payload com.xiao.entity.Order order, //对象序列�
 
 如图,federation是建立在node上的，也就是说各个node可以实现数据的同步
 
-![](../image/rabbitmq/11464886-327320bb11d0123a.webp)
+![](https://gitee.com/xiaojihao/xiaoxiao/raw/master/image/rabbitmq/11464886-327320bb11d0123a.webp)
 

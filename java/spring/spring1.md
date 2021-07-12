@@ -285,32 +285,37 @@ private static void lookUpByAnnotation(BeanFactory beanFactory) {
 ```java
 public void refresh() throws BeansException, IllegalStateException {
     synchronized (this.startupShutdownMonitor) {
-
+		//刷新前的预处理;
         prepareRefresh();
         //创建beanfactory
         ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory();
         //对beanfactory进行初步的初始化操作
         //加入一些bean依赖，和内建的非bean的依赖
+        //比如context的类加载器，BeanPostProcessor和XXXAware自动装配等
         prepareBeanFactory(beanFactory);
 
         try {
+            //BeanFactory准备工作完成后进行的后置处理工作
             postProcessBeanFactory(beanFactory);
-
+			//执行BeanFactoryPostProcessor的方法；
+            //主要作用是让你能接触到bean definitions
             invokeBeanFactoryPostProcessors(beanFactory);
-
-            //对bean的拓展和修改
+            //注册BeanPostProcessor（Bean的后置处理器），在创建bean的前后等执行
             registerBeanPostProcessors(beanFactory);
-            //国际化操作
+            //初始化MessageSource组件（做国际化功能；消息绑定，消息解析）；
             initMessageSource();
-
+			//初始化事件派发器
             initApplicationEventMulticaster();
-
+			//子类重写这个方法，在容器刷新的时候可以自定义逻辑；如创建Tomcat，Jetty等WEB服务器
             onRefresh();
-
+			//注册应用的监听器。就是注册实现了ApplicationListener接口的监听器bean，
+            //这些监听器是注册到ApplicationEventMulticaster中的
             registerListeners();
 
-
+			////初始化所有剩下的非懒加载的单例bean
             finishBeanFactoryInitialization(beanFactory);
+            //完成context的刷新。主要是调用LifecycleProcessor的onRefresh()方法，
+            //并且发布事件（ContextRefreshedEvent）
             finishRefresh();
         }
 ```

@@ -2070,30 +2070,41 @@ private final Node<K,V>[] initTable() {
 
 ### addCount
 
+**增加元素表的计数**
+
 - 当hash表数量超过sizeCtl则对数组执行扩容操作； 将数组长度扩大为原来的2倍；
 - 记录当前hash表的数量；
 
 ```java
+//计数值，当前链表的长度
 private final void addCount(long x, int check) {
+    //设置多个累加单元
     CounterCell[] as; long b, s;
+    //如果有累加单元，则往累加单元操作
     if ((as = counterCells) != null ||
+        //如果还没有累加单元，则往基础值累加（cas操作）如果cas失败，证明有竞争，则进行累加单元操作
         !U.compareAndSwapLong(this, BASECOUNT, b = baseCount, s = b + x)) {
         CounterCell a; long v; int m;
         boolean uncontended = true;
         if (as == null || (m = as.length - 1) < 0 ||
             (a = as[ThreadLocalRandom.getProbe() & m]) == null ||
+            //执行累加单元的累加操作，并判断是否成功
             !(uncontended =
               U.compareAndSwapLong(a, CELLVALUE, v = a.value, v + x))) {
+            //创建累加单元cell的数组
             fullAddCount(x, uncontended);
             return;
         }
+        //检测链表操作
         if (check <= 1)
             return;
         s = sumCount();
     }
     if (check >= 0) {
         Node<K,V>[] tab, nt; int n, sc;
-        while (s >= (long)(sc = sizeCtl) && (tab = table) != null &&
+        //判断元素的个数是否大于阈值
+        while (s >= (long)(sc = sizeCtl) 
+               && (tab = table) != null &&
                (n = tab.length) < MAXIMUM_CAPACITY) {
             int rs = resizeStamp(n);
             if (sc < 0) {
@@ -2104,8 +2115,10 @@ private final void addCount(long x, int check) {
                 if (U.compareAndSwapInt(this, SIZECTL, sc, sc + 1))
                     transfer(tab, nt);
             }
+            //需要扩容操作
             else if (U.compareAndSwapInt(this, SIZECTL, sc,
                                          (rs << RESIZE_STAMP_SHIFT) + 2))
+                //扩容： 原来的hash表，新的hash表（新hash表示懒触发的）
                 transfer(tab, null);
             s = sumCount();
         }
@@ -2115,7 +2128,7 @@ private final void addCount(long x, int check) {
 
 ### size计算
 
-- size计算实际发生在put，remove改变集合元素的操作之中
+- size计算实际发生在put，remove改变集合元素的操作之中（addcount）
 - 没有竞争发生，向baseCount 累加计数
 - 有竞争发生，新建counterCells，向其中的一个 cell累加计数(类似longadder  )
   - counterCells初始有两个cell
@@ -2135,6 +2148,7 @@ final long sumCount() {
     CounterCell[] as = counterCells; CounterCell a;
     long sum = baseCount;
     if (as != null) {
+        //汇总所有的累加单元进行相加
         for (int i = 0; i < as.length; ++i) {
             if ((a = as[i]) != null)
                 sum += a.value;
