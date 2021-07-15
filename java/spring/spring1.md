@@ -320,9 +320,9 @@ public void refresh() throws BeansException, IllegalStateException {
         }
 ```
 
-# Spring Bean
 
-## BeanDefinition
+
+# BeanDefinition
 
 - 一个定义bean的元信息的接口
 - 用于保存 Bean 的相关信息，包括属性、构造方法参数、依赖的 Bean 名称及是否单例、延迟加载等
@@ -877,6 +877,42 @@ public TestBean testBean(){
 
 
 ## 依赖处理过程
+
+> 基本知识
+
+1. 入口方法：DefaultListableBeanFactory#resolveDependency
+   1. 可以看到这个类有个父接口AutowireCapableBeanFactory，定义了我们传入依赖描述符和注入的bean的名称的方法
+
+```java
+Object resolveDependency(DependencyDescriptor descriptor, @Nullable String requestingBeanName) throws BeansException;
+```
+
+1. 依赖描述符：DependencyDescriptor（描述的是我们要处理的对象）
+   1. 相当于描述注入的： 是否实时注入+注入类型+注入的字段名称
+
+```java
+//被注入的类
+private final Class<?> declaringClass;
+//注入的方法，可以为空
+private String methodName;
+```
+
+1. 自动绑定候选对象处理器：AutowireCandidateResolver
+
+> 注入流程
+
+1. 进入DefaultListableBeanFactory#doResolveDependency后
+
+```java
+//获取注入的map集合（通过判断注入的beandefintion是否是primary等来判断是否优先注入）
+Map<String, Object> matchingBeans = findAutowireCandidates(beanName, type, descriptor);
+if (instanceCandidate instanceof Class) {
+    //进行一次getbean的操作获取容器中的bean
+    instanceCandidate = descriptor.resolveCandidate(autowiredBeanName, type, this);
+}
+```
+
+
 
 - 为什么字段注入是通过类查找依赖
   - 因为DependencyDescriptor继承了InjectionPoint

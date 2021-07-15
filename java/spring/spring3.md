@@ -101,6 +101,35 @@ protected void processBeanDefinition(Element ele, BeanDefinitionParserDelegate d
 
 通过xml的资源，封装成BeanDefinitionHolder然后解析成beandefinition
 
+## 注解方式装载元信息
+
+> 核心类AnnotatedBeanDefinitionReader
+
+```java
+private final BeanDefinitionRegistry registry;
+
+private BeanNameGenerator beanNameGenerator = AnnotationBeanNameGenerator.INSTANCE;
+//Bean 范围解析
+private ScopeMetadataResolver scopeMetadataResolver = new AnnotationScopeMetadataResolver();
+//条件评估，判断是否装载元信息
+//如condition的条件是不是成立
+private ConditionEvaluator conditionEvaluator;
+```
+
+> ConfigurationClassParser#doProcessConfigurationClass
+
+当register之后，进入refresh阶段
+
+在invokeBeanFactoryPostProcessors(beanFactory);，会将register注入的bean进行一个注解的包扫描
+
+```java
+// The config class is annotated with @ComponentScan -> perform the scan immediately
+Set<BeanDefinitionHolder> scannedBeanDefinitions =
+      this.componentScanParser.parse(componentScan, sourceClass.getMetadata().getClassName());
+```
+
+
+
 # 面试题
 
 ## 循环依赖
@@ -211,3 +240,62 @@ if (earlySingletonExposure) {
 这个时候，调用getSingleton（）方法，去获取三级缓存的bean
 
 **注意：此时，a的实例化方法还在调用中（如果是循环依赖），b的创建只是通过a的方法调用geBean的时候创建的**
+
+# @Resource和@Autowire的区别
+
+@Resource和@Autowired都可以用来装配bean，都可以用于字段或setter方法。
+@Autowired默认按类型装配，默认情况下必须要求依赖对象必须存在，如果要允许null值，可以设置它的required属性为false。
+@Resource默认按名称装配，当找不到与名称匹配的bean时才按照类型进行装配。名称可以通过name属性指定，如果没有指定name属性，当注解写在字段上时，默认取字段名，当注解写在setter方法上时，默认取属性名进行装配。
+
+# 几个不常用的后置处理器
+
+## Bean 初始化后置处理器
+
+>  BeanPostProcessor
+
+bean在初始化前后调用方法
+
+## Bean实例化后置处理
+
+>  InstantiationAwareBeanPostProcessor
+
+```java
+public interface InstantiationAwareBeanPostProcessor extends BeanPostProcessor {
+
+   @Nullable
+   default Object postProcessBeforeInstantiation(Class<?> beanClass, String beanName) throws BeansException {
+      return null;
+   }
+
+   default boolean postProcessAfterInstantiation(Object bean, String beanName) throws BeansException {
+      return true;
+   }
+
+   @Nullable
+   default PropertyValues postProcessProperties(PropertyValues pvs, Object bean, String beanName)
+         throws BeansException {
+
+      return null;
+   }
+}
+```
+
+## Bean工厂后置处理
+
+>  BeanFactoryPostProcessor
+
+bean 定义已经加载，还没创建对象的时候调用
+
+我们可以用beanfactory进行一些操作：获取bean的定义名称
+
+## Bean定义后置处理
+
+>  BeanDefinitionRegistryPostProcessor
+
+可以注入额外的bean组件
+
+## 容器单实例bean创建后
+
+>  SmartInitializingSingleton
+
+容器单实例bean初始化后，执行

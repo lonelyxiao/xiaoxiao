@@ -320,6 +320,14 @@ public static void inorder(Node<Integer> node) {
 
 ![image-20210630210928543](https://gitee.com/xiaojihao/pubImage/raw/master/image/spring/20210630210928.png)
 
+## 二叉搜索树
+
+- 插入时，数据比当前节点小放在左子树，比当前节点大放在右子树
+
+## 2-3数
+
+
+
 # LRU
 
 1. 某个key的set或get操作一旦发生，认为这个key的记录成了最常使用的。
