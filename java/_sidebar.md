@@ -4,7 +4,9 @@
     * [java基础](/java/base/javaBase)
     * [并发编程](/java/base/concurrent)
 * Spring
-    * [Spring](/java/spring/Spring.md)
+    * [spring-1](/java/spring/spring1.md)
+    * [spring-2](/java/spring/spring2.md)
+    * [spring-3](/java/spring/spring3.md)
     * [SpringBoot](/java/spring/SpringBoot.md)
     * [SpringMvc](/java/spring/SpringMvc.md)
 	* [SpringCloud2018](/java/spring/SpringCloud.md)
